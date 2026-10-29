@@ -49,13 +49,60 @@ const camadaPaises = L.layerGroup();
 const camadaLocais = L.layerGroup();
 let zoomDetalhe = -2; // a partir deste zoom aparecem os pontos locais (recalculado em ajustarTamanho)
 
+// Botão do olho (canto de cima à direita): esconde todos os pontos para ver só o mapa.
+// Vale só para este navegador (fica guardado nele), não muda nada para os outros.
+const CHAVE_OCULTAR = 'luminus-ocultar-pontos';
+let pontosOcultos = false;
+try {
+  pontosOcultos = localStorage.getItem(CHAVE_OCULTAR) === '1';
+} catch {
+  // Sem armazenamento: começa mostrando
+}
+
 function mostrarCamadaCerta() {
   const longe = mapa.getZoom() < zoomDetalhe;
-  (longe ? camadaLocais : camadaPaises).remove();
-  (longe ? camadaPaises : camadaLocais).addTo(mapa);
+  const visivel = pontosOcultos ? null : (longe ? camadaPaises : camadaLocais);
+  for (const camada of [camadaPaises, camadaLocais]) {
+    if (camada === visivel) camada.addTo(mapa);
+    else camada.remove();
+  }
   destacar();
 }
 mapa.on('zoomend', mostrarCamadaCerta);
+
+const OLHO_ABERTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 12S5.5 4.5 12 4.5 22.5 12 22.5 12 18.5 19.5 12 19.5 1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3.2"/></svg>';
+const OLHO_FECHADO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 5.1A10.6 10.6 0 0 1 12 4.5C18.5 4.5 22.5 12 22.5 12a18 18 0 0 1-3.1 4M6.6 6.6C3.4 8.6 1.5 12 1.5 12S5.5 19.5 12 19.5c1.9 0 3.6-.6 5-1.5M9.9 9.9a3.2 3.2 0 0 0 4.2 4.2"/></svg>';
+
+const BotaoPontos = L.Control.extend({
+  options: { position: 'topright' },
+  onAdd() {
+    const botao = L.DomUtil.create('a', 'botao-pontos leaflet-bar');
+    botao.href = '#';
+    botao.setAttribute('role', 'button');
+    L.DomEvent.disableClickPropagation(botao);
+    L.DomEvent.on(botao, 'click', e => {
+      L.DomEvent.preventDefault(e);
+      pontosOcultos = !pontosOcultos;
+      try {
+        localStorage.setItem(CHAVE_OCULTAR, pontosOcultos ? '1' : '0');
+      } catch {
+        // Sem armazenamento: só não lembra da próxima vez
+      }
+      desenharBotaoPontos(botao);
+      mostrarCamadaCerta();
+    });
+    desenharBotaoPontos(botao);
+    return botao;
+  },
+});
+
+function desenharBotaoPontos(botao) {
+  botao.innerHTML = pontosOcultos ? OLHO_FECHADO : OLHO_ABERTO;
+  botao.title = pontosOcultos ? 'Mostrar os pontos (só para você)' : 'Esconder os pontos (só para você)';
+  botao.classList.toggle('ativo', pontosOcultos);
+}
+
+new BotaoPontos().addTo(mapa);
 
 // O zoom mínimo é o que mostra o mapa inteiro, e depende do tamanho do lado do mapa.
 // Por isso é recalculado sempre que esse lado muda (inclusive quando estava escondido e volta).
@@ -276,7 +323,7 @@ function desenharBarra() {
     `;
   } else if (!atual) {
     barra.innerHTML = `
-      <span class="dica-mapa">Clique num ponto para abrir o texto · Botão direito no mapa (ou toque longo) cria um ponto de interesse ali</span>
+      <span class="dica-mapa">Clique num ponto para abrir o texto${ehVisitante ? '' : ' · Botão direito no mapa (ou toque longo) cria um ponto de interesse ali'}</span>
     `;
   } else if (pontos.has(atual.id)) {
     barra.innerHTML = `
@@ -332,7 +379,7 @@ mapa.on('click', e => {
 
 // Botão direito (ou toque longo): criar um ponto de interesse ali, ou pôr ali o texto aberto
 mapa.on('contextmenu', e => {
-  if (!limites.contains(e.latlng)) return;
+  if (ehVisitante || !limites.contains(e.latlng)) return; // visitante não cria nem move pontos
   const { x, y } = paraFracao(e.latlng);
   const menu = document.createElement('div');
   menu.className = 'menu-mapa';

@@ -84,6 +84,12 @@ async function carregar() {
     [artigos, nomes, paises] = await Promise.all([
       banco.listarArtigos(chave), banco.nomes(), SECAO.filtroPais ? banco.paises() : [],
     ]);
+    // O texto de apresentação (aba própria) não entra na lista
+    artigos = artigos.filter(a => a.id !== banco.idIntroducao(chave));
+    if (SECAO.introducao) {
+      document.getElementById('qtd-lista').textContent = artigos.length;
+      carregarIntroducao();
+    }
     desenharFiltroPais();
     desenharFiltros();
     desenhar();
@@ -377,6 +383,92 @@ filtros.addEventListener('click', e => {
 });
 busca.addEventListener('input', desenhar);
 ordem.addEventListener('change', desenhar);
+
+// ---------- Abas: texto de apresentação | lista ----------
+
+// Ex.: Panteão abre em "Como os Deuses e a Fé são?" (um texto) e "Divindades" (a lista).
+// A aba escolhida fica guardada no navegador. Na aba do texto, a busca, os filtros e a lista somem
+// (classe "na-intro" no body).
+const introducao = SECAO.introducao;
+const CHAVE_ABA_INTRO = `luminus-aba-intro-${chave}`;
+let naIntro = false;
+if (introducao) {
+  naIntro = true;
+  try {
+    naIntro = localStorage.getItem(CHAVE_ABA_INTRO) !== 'lista';
+  } catch {
+    // Sem armazenamento: começa no texto
+  }
+  document.querySelector('.ferramentas').insertAdjacentHTML('beforebegin', `
+    <div class="filtros abas-filtro abas-secao" role="tablist">
+      <button type="button" data-aba="intro" role="tab">${esc(introducao.titulo)}</button>
+      <button type="button" data-aba="lista" role="tab">${esc(introducao.lista)} <span class="qtd" id="qtd-lista"></span></button>
+    </div>
+    <article class="introducao" id="introducao"><p class="vazio">Carregando…</p></article>
+  `);
+  document.querySelector('.abas-secao').addEventListener('click', e => {
+    const aba = e.target.closest('[data-aba]')?.dataset.aba;
+    if (!aba) return;
+    naIntro = aba === 'intro';
+    try {
+      localStorage.setItem(CHAVE_ABA_INTRO, aba);
+    } catch {
+      // Sem armazenamento: só não lembra da próxima vez
+    }
+    mostrarAbaIntro();
+  });
+  mostrarAbaIntro();
+}
+
+function mostrarAbaIntro() {
+  document.body.classList.toggle('na-intro', naIntro);
+  document.querySelectorAll('.abas-secao button').forEach(b => {
+    const ativa = (b.dataset.aba === 'intro') === naIntro;
+    b.classList.toggle('ativo', ativa);
+    b.setAttribute('aria-selected', ativa);
+  });
+}
+
+async function carregarIntroducao() {
+  const painel = document.getElementById('introducao');
+  const id = banco.idIntroducao(chave);
+  let texto = null;
+  try {
+    texto = await banco.buscarArtigo(id);
+  } catch {
+    // Ainda não foi escrito
+  }
+  if (!texto) {
+    painel.innerHTML = `
+      <div class="vazio">
+        <p>${ehVisitante ? 'Ninguém escreveu este texto ainda.' : 'Ainda não tem nada escrito aqui.'}</p>
+        <button type="button" class="primario so-membro" id="btn-escrever-intro">Escrever</button>
+      </div>`;
+    document.getElementById('btn-escrever-intro').addEventListener('click', async e => {
+      e.target.disabled = true;
+      try {
+        await banco.criarIntroducao(chave, introducao.titulo);
+        location.href = `artigo.html?id=${encodeURIComponent(id)}&editar=1`;
+      } catch (err) {
+        alert(err.message);
+        e.target.disabled = false;
+      }
+    });
+    return;
+  }
+  const titulos = await banco.titulos().catch(() => new Map());
+  painel.innerHTML = `
+    ${texto.imagem ? `<img class="imagem-intro" src="${banco.urlImagem(texto.imagem)}" alt="">` : ''}
+    <div class="prosa">
+      ${texto.conteudo ? renderizarTexto(texto.conteudo, titulos) : '<p class="sem-texto">Ainda não tem nada escrito aqui.</p>'}
+    </div>
+    <div class="rodape-intro">
+      <span class="assinatura">Última edição por <strong>${esc(nomeDe(texto.editadoPor, nomes))}</strong> em ${formatarDataHora(texto.atualizadoEm)}</span>
+      <a class="botao" href="artigo.html?id=${encodeURIComponent(id)}&historico=1">Histórico</a>
+      <a class="botao primario so-membro" href="artigo.html?id=${encodeURIComponent(id)}&editar=1">Editar</a>
+    </div>
+  `;
+}
 
 // ---------- Filtro por país ----------
 

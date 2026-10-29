@@ -266,6 +266,34 @@ grant execute on function public.eh_membro() to authenticated;
 grant execute on function public.restaurar_texto(bigint) to authenticated;
 revoke execute on function public.restaurar_texto(bigint) from anon, public;
 
+-- ---------- Visitantes (só leitura, sem conta) ----------
+
+-- O botão "Entrar como visitante" usa a chave pública, sem login. O visitante não tem acesso às
+-- tabelas (nem para ler, nem para mudar nada); ele lê estas duas "vitrines", que mostram o NOME
+-- de quem escreveu no lugar do e-mail (os e-mails dos membros não ficam expostos).
+-- As colunas têm os mesmos nomes das tabelas, para o site ler igual.
+create or replace view public.artigos_publico as
+select
+  a.id, a.secao, a.titulo, a.subtitulo, a.conteudo, a.detalhes, a.imagem,
+  coalesce((select m.nome from public.membros m where lower(m.email) = lower(a.criado_por)), '') as criado_por,
+  a.criado_em,
+  coalesce((select m.nome from public.membros m where lower(m.email) = lower(a.editado_por)), '') as editado_por,
+  a.atualizado_em, a.mapa_x, a.mapa_y, a.mapa_cor, a.mapa_icone, a.pais_id, a.lider_id
+from public.artigos a;
+
+-- Histórico sem a cópia completa das exclusões ("linha" tem os e-mails)
+create or replace view public.revisoes_publico as
+select
+  r.id, r.artigo_id, r.titulo, r.subtitulo, r.conteudo, r.detalhes,
+  coalesce((select m.nome from public.membros m where lower(m.email) = lower(r.editado_por)), '') as editado_por,
+  r.editado_em, r.excluido,
+  coalesce((select m.nome from public.membros m where lower(m.email) = lower(r.excluido_por)), '') as excluido_por,
+  r.excluido_em
+from public.revisoes r;
+
+revoke all on public.artigos_publico, public.revisoes_publico from anon, authenticated;
+grant select on public.artigos_publico, public.revisoes_publico to anon, authenticated;
+
 -- ---------- Imagens (Storage) ----------
 
 -- Bucket público: qualquer um com o link exato vê a imagem; só membros enviam e apagam

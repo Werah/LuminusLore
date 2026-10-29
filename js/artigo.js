@@ -73,6 +73,12 @@ async function iniciar() {
       }
       montarTopo(SECOES[secao].nome);
       desenharTexto();
+      // &editar=1 já abre o editor; &historico=1 já abre o histórico
+      if (params.get('editar') === '1' && !ehVisitante) document.getElementById('btn-editar').click();
+      else if (params.get('historico') === '1') desenharHistorico();
+    } else if (SECOES[params.get('secao')] && ehVisitante) {
+      // Visitante não cria textos: volta para a lista da seção
+      location.replace(SECOES[params.get('secao')].pagina);
     } else if (SECOES[params.get('secao')]) {
       secao = params.get('secao');
       montarTopo(SECOES[secao].nome);
@@ -99,7 +105,7 @@ function desenharTexto() {
   edicao.marcar(null);
 
   const pais = artigo.paisId && [...titulos.values()].find(t => t.id === artigo.paisId);
-  // Líder / Prefeito (país, cidade, vila, organização)
+  // Regente (país, cidade, vila) / Líder (organização)
   const cargo = cargoDeLider(artigo);
   const lider = cargo && artigo.liderId && [...titulos.values()].find(t => t.id === artigo.liderId);
   const preenchidos = s.campos.filter(c => artigo.detalhes[c.chave] && campoVisivel(c, artigo.detalhes));
@@ -204,10 +210,16 @@ async function carregarLiderDe() {
   }
   if (!el) return;
   if (lista.length) {
-    el.innerHTML = `<dt>Líder de</dt><dd>${lista.map(l => {
+    // "Regente de" (países, cidades, vilas) e "Líder de" (organizações), cada um com a sua lista
+    const item = l => {
       const t = [...titulos.values()].find(x => x.id === l.id);
       return `${t ? linkWiki(t.link, t.titulo, titulos) : esc(l.titulo)} <small class="tipo-liderado">(${tipoDoLiderado(l)})</small>`;
-    }).join('<br>')}</dd>`;
+    };
+    el.innerHTML = ['Regente', 'Líder']
+      .map(cargo => [cargo, lista.filter(l => cargoDeLider(l) === cargo)])
+      .filter(([, itens]) => itens.length)
+      .map(([cargo, itens]) => `<dt>${cargo} de</dt><dd>${itens.map(item).join('<br>')}</dd>`)
+      .join('');
     el.hidden = false;
     return;
   }
@@ -282,8 +294,8 @@ function desenharInexistente(titulo) {
   pagina.innerHTML = `
     <div class="vazio caixa-inexistente">
       <h2>“${esc(titulo)}” ainda não foi escrito</h2>
-      <p>Quer começar? Escolha onde ele fica:</p>
-      <div class="acoes-centro">
+      <p>${ehVisitante ? 'Ninguém escreveu este texto ainda.' : 'Quer começar? Escolha onde ele fica:'}</p>
+      <div class="acoes-centro so-membro">
         ${Object.entries(SECOES).map(([k, s]) => `
           <a class="botao" href="artigo.html?secao=${k}&titulo=${encodeURIComponent(titulo)}">${s.icone} ${esc(s.nome)}</a>
         `).join('')}
@@ -311,6 +323,8 @@ function editar(tituloInicial = '') {
   // cor '' = herda a do país (ou, sem país, a da seção)
   const temPonto = !!pontoNovo || (artigo?.mapaX ?? null) !== null;
   const estiloPonto = { cor: a.mapaCor || '', icone: a.mapaIcone || '' };
+  // Texto de apresentação da seção (ex.: "Como os Deuses e a Fé são?"): sem os campos de ficha
+  const ehIntroducao = artigo?.id === banco.idIntroducao(secao);
 
   // Líder (país, cidade, vila, organização): um personagem, escolhido buscando pelo nome
   const nomeDoTexto = id => [...titulos.values()].find(t => t.id === id)?.titulo || '';
@@ -365,7 +379,7 @@ function editar(tituloInicial = '') {
         </label>
       </div>
 
-      <div class="grade-campos">
+      <div class="grade-campos"${ehIntroducao ? ' hidden' : ''}>
         <label>${esc(s.rotuloPais || 'País')}
           <span class="campo-pais">
             <select name="pais">
@@ -383,14 +397,14 @@ function editar(tituloInicial = '') {
         </label>
         ${campos}
       </div>
-      ${camposLongos}
+      <div${ehIntroducao ? ' hidden' : ''}>${camposLongos}</div>
       ${secao === 'personagens' ? `
-        <div class="campo campo-lider-de">Líder de
+        <div class="campo campo-lider-de">Regente / Líder de
           <div class="chips" id="chips-lider-de"></div>
           <span class="campo-busca">
             <input type="text" name="lider-de-busca" placeholder="Digite um país, cidade, vila ou organização…">
           </span>
-          <p class="dica">Opcional. Ao salvar, o personagem vira o líder (ou prefeito) do que estiver aqui, e a página de lá passa a mostrar isso.</p>
+          <p class="dica">Opcional. Ao salvar, o personagem vira o regente (ou o líder, numa organização) do que estiver aqui, e a página de lá passa a mostrar isso.</p>
         </div>` : ''}
 
       ${temPonto ? `

@@ -76,6 +76,22 @@ Para tirar alguém: `delete from public.membros where email = 'amigo@email.com';
 
 Para mudar o nome que aparece: `update public.membros set nome = 'Novo nome' where email = '...';`
 
+## Visitantes (só leitura)
+
+Na tela de login, **Entrar como visitante** deixa qualquer pessoa ler o site sem conta: textos,
+mapa, histórico, fichas. Não aparece nenhum botão de criar, editar ou excluir, e o banco também
+não deixa (o visitante não tem acesso às tabelas; ele lê duas "vitrines", `artigos_publico` e
+`revisoes_publico`, que mostram o **nome** de quem escreveu, nunca o e-mail).
+
+Como a chave pública do Supabase fica no código do site, com isso qualquer pessoa que tiver o link
+consegue ler o conteúdo. Se um dia quiser o site fechado de novo, rode no SQL Editor:
+
+```sql
+revoke select on public.artigos_publico, public.revisoes_publico from anon;
+```
+
+(e para reabrir, `grant select on public.artigos_publico, public.revisoes_publico to anon;`).
+
 ## Escrevendo
 
 - O texto aceita **Markdown**: `**negrito**`, `*itálico*`, `# Título`, `- lista`, `> citação`.
@@ -120,6 +136,8 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
   o primeiro ponto). Ícones: cidade, vila, castelo, caveira, floresta, espadas cruzadas, montanha,
   templo, porto e estrela (país). Sem cor escolhida, o ponto usa a cor do país ou, sem país, da seção. Para criar ícones novos,
   veja `ICONES_MAPA` em `js/mapa.js`.
+- **Esconder os pontos:** o olho no canto de cima do mapa esconde todos os pontos para ver só o
+  desenho. Vale só para quem clicou (fica guardado no navegador dele).
 - **Clicar fora dos pontos** solta o texto selecionado (o painel volta para a lista). Se o
   editor estiver aberto com mudanças, elas são salvas antes.
 - **Países:** um ponto com o ícone de estrela é um país. Com o mapa afastado só aparecem os
@@ -154,6 +172,11 @@ se o mapa novo for o mesmo desenho em outra resolução.
 
 ## História e Personagens
 
+- **Panteão:** abre em duas abas: *Como os Deuses e a Fé são?* (um texto de apresentação, com
+  editor, links e histórico como qualquer outro) e *Divindades* (a lista). Outras seções podem ganhar
+  o mesmo com `introducao` em `js/secoes.js` (a página da seção precisa carregar o marked e o DOMPurify,
+  como `panteao.html`).
+
 - **História do Mundo:** cada evento tem *Era*, *Ano* (e *Até o ano*, se durou mais) e aparece numa
   linha do tempo. A ordem das eras é a da lista de opções do campo *Era* em `js/secoes.js`;
   troque pelos nomes das eras do seu mundo.
@@ -162,8 +185,8 @@ se o mapa novo for o mesmo desenho em outra resolução.
   descrição, história, imagem e nacionalidade (um país do mapa). Personagens de jogador também têm
   *Jogador*, *Raça*, *Classe* e *Inventário* (um item por linha).
 - A ficha de um país mostra também os personagens com essa nacionalidade e os eventos ligados a ele.
-- **Líderes:** países, cidades, vilas e organizações têm o campo *Líder* (em cidade e vila, *Prefeito*):
-  digite parte do nome e escolha o personagem na lista. No personagem, o campo *Líder de* faz o
+- **Regentes e líderes:** países, cidades e vilas têm o campo *Regente*, e organizações o campo *Líder*:
+  digite parte do nome e escolha o personagem na lista. No personagem, o campo *Regente / Líder de* faz o
   mesmo pelo outro lado. Os dois são a mesma informação, então as duas páginas sempre batem.
   Quem tem cargo é definido em `cargoDeLider` (`js/secoes.js`).
 

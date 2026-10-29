@@ -17,6 +17,33 @@ if (!configOk) {
   });
 }
 
+// ---------- Visitante (só leitura) ----------
+
+// "Entrar como visitante" não faz login: só marca o navegador. O visitante lê pelas vitrines
+// do banco (artigos_publico, revisoes_publico) e o banco não deixa ele mudar nada.
+// A classe "visitante" no <html> esconde os botões de edição (css/style.css).
+const CHAVE_VISITANTE = 'luminus-visitante';
+let ehVisitante = false;
+try {
+  ehVisitante = localStorage.getItem(CHAVE_VISITANTE) === '1';
+} catch {
+  // Sem armazenamento: não dá para ser visitante (precisa entrar com conta)
+}
+if (ehVisitante) document.documentElement.classList.add('visitante');
+
+async function entrarComoVisitante() {
+  if (sb) await sb.auth.signOut();
+  localStorage.setItem(CHAVE_VISITANTE, '1');
+}
+
+function deixarDeSerVisitante() {
+  try {
+    localStorage.removeItem(CHAVE_VISITANTE);
+  } catch {
+    // Nada a fazer
+  }
+}
+
 // ---------- Login ----------
 
 // Cada amigo tem o próprio login. Além de existir no Supabase (Authentication → Users),
@@ -30,16 +57,19 @@ async function entrar(email, senha) {
     await sb.auth.signOut();
     throw new Error('Sua conta ainda não foi liberada. Peça para quem cuida do site te adicionar.');
   }
+  deixarDeSerVisitante();
 }
 
-// Chamar no topo de toda página que precisa de login
+// Chamar no topo de toda página que precisa de login (visitante também passa)
 function exigirLogin() {
   sessaoPronta.then(sessao => {
-    if (!sessao) window.location.href = 'index.html';
+    if (!sessao && !ehVisitante) window.location.href = 'index.html';
   });
 }
 
+// Membros saem da conta; o visitante volta para a tela de login (para entrar com conta)
 async function sair() {
+  deixarDeSerVisitante();
   if (sb) await sb.auth.signOut();
   window.location.href = 'index.html';
 }
@@ -97,9 +127,12 @@ const banco = (() => {
     return data;
   }
 
+  // O visitante lê pelas vitrines (sem os e-mails); as tabelas de verdade nem respondem para ele
+  const VITRINE = { artigos: 'artigos_publico', revisoes: 'revisoes_publico' };
+
   function de(tabela) {
     if (!sb) throw new Error('Supabase não configurado (js/config.js)');
-    return sb.from(tabela);
+    return sb.from(ehVisitante ? VITRINE[tabela] || tabela : tabela);
   }
 
   // ---------- Textos ----------
@@ -170,6 +203,14 @@ const banco = (() => {
     return buscarArtigo(linha.id);
   }
 
+  // Texto de apresentação de uma seção (ver "introducao" em secoes.js): endereço fixo intro-<seção>
+  const idIntroducao = secao => `intro-${secao}`;
+  async function criarIntroducao(secao, titulo) {
+    const id = idIntroducao(secao);
+    await rodar(de('artigos').insert({ ...limparArtigo({ secao, titulo, detalhes: {} }), id }));
+    return id;
+  }
+
   // "versao" é o atualizadoEm de quando a pessoa abriu o editor.
   // Se outra pessoa salvou nesse meio-tempo, não sobrescreve o texto dela.
   async function salvarArtigo(id, corpo, versao) {
@@ -189,6 +230,7 @@ const banco = (() => {
 
   // Textos excluídos de uma seção (a cópia mais recente de cada um), para restaurar
   async function excluidos(secao) {
+    if (ehVisitante) return []; // visitante não restaura nada
     const [linhas, existentes] = await Promise.all([
       rodar(de('revisoes').select('id, artigo_id, titulo, excluido_por, excluido_em, linha')
         .eq('excluido', true).order('excluido_em', { ascending: false })),
@@ -298,6 +340,8 @@ const banco = (() => {
   // Nome de cada membro, para mostrar quem escreveu: mapa e-mail -> nome
   let nomesCarregando = null;
   function nomes() {
+    // Visitante não vê a lista de membros: as vitrines já trazem os nomes no lugar dos e-mails
+    if (ehVisitante) return Promise.resolve(new Map());
     if (!nomesCarregando) {
       nomesCarregando = rodar(de('membros').select('email, nome'))
         .then(linhas => new Map(linhas.map(m => [m.email.toLowerCase(), m.nome])))
@@ -349,6 +393,7 @@ const banco = (() => {
     titulos, listarArtigos, buscarArtigo, criarArtigo, salvarArtigo, excluirArtigo, excluidos, restaurarExcluido,
     revisoes, mencoes, pontosDoMapa, paises, lugaresDoPais, posicionar, estilizarPonto, nomes, urlImagem, trocarImagem, removerImagem,
     enviarImagemDoTexto, buscarPersonagens, buscarLideraveis, liderados, definirLider,
+    idIntroducao, criarIntroducao,
   };
 })();
 

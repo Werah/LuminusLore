@@ -51,6 +51,12 @@
         <p class="erro"></p>
       </form>
 
+      <div class="ou"><span>ou</span></div>
+      <button type="button" class="botao-visitante" id="btn-visitante">
+        👁 Entrar como visitante
+        <small>Só para ler: não dá para criar, editar nem excluir</small>
+      </button>
+
       <p class="rodape-login">Ainda não tem conta? Peça para quem cuida do site.<br>
         Recebeu uma senha provisória? Use <strong>Trocar senha</strong>.</p>
     </div>
@@ -65,6 +71,15 @@
     // Já logado? Vai direto pra home
     sessaoPronta.then(sessao => {
       if (sessao) window.location.href = 'home.html';
+    });
+
+    document.getElementById('btn-visitante').addEventListener('click', async () => {
+      try {
+        await entrarComoVisitante();
+        window.location.href = 'home.html';
+      } catch {
+        alert('Este navegador está bloqueando o armazenamento do site; para ler, entre com uma conta.');
+      }
     });
 
     const formLogin = document.getElementById('form-login');

@@ -41,6 +41,24 @@ a { color: var(--ouro-2); }
   font-weight: 600;
 }
 
+/* Visitante (só leitura): some tudo o que cria, edita ou exclui.
+   O banco também não deixa; aqui é só para os botões nem aparecerem. */
+.visitante #btn-novo,
+.visitante #btn-editar,
+.visitante #btn-excluir,
+.visitante [data-restaurar],
+.visitante .lixeira,
+.visitante .so-membro,
+.visitante .estilo-ponto,
+.visitante .barra-mapa [data-acao]:not([data-acao="centralizar"]) { display: none !important; }
+
+.topo nav .selo-visitante {
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: var(--ouro-2);
+  cursor: default;
+}
+
 /* ---------- Topo ---------- */
 
 .topo {
@@ -191,6 +209,24 @@ code, kbd {
 .caixa-login form { text-align: left; }
 .caixa-login button { width: 100%; margin-top: 8px; padding: 10px; }
 .caixa-login .erro { color: var(--perigo); margin: 10px 0 0; font-size: 0.9rem; text-align: center; }
+/* "ou" entre o formulário e o botão de visitante */
+.caixa-login .ou { display: flex; align-items: center; gap: 10px; margin: 18px 0 14px; color: var(--texto-2); font-size: 0.85rem; }
+.caixa-login .ou::before, .caixa-login .ou::after { content: ''; flex: 1; height: 1px; background: var(--borda); }
+
+.caixa-login .botao-visitante {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  background: transparent;
+  border-color: var(--borda);
+  color: var(--texto);
+}
+
+.caixa-login .botao-visitante:hover { border-color: var(--ouro); background: rgba(255, 255, 255, 0.03); }
+.caixa-login .botao-visitante small { color: var(--texto-2); font-size: 0.78rem; }
+
 .caixa-login .rodape-login { margin: 16px 0 0; font-size: 0.82rem; line-height: 1.5; }
 .caixa-login .rodape-login strong { color: var(--texto); }
 .abas-login { margin: 0 0 18px; }
@@ -827,6 +863,27 @@ a.wiki.inexistente { color: #e8807c; border-bottom: 1px dashed currentColor; }
 
 .abas-filtro .qtd { margin-left: 4px; font-size: 0.8rem; opacity: 0.6; }
 
+/* Abas da seção (texto de apresentação | lista). Na aba do texto, a lista e seus controles somem. */
+.abas-secao { margin-top: 0; }
+.na-intro .ferramentas, .na-intro #filtros, .na-intro #lista, .na-intro .lixeira, .na-intro #btn-novo { display: none !important; }
+.introducao { display: none; }
+.na-intro .introducao { display: block; }
+.introducao .prosa { max-width: 75ch; margin: 0 auto; }
+.imagem-intro { display: block; width: 100%; max-height: 340px; object-fit: cover; border-radius: var(--raio); margin-bottom: 24px; }
+
+.rodape-intro {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 75ch;
+  margin: 32px auto 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--borda);
+}
+
+.rodape-intro .assinatura { margin: 0 auto 0 0; padding: 0; border: none; }
+
 .filtro-pais {
   display: flex;
   align-items: center;
@@ -1253,6 +1310,23 @@ body.pagina-mapa {
 }
 
 .leaflet-bar { border: 1px solid var(--borda) !important; }
+
+/* Olho no canto do mapa: esconde/mostra os pontos (só para quem clicou) */
+.botao-pontos {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--texto);
+  cursor: pointer;
+}
+
+.botao-pontos svg { width: 100%; height: 100%; }
+.botao-pontos:hover { color: var(--ouro-2); }
+.botao-pontos.ativo { color: var(--ouro-2); border-color: var(--ouro) !important; box-shadow: 0 0 10px color-mix(in srgb, var(--ouro) 45%, transparent); }
 .leaflet-bar a:hover { color: var(--ouro-2); }
 
 /* Ponto no mapa: uma gema na cor da seção; o do texto aberto pulsa */

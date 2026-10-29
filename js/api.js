@@ -481,6 +481,14 @@ function montarTopo(atual) {
   const nav = Object.values(SECOES)
     .map(s => `<a href="${paginaDaSecao(s)}" class="${s.nome === atual ? 'ativo' : ''}">${s.nome}</a>`)
     .join('');
+  if (ehVisitante) {
+    // Visitante: sem conta; "Entrar com conta" volta para o login
+    document.getElementById('topo').innerHTML = `
+      <a class="marca" href="home.html">✦ LuminusLore</a>
+      <nav>${nav}<span class="conta selo-visitante" title="Só leitura">👁 Visitante</span><a href="#" onclick="sair(); return false;">Entrar com conta</a></nav>
+    `;
+    return;
+  }
   document.getElementById('topo').innerHTML = `
     <a class="marca" href="home.html">✦ LuminusLore</a>
     <nav>${nav}<a href="#" class="conta" id="btn-conta" title="Sua conta">Conta</a><a href="#" onclick="sair(); return false;">Sair</a></nav>

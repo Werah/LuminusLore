@@ -10,7 +10,8 @@
 // Nos campos da ficha também dá para usar [[links]] para outros textos.
 // Opcionais da seção: rotuloPais (nome do campo de país), rotuloTexto (título do texto principal)
 // e linhaDoTempo (a lista vira uma linha do tempo, ordenada pelos campos era e ano),
-// filtroPais (botão para filtrar a lista pelo país / nacionalidade).
+// filtroPais (botão para filtrar a lista pelo país / nacionalidade),
+// introducao (abas: um texto de apresentação da seção | a lista).
 // No campo de filtro, "abas" troca os botões de filtro por abas: { valor: 'Nome da aba' }.
 
 // Campo com "soSe" só aparece (e só é guardado) quando os outros campos têm os valores pedidos
@@ -19,13 +20,13 @@ function campoVisivel(campo, detalhes) {
 }
 
 // Quem pode ter um líder (um personagem) e o nome do cargo; '' = não tem cargo.
-// O personagem mostra "Líder de" com tudo o que aponta para ele.
+// O personagem mostra "Regente de" / "Líder de" com tudo o que aponta para ele.
 function cargoDeLider(a) {
   const d = a.detalhes || {};
   if (a.secao === 'organizacoes') return 'Líder';
   if (a.secao !== 'mundo') return '';
-  if (a.mapaIcone === 'estrela') return 'Líder'; // país
-  if (['Cidade', 'Vilarejo'].includes(d.categoria) || ['cidade', 'vila'].includes(a.mapaIcone)) return 'Prefeito';
+  if (a.mapaIcone === 'estrela') return 'Regente'; // país
+  if (['Cidade', 'Vilarejo'].includes(d.categoria) || ['cidade', 'vila'].includes(a.mapaIcone)) return 'Regente';
   return '';
 }
 
@@ -102,6 +103,9 @@ const SECOES = {
     descricao: 'Deuses, primordiais e aquilo que regem',
     novo: 'Nova divindade',
     subtitulo: { rotulo: 'Epíteto', dica: 'Ex.: A Senhora das Marés' },
+    // A página abre em abas: um texto de apresentação e a lista. O texto é um texto normal do site
+    // (com editor, links e histórico), guardado com o endereço fixo "intro-panteao".
+    introducao: { titulo: 'Como os Deuses e a Fé são?', lista: 'Divindades' },
     campos: [
       { chave: 'hierarquia', rotulo: 'Hierarquia', opcoes: ['Deus maior', 'Deus menor', 'Aspecto', 'Outro'] },
       { chave: 'dominios', rotulo: 'Domínios', dica: 'Ex.: mar, tempestades, viagens' },
