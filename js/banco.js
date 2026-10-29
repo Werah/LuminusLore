@@ -383,6 +383,12 @@ const banco = (() => {
     return urlImagem(arquivo);
   }
 
+  // Qual parte da imagem fica à vista (x, y em %, 50/50 = centro). Não conta como edição do texto.
+  async function posicionarImagem(id, x, y) {
+    const pct = v => Math.round(Math.min(100, Math.max(0, Number(v) || 0)) * 10) / 10;
+    await rodar(de('artigos').update({ imagem_x: pct(x), imagem_y: pct(y) }).eq('id', id));
+  }
+
   async function removerImagem(id) {
     const item = await buscarArtigo(id);
     await rodar(de('artigos').update({ imagem: '' }).eq('id', id));
@@ -393,7 +399,7 @@ const banco = (() => {
     titulos, listarArtigos, buscarArtigo, criarArtigo, salvarArtigo, excluirArtigo, excluidos, restaurarExcluido,
     revisoes, mencoes, pontosDoMapa, paises, lugaresDoPais, posicionar, estilizarPonto, nomes, urlImagem, trocarImagem, removerImagem,
     enviarImagemDoTexto, buscarPersonagens, buscarLideraveis, liderados, definirLider,
-    idIntroducao, criarIntroducao,
+    idIntroducao, criarIntroducao, posicionarImagem,
   };
 })();
 

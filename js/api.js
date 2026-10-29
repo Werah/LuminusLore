@@ -341,9 +341,12 @@ function emblemaSecao(secao) {
   return `<div class="sem-imagem" style="--cor: ${s.cor}"><span class="emblema">${s.icone}</span></div>`;
 }
 
+// Qual parte da imagem fica à vista (escolhida no popup de posicionar a imagem)
+const posicaoDaImagem = a => `object-position: ${a.imagemX ?? 50}% ${a.imagemY ?? 50}%`;
+
 // Capa do card: a imagem do texto ou o emblema da seção
 function capaArtigo(a) {
-  if (a.imagem) return `<div class="capa"><img src="${banco.urlImagem(a.imagem)}" alt="" loading="lazy"></div>`;
+  if (a.imagem) return `<div class="capa"><img src="${banco.urlImagem(a.imagem)}" alt="" loading="lazy" style="${posicaoDaImagem(a)}"></div>`;
   return `<div class="capa">${emblemaSecao(a.secao)}</div>`;
 }
 
@@ -401,7 +404,7 @@ function botoesIcones(escolhido) {
 // ---------- Imagens ----------
 
 // Lê um arquivo de imagem e reduz o tamanho antes de enviar (devolve data URL em JPEG)
-function redimensionarImagem(arquivo, maximo = 1200) {
+function redimensionarImagem(arquivo, maximo = 1600) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -419,27 +422,123 @@ function redimensionarImagem(arquivo, maximo = 1200) {
 }
 
 /**
+ * Popup para escolher qual parte da imagem fica à vista. Mostra um quadro para cada formato em que
+ * a imagem aparece no site (moldurasDaImagem, em secoes.js): o primeiro grande, os outros menores.
+ * Arrastar a imagem em qualquer quadro move a mesma posição, e todos os quadros acompanham.
+ * Devolve { x, y } (em %) ou null se a pessoa cancelar.
+ */
+function escolherPosicaoImagem(src, molduras, inicio = { x: 50, y: 50 }) {
+  return new Promise(resolve => {
+    const pos = { x: inicio.x ?? 50, y: inicio.y ?? 50 };
+    const quadro = m => `
+      <figure class="quadro-imagem">
+        <div class="janela-imagem" style="--prop: ${m.proporcao}"><img src="${src}" alt="" draggable="false"></div>
+        <figcaption>${esc(m.nome)}</figcaption>
+      </figure>`;
+    const [principal, ...outras] = molduras;
+    const dialog = document.createElement('dialog');
+    dialog.className = 'posicionar-imagem';
+    dialog.innerHTML = `
+      <h2>Escolha a parte da imagem</h2>
+      <p class="info">Arraste a imagem dentro de qualquer quadro. Cada quadro tem o formato de um lugar do site onde ela aparece.</p>
+      <div class="quadro-principal">${quadro(principal)}</div>
+      ${outras.length ? `<div class="quadros-menores">${outras.map(quadro).join('')}</div>` : ''}
+      <div class="botoes-modal">
+        <button type="button" class="esquerda btn-centro">Centralizar</button>
+        <button type="button" class="btn-cancelar">Cancelar</button>
+        <button type="button" class="primario btn-usar">Usar</button>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+    const imagens = [...dialog.querySelectorAll('img')];
+    const aplicar = () => imagens.forEach(img => { img.style.objectPosition = `${pos.x}% ${pos.y}%`; });
+
+    function fechar(resultado) {
+      dialog.close();
+      dialog.remove();
+      resolve(resultado);
+    }
+
+    // Arrastar: o quanto a imagem "sobra" para fora do quadro é o quanto ela pode andar.
+    // Arrastar para a direita mostra mais da esquerda (a posição em % diminui).
+    dialog.querySelectorAll('.janela-imagem').forEach(janela => {
+      let inicioArraste = null;
+      janela.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        inicioArraste = { cx: e.clientX, cy: e.clientY, x: pos.x, y: pos.y };
+        janela.classList.add('arrastando');
+        try {
+          janela.setPointerCapture(e.pointerId); // continua arrastando mesmo se o mouse sair do quadro
+        } catch {
+          // Sem captura: o arraste funciona enquanto o mouse estiver dentro do quadro
+        }
+      });
+      janela.addEventListener('pointermove', e => {
+        if (!inicioArraste) return;
+        const img = janela.querySelector('img');
+        const caixa = janela.getBoundingClientRect();
+        const escala = Math.max(caixa.width / img.naturalWidth, caixa.height / img.naturalHeight);
+        const sobraX = img.naturalWidth * escala - caixa.width;
+        const sobraY = img.naturalHeight * escala - caixa.height;
+        const limitar = v => Math.min(100, Math.max(0, v));
+        if (sobraX > 0.5) pos.x = limitar(inicioArraste.x - ((e.clientX - inicioArraste.cx) / sobraX) * 100);
+        if (sobraY > 0.5) pos.y = limitar(inicioArraste.y - ((e.clientY - inicioArraste.cy) / sobraY) * 100);
+        aplicar();
+      });
+      const soltar = () => {
+        inicioArraste = null;
+        janela.classList.remove('arrastando');
+      };
+      janela.addEventListener('pointerup', soltar);
+      janela.addEventListener('lostpointercapture', soltar);
+    });
+
+    imagens[0].onerror = () => {
+      alert('Não deu pra ler essa imagem');
+      fechar(null);
+    };
+    dialog.querySelector('.btn-centro').addEventListener('click', () => {
+      pos.x = 50;
+      pos.y = 50;
+      aplicar();
+    });
+    dialog.querySelector('.btn-cancelar').addEventListener('click', () => fechar(null));
+    dialog.addEventListener('cancel', e => { e.preventDefault(); fechar(null); }); // tecla Esc
+    dialog.querySelector('.btn-usar').addEventListener('click', () => fechar({ x: pos.x, y: pos.y }));
+    aplicar();
+    dialog.showModal();
+  });
+}
+
+/**
  * Liga um bloco de escolher imagem dentro de um formulário:
  *   <div class="campo-imagem">
  *     <div class="preview-imagem"></div>
  *     <label class="botao">Escolher imagem <input type="file" accept="image/*" hidden></label>
+ *     <button type="button" class="pequeno btn-ajustar-imagem">Ajustar posição</button>
  *     <button type="button" class="pequeno perigo btn-remover-imagem">Remover</button>
  *   </div>
- * "semImagem" devolve o HTML mostrado quando não tem imagem.
+ * "semImagem" devolve o HTML mostrado quando não tem imagem; "molduras" devolve os formatos em que
+ * a imagem aparece (para o popup de escolher a posição; é uma função porque o tipo do texto pode
+ * mudar no editor, ex.: virar país).
  */
-function ligarCampoImagem(raiz, semImagem) {
+function ligarCampoImagem(raiz, semImagem, molduras) {
   const preview = raiz.querySelector('.preview-imagem');
   const input = raiz.querySelector('input[type="file"]');
   const btnRemover = raiz.querySelector('.btn-remover-imagem');
-  let atual = ''; // arquivo que o texto já tinha
-  let nova;       // undefined = não mexeu, string = nova imagem, null = remover
+  const btnAjustar = raiz.querySelector('.btn-ajustar-imagem');
+  let atual = '';              // arquivo que o texto já tinha
+  let nova;                    // undefined = não mexeu, string = nova imagem, null = remover
+  let pos = { x: 50, y: 50 };  // parte à vista
+  let posInicial = { ...pos };
+
+  const srcAtual = () => (typeof nova === 'string' ? nova : nova === undefined && atual ? banco.urlImagem(atual) : '');
 
   function desenhar() {
-    let src = '';
-    if (typeof nova === 'string') src = nova;
-    else if (nova === undefined && atual) src = banco.urlImagem(atual);
-    preview.innerHTML = src ? `<img src="${src}" alt="">` : semImagem();
+    const src = srcAtual();
+    preview.innerHTML = src ? `<img src="${src}" alt="" style="object-position: ${pos.x}% ${pos.y}%">` : semImagem();
     btnRemover.style.display = src ? '' : 'none';
+    if (btnAjustar) btnAjustar.style.display = src ? '' : 'none';
   }
 
   input.addEventListener('change', async () => {
@@ -447,11 +546,24 @@ function ligarCampoImagem(raiz, semImagem) {
     input.value = ''; // deixa escolher o mesmo arquivo de novo depois
     if (!arquivo) return;
     try {
-      nova = await redimensionarImagem(arquivo);
+      const dataUrl = await redimensionarImagem(arquivo);
+      const escolha = await escolherPosicaoImagem(dataUrl, molduras(), { x: 50, y: 50 });
+      if (!escolha) return; // cancelou: fica como estava
+      nova = dataUrl;
+      pos = escolha;
       desenhar();
     } catch (e) {
       alert(e.message);
     }
+  });
+
+  btnAjustar?.addEventListener('click', async () => {
+    const src = srcAtual();
+    if (!src) return;
+    const escolha = await escolherPosicaoImagem(src, molduras(), pos);
+    if (!escolha) return;
+    pos = escolha;
+    desenhar();
   });
 
   btnRemover.addEventListener('click', () => {
@@ -459,17 +571,22 @@ function ligarCampoImagem(raiz, semImagem) {
     desenhar();
   });
 
+  const posMudou = () => pos.x !== posInicial.x || pos.y !== posInicial.y;
+
   return {
-    iniciar(arquivoAtual) {
+    iniciar(arquivoAtual, x = 50, y = 50) {
       atual = arquivoAtual || '';
       nova = undefined;
+      pos = { x, y };
+      posInicial = { ...pos };
       desenhar();
     },
-    mudou: () => nova !== undefined,
-    // Envia a troca (ou remoção) da imagem depois que o texto foi salvo
+    mudou: () => nova !== undefined || posMudou(),
+    // Envia a troca (ou remoção) da imagem e a posição depois que o texto foi salvo
     async salvar(id) {
       if (typeof nova === 'string') await banco.trocarImagem(id, nova);
       else if (nova === null && atual) await banco.removerImagem(id);
+      if (srcAtual() && (typeof nova === 'string' || posMudou())) await banco.posicionarImagem(id, pos.x, pos.y);
     },
   };
 }

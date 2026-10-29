@@ -152,6 +152,11 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
   pertencem a ele; o que não tem país fica em *Outros*. Clicar na faixa abre/fecha a pasta
   (o navegador lembra). O globo antes do nome abre a **ficha do país** por cima do mapa: capa com a
   imagem do país, texto, os lugares dele, e dá para editar ali mesmo.
+- **Posição da imagem:** ao escolher a imagem de um texto, abre um popup com um quadro para cada
+  formato em que ela aparece no site (ex.: personagem = retrato em pé + card da lista; país = capa
+  larga + página). Arraste a imagem em qualquer quadro para escolher a parte que fica à vista; o botão
+  *Ajustar posição* reabre o popup depois. A imagem é guardada inteira, só a posição muda.
+  Os formatos ficam em `moldurasDaImagem` (`js/secoes.js`) e precisam bater com o CSS.
 - **Imagens no texto:** o botão *🖼 Imagem* do editor envia uma imagem e a coloca no ponto do texto
   onde está o cursor (vale para qualquer texto, e é o jeito de montar a ficha de um país com fotos).
 - **Links andam pelo mapa:** clicar num `[[link]]` dentro do texto abre o outro texto no painel

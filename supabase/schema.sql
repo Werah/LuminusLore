@@ -67,6 +67,11 @@ alter table public.artigos drop constraint if exists artigos_pais_nao_e_ele_mesm
 alter table public.artigos add constraint artigos_pais_nao_e_ele_mesmo check (pais_id is null or pais_id <> id);
 create index if not exists artigos_pais on public.artigos (pais_id);
 
+-- Posição da imagem (em %): qual parte dela fica à vista nos quadros do site (cards, capa, retrato...).
+-- 50/50 = centro. Escolhida arrastando a imagem no popup ao escolher a imagem.
+alter table public.artigos add column if not exists imagem_x real not null default 50 check (imagem_x between 0 and 100);
+alter table public.artigos add column if not exists imagem_y real not null default 50 check (imagem_y between 0 and 100);
+
 -- Líder (personagem) de um país, cidade, vila ou organização: o cargo fica guardado no lugar,
 -- e a ficha do personagem mostra "Líder de" procurando quem aponta para ele.
 -- Excluir o personagem só deixa o cargo vago.
@@ -227,7 +232,7 @@ begin
     raise exception 'Esse texto já foi restaurado.';
   end if;
   insert into public.artigos (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, pais_id, lider_id,
-                              mapa_x, mapa_y, mapa_cor, mapa_icone)
+                              mapa_x, mapa_y, mapa_cor, mapa_icone, imagem_x, imagem_y)
   values (
     l->>'id', l->>'secao', l->>'titulo',
     coalesce(l->>'subtitulo', ''), coalesce(l->>'conteudo', ''), coalesce(l->'detalhes', '{}'::jsonb),
@@ -235,7 +240,8 @@ begin
     (select id from public.artigos where id = l->>'pais_id'),
     (select id from public.artigos where id = l->>'lider_id'),
     (l->>'mapa_x')::double precision, (l->>'mapa_y')::double precision,
-    coalesce(l->>'mapa_cor', ''), coalesce(l->>'mapa_icone', '')
+    coalesce(l->>'mapa_cor', ''), coalesce(l->>'mapa_icone', ''),
+    coalesce((l->>'imagem_x')::real, 50), coalesce((l->>'imagem_y')::real, 50)
   );
   return l->>'id';
 end
@@ -278,7 +284,8 @@ select
   coalesce((select m.nome from public.membros m where lower(m.email) = lower(a.criado_por)), '') as criado_por,
   a.criado_em,
   coalesce((select m.nome from public.membros m where lower(m.email) = lower(a.editado_por)), '') as editado_por,
-  a.atualizado_em, a.mapa_x, a.mapa_y, a.mapa_cor, a.mapa_icone, a.pais_id, a.lider_id
+  a.atualizado_em, a.mapa_x, a.mapa_y, a.mapa_cor, a.mapa_icone, a.pais_id, a.lider_id,
+  a.imagem_x, a.imagem_y
 from public.artigos a;
 
 -- Histórico sem a cópia completa das exclusões ("linha" tem os e-mails)

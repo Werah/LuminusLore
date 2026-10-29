@@ -134,7 +134,7 @@ function desenharTexto() {
     </div>`;
   const cabeca = modoPais ? `
       <header class="capa-pais" style="--cor-pais: ${artigo.mapaCor || s.cor}">
-        ${artigo.imagem ? `<img class="fundo-capa" src="${banco.urlImagem(artigo.imagem)}" alt="">` : ''}
+        ${artigo.imagem ? `<img class="fundo-capa" src="${banco.urlImagem(artigo.imagem)}" alt="" style="${posicaoDaImagem(artigo)}">` : ''}
         <div class="capa-conteudo">
           <p class="secao-artigo">${desenhoSvg(ICONES_MAPA[ICONE_PAIS].svg)} País</p>
           <h1>${esc(artigo.titulo)}</h1>
@@ -153,14 +153,14 @@ function desenharTexto() {
 
   pagina.innerHTML = `
     <a class="voltar" href="${s.pagina}">← ${esc(s.nome)}</a>
-    <article class="artigo" style="--cor: ${s.cor}">
+    <article class="artigo" data-secao="${secao}" style="--cor: ${s.cor}">
       ${cabeca}
       <p class="aviso-edicao" id="aviso-edicao" hidden></p>
 
       <div class="corpo-artigo${temFicha ? '' : ' sem-ficha'}">
         ${temFicha ? `
           <aside class="ficha">
-            ${imagemNaFicha ? `<img src="${banco.urlImagem(artigo.imagem)}" alt="">` : ''}
+            ${imagemNaFicha ? `<img src="${banco.urlImagem(artigo.imagem)}" alt="" style="${posicaoDaImagem(artigo)}">` : ''}
             ${ficha ? `<dl>${ficha}</dl>` : ''}
           </aside>` : ''}
         <div class="prosa">
@@ -423,6 +423,7 @@ function editar(tituloInicial = '') {
           <div class="preview-imagem"></div>
           <div class="botoes-imagem">
             <label class="botao">Escolher imagem <input type="file" accept="image/*" hidden></label>
+            <button type="button" class="pequeno btn-ajustar-imagem" title="Escolher qual parte da imagem aparece">Ajustar posição</button>
             <button type="button" class="pequeno perigo btn-remover-imagem">Remover</button>
           </div>
         </div>
@@ -459,8 +460,10 @@ function editar(tituloInicial = '') {
   const textarea = form.conteudo;
   const previa = form.querySelector('.previa');
   const erro = document.getElementById('erro');
-  const campoImagem = ligarCampoImagem(form.querySelector('.campo-imagem'), () => emblemaSecao(secao));
-  campoImagem.iniciar(a.imagem);
+  // Os formatos do popup de posicionar a imagem dependem do tipo do texto (que pode virar país aqui)
+  const campoImagem = ligarCampoImagem(form.querySelector('.campo-imagem'), () => emblemaSecao(secao),
+    () => moldurasDaImagem({ id: artigo?.id, secao, mapaIcone: estiloPonto.icone }));
+  campoImagem.iniciar(a.imagem, a.imagemX ?? 50, a.imagemY ?? 50);
 
   // Avisa os outros que este texto está sendo editado (texto novo ainda não tem id: não avisa)
   edicao.marcar(artigo?.id || null);

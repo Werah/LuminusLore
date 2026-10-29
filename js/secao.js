@@ -274,7 +274,7 @@ function desenharLinhaDoTempo(eventos) {
       <a class="evento ${lado++ % 2 ? 'direita' : 'esquerda'}" href="artigo.html?id=${encodeURIComponent(a.id)}">
         <span class="evento-data">${esc(dataDoEvento(a))}</span>
         <span class="evento-cartao">
-          ${a.imagem ? `<img src="${banco.urlImagem(a.imagem)}" alt="" loading="lazy">` : ''}
+          ${a.imagem ? `<img src="${banco.urlImagem(a.imagem)}" alt="" loading="lazy" style="${posicaoDaImagem(a)}">` : ''}
           <span class="evento-texto">
             <strong>${esc(a.titulo)}</strong>
             ${a.subtitulo ? `<em>${esc(a.subtitulo)}</em>` : ''}
@@ -458,7 +458,7 @@ async function carregarIntroducao() {
   }
   const titulos = await banco.titulos().catch(() => new Map());
   painel.innerHTML = `
-    ${texto.imagem ? `<img class="imagem-intro" src="${banco.urlImagem(texto.imagem)}" alt="">` : ''}
+    ${texto.imagem ? `<img class="imagem-intro" src="${banco.urlImagem(texto.imagem)}" alt="" style="${posicaoDaImagem(texto)}">` : ''}
     <div class="prosa">
       ${texto.conteudo ? renderizarTexto(texto.conteudo, titulos) : '<p class="sem-texto">Ainda não tem nada escrito aqui.</p>'}
     </div>

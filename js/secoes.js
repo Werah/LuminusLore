@@ -19,6 +19,23 @@ function campoVisivel(campo, detalhes) {
   return !campo.soSe || Object.entries(campo.soSe).every(([chave, valor]) => (detalhes[chave] || '') === valor);
 }
 
+// Os formatos (largura / altura) em que a imagem de um texto aparece no site. O popup de escolher a
+// imagem mostra um quadro de cada (o primeiro, maior), para arrastar e escolher a parte à vista.
+// Precisam bater com o CSS (aspect-ratio de .capa, .ficha img, .capa-pais, .imagem-intro, .evento-cartao img).
+function moldurasDaImagem(a) {
+  if (a.id?.startsWith('intro-')) return [{ nome: 'Topo da página', proporcao: 5 / 2 }];
+  if (a.secao === 'personagens') {
+    return [{ nome: 'Retrato (página do personagem)', proporcao: 3 / 4 }, { nome: 'Card da lista', proporcao: 8 / 5 }];
+  }
+  if (a.secao === 'historia') {
+    return [{ nome: 'Página do evento', proporcao: 4 / 3 }, { nome: 'Linha do tempo', proporcao: 1 }];
+  }
+  if (a.secao === 'mundo' && a.mapaIcone === 'estrela') {
+    return [{ nome: 'Capa da ficha do país', proporcao: 3 }, { nome: 'Página do país', proporcao: 4 / 3 }];
+  }
+  return [{ nome: 'Card da lista', proporcao: 2 }, { nome: 'Página', proporcao: 4 / 3 }];
+}
+
 // Quem pode ter um líder (um personagem) e o nome do cargo; '' = não tem cargo.
 // O personagem mostra "Regente de" / "Líder de" com tudo o que aponta para ele.
 function cargoDeLider(a) {
