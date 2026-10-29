@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LuminusLore</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="pagina-home">
+  <header class="topo" id="topo"></header>
+
+  <main class="divisorias" id="divisorias"></main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/secoes.js"></script>
+  <script src="js/banco.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    exigirLogin();
+    montarTopo('');
+
+    // Uma divisória por seção (vêm de js/secoes.js)
+    document.getElementById('divisorias').innerHTML = Object.values(SECOES).map(s => `
+      <a class="divisoria" href="${s.pagina}" style="--cor: ${s.cor}" data-icone="${s.icone}">
+        <span class="icone">${s.icone}</span>
+        <span class="titulo">${esc(s.nome)}</span>
+        <small>${esc(s.descricao)}</small>
+      </a>
+    `).join('');
+  </script>
+</body>
+</html>

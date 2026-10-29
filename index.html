@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LuminusLore - Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="tela-login">
+    <div class="caixa-login">
+      <div class="selo-login">✦</div>
+      <h1>LuminusLore</h1>
+      <p>Os textos do cenário. Entre para ler e escrever.</p>
+      <form id="form-login">
+        <label>E-mail
+          <input type="email" id="email" autocomplete="username" required autofocus>
+        </label>
+        <label>Senha
+          <input type="password" id="senha" autocomplete="current-password" required>
+        </label>
+        <button type="submit" class="primario">Entrar</button>
+        <p class="erro" id="erro"></p>
+      </form>
+      <p class="rodape-login">Ainda não tem conta? Peça para quem cuida do site.</p>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/secoes.js"></script>
+  <script src="js/banco.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    // Já logado? Vai direto pra home
+    sessaoPronta.then(sessao => {
+      if (sessao) window.location.href = 'home.html';
+    });
+
+    const formLogin = document.getElementById('form-login');
+    formLogin.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const erro = document.getElementById('erro');
+      erro.textContent = '';
+      semCliqueDuplo(formLogin, async () => {
+        try {
+          await entrar(document.getElementById('email').value, document.getElementById('senha').value);
+          window.location.href = 'home.html';
+        } catch (err) {
+          erro.textContent = err.message || 'Não foi possível entrar';
+        }
+      });
+    });
+  </script>
+</body>
+</html>
