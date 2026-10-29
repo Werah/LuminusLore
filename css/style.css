@@ -291,13 +291,15 @@ body.pagina-home {
    home.html); --lx/--ly é onde fica o nome. */
 .divisorias.fatias { position: relative; overflow: hidden; }
 
-/* A moldura desenha o contorno da fatia (a sombra segue o recorte do polígono).
-   No hover, a fatia cresce um pouco para todos os lados, a partir do meio dela, por cima das outras. */
+/* A moldura de cada fatia (o filtro segue o recorte do polígono).
+   No hover, a fatia cresce um pouco para todos os lados, a partir do meio dela, por cima das outras,
+   com um brilho na cor da seção na borda e uma sombra por fora.
+   Sem hover os filtros ficam zerados (em vez de "none") para a transição ir suave. */
 .fatias .fatia {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  filter: drop-shadow(0 0 0.6px rgba(255, 255, 255, 0.45));
+  filter: drop-shadow(0 0 0 transparent) drop-shadow(0 0 0 transparent) drop-shadow(0 0 0 transparent);
   transform-origin: var(--lx) var(--ly);
   transition: transform 0.35s ease, filter 0.35s ease;
 }
@@ -305,7 +307,10 @@ body.pagina-home {
 .fatias .fatia:hover {
   z-index: 2;
   transform: scale(1.05);
-  filter: drop-shadow(0 0 1px color-mix(in srgb, var(--cor) 80%, #fff)) drop-shadow(0 10px 30px rgba(0, 0, 0, 0.75));
+  filter:
+    drop-shadow(0 0 2px color-mix(in srgb, var(--cor) 85%, #fff))
+    drop-shadow(0 0 12px color-mix(in srgb, var(--cor) 55%, transparent))
+    drop-shadow(0 10px 30px rgba(0, 0, 0, 0.75));
 }
 
 .fatias .divisoria {
