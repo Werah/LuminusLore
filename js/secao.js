@@ -22,6 +22,36 @@ let artigos = [];
 let nomes = new Map();
 let filtro = ''; // valor escolhido no filtro ('' = todos)
 
+// No Mundo, os países (pontos de estrela no mapa) viram pastas com os textos que pertencem a eles,
+// e o que não pertence a nenhum fica na pasta "Outros". Os países não aparecem como cards.
+const comPastas = !!SECAO.mapa;
+const ehPasta = a => comPastas && ehPais(a) && a.mapaX !== null;
+const CHAVE_FECHADAS = 'luminus-pastas-fechadas';
+let fechadas = new Set(); // pastas recolhidas (id do país, ou "outros"); fica guardado no navegador
+try {
+  fechadas = new Set(JSON.parse(localStorage.getItem(CHAVE_FECHADAS) || '[]'));
+} catch {
+  // Sem armazenamento: todas abertas
+}
+lista.classList.toggle('grade', !comPastas && !SECAO.linhaDoTempo);
+lista.classList.toggle('pastas', comPastas);
+
+// Linha do tempo (História): ordenada pela era (na ordem das opções do campo "era") e pelo ano
+if (SECAO.linhaDoTempo) {
+  ordem.innerHTML = `
+    <option value="cronologica">Mais antigo primeiro</option>
+    <option value="inversa">Mais recente primeiro</option>
+    <option value="recentes">Editados por último</option>
+  `;
+}
+const campoEra = SECAO.campos.find(c => c.chave === 'era');
+const posicaoEra = a => {
+  const i = campoEra?.opcoes.indexOf(a.detalhes.era) ?? -1;
+  return i < 0 ? Infinity : i;
+};
+const anoDe = a => (a.detalhes.ano ? Number(a.detalhes.ano) : Infinity);
+const cronologia = (a, b) => posicaoEra(a) - posicaoEra(b) || anoDe(a) - anoDe(b) || a.titulo.localeCompare(b.titulo);
+
 document.documentElement.style.setProperty('--cor-secao', SECAO.cor);
 document.getElementById('titulo-secao').innerHTML = `<span class="icone-secao">${SECAO.icone}</span> ${esc(SECAO.nome)}`;
 document.getElementById('descricao-secao').textContent = SECAO.descricao;
@@ -46,7 +76,8 @@ function valorFiltro(a) {
 function desenharFiltros() {
   if (!campoFiltro) return;
   const contagem = new Map();
-  for (const a of artigos) {
+  const itens = artigos.filter(a => !ehPasta(a)); // países não contam: são as pastas
+  for (const a of itens) {
     const v = valorFiltro(a);
     if (v) contagem.set(v, (contagem.get(v) || 0) + 1);
   }
@@ -57,30 +88,19 @@ function desenharFiltros() {
     filtros.innerHTML = '';
     return;
   }
-  filtros.innerHTML = [['', 'Todos', artigos.length], ...valores.map(v => [v, v, contagem.get(v)])]
+  filtros.innerHTML = [['', 'Todos', itens.length], ...valores.map(v => [v, v, contagem.get(v)])]
     .map(([v, rotulo, n]) => `
       <button class="${v === filtro ? 'ativo' : ''}" data-valor="${esc(v)}">${esc(rotulo)} <span class="qtd">${n}</span></button>
     `).join('');
 }
 
-function desenhar() {
-  const termo = normalizar(busca.value.trim());
-  const visiveis = artigos.filter(a => {
-    if (filtro && valorFiltro(a) !== filtro) return false;
-    if (!termo) return true;
-    return normalizar(`${a.titulo} ${a.subtitulo} ${Object.values(a.detalhes).join(' ')} ${a.conteudo}`).includes(termo);
-  });
-  if (ordem.value === 'recentes') visiveis.sort((a, b) => b.atualizadoEm.localeCompare(a.atualizadoEm));
+// Resumo do card: o texto principal ou, sem ele, o primeiro campo longo preenchido (ex.: Descrição)
+const resumoDe = a => a.conteudo || SECAO.campos.filter(c => c.longo).map(c => a.detalhes[c.chave]).find(Boolean) || '';
 
-  if (!visiveis.length) {
-    lista.innerHTML = artigos.length
-      ? '<p class="vazio">Nada encontrado.</p>'
-      : `<p class="vazio">Nenhum texto ainda. Que tal começar com <strong>${esc(SECAO.novo)}</strong>?</p>`;
-    return;
-  }
-
-  lista.innerHTML = visiveis.map(a => `
-    <a class="card clicavel artigo-card" href="artigo.html?id=${encodeURIComponent(a.id)}" style="--cor: ${SECAO.cor}">
+function card(a, cor) {
+  const resumo = resumoDe(a);
+  return `
+    <a class="card clicavel artigo-card" href="artigo.html?id=${encodeURIComponent(a.id)}" style="--cor: ${cor}">
       ${capaArtigo(a)}
       <div class="corpo-card">
         <div class="linha-titulo">
@@ -88,12 +108,160 @@ function desenhar() {
           ${valorFiltro(a) ? `<span class="selo">${esc(valorFiltro(a))}</span>` : ''}
         </div>
         ${a.subtitulo ? `<p class="subtitulo">${esc(a.subtitulo)}</p>` : ''}
-        ${a.conteudo ? `<p class="descricao">${esc(resumoTexto(a.conteudo))}</p>` : ''}
+        ${resumo ? `<p class="descricao">${esc(resumoTexto(resumo))}</p>` : ''}
         <p class="info rodape-card">✎ ${esc(nomeDe(a.editadoPor, nomes))} · ${formatarData(a.atualizadoEm)}</p>
       </div>
     </a>
-  `).join('');
+  `;
 }
+
+const passaNaBusca = (a, termo) => !termo
+  || normalizar(`${a.titulo} ${a.subtitulo} ${Object.values(a.detalhes).join(' ')} ${a.conteudo}`).includes(termo);
+
+function desenhar() {
+  const termo = normalizar(busca.value.trim());
+  const ordenar = l => (ordem.value === 'recentes' ? l.sort((a, b) => b.atualizadoEm.localeCompare(a.atualizadoEm)) : l);
+  const itens = ordenar(artigos.filter(a => !ehPasta(a) && (!filtro || valorFiltro(a) === filtro)));
+
+  if (!artigos.length) {
+    lista.innerHTML = `<p class="vazio">Nenhum texto ainda. Que tal começar com <strong>${esc(SECAO.novo)}</strong>?</p>`;
+    return;
+  }
+
+  if (comPastas) {
+    desenharPastas(itens, termo);
+    return;
+  }
+
+  if (SECAO.linhaDoTempo) {
+    desenharLinhaDoTempo(itens.filter(a => passaNaBusca(a, termo)));
+    return;
+  }
+
+  const visiveis = itens.filter(a => passaNaBusca(a, termo));
+  lista.innerHTML = visiveis.length ? visiveis.map(a => card(a, SECAO.cor)).join('') : '<p class="vazio">Nada encontrado.</p>';
+}
+
+// "312", "312 – 340", "Data incerta"
+function dataDoEvento(a) {
+  const { ano, fim } = a.detalhes;
+  if (!ano) return 'Data incerta';
+  return fim && fim !== ano ? `${ano} – ${fim}` : ano;
+}
+
+// Eventos dos dois lados de uma linha vertical, com um marco a cada era nova
+// (em "Editados por último" a ordem não é do tempo, então não tem marcos de era)
+function desenharLinhaDoTempo(eventos) {
+  if (!eventos.length) {
+    lista.innerHTML = '<p class="vazio">Nada encontrado.</p>';
+    return;
+  }
+  const porEra = ordem.value !== 'recentes';
+  if (ordem.value === 'cronologica') eventos.sort(cronologia);
+  if (ordem.value === 'inversa') eventos.sort((a, b) => cronologia(b, a));
+
+  let eraAtual = null;
+  let lado = 0;
+  const html = eventos.map(a => {
+    let marco = '';
+    if (porEra && (a.detalhes.era || '') !== eraAtual) {
+      eraAtual = a.detalhes.era || '';
+      marco = `<h2 class="marco-era"><span>${esc(eraAtual || 'Sem era definida')}</span></h2>`;
+    }
+    const resumo = resumoDe(a);
+    return `${marco}
+      <a class="evento ${lado++ % 2 ? 'direita' : 'esquerda'}" href="artigo.html?id=${encodeURIComponent(a.id)}">
+        <span class="evento-data">${esc(dataDoEvento(a))}</span>
+        <span class="evento-cartao">
+          ${a.imagem ? `<img src="${banco.urlImagem(a.imagem)}" alt="" loading="lazy">` : ''}
+          <span class="evento-texto">
+            <strong>${esc(a.titulo)}</strong>
+            ${a.subtitulo ? `<em>${esc(a.subtitulo)}</em>` : ''}
+            ${resumo ? `<small>${esc(resumoTexto(resumo, 140))}</small>` : ''}
+          </span>
+        </span>
+      </a>`;
+  }).join('');
+  lista.innerHTML = `<div class="linha-tempo" style="--cor: ${SECAO.cor}">${html}</div>`;
+}
+
+const ICONE_INFO ='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>'
+  + '<path d="M12 10.5v7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="7" r="1.5" fill="currentColor"/></svg>';
+
+// Pastas: uma por país (A–Z) e "Outros" no fim. Buscando ou filtrando, só aparecem as pastas com
+// resultado (ou o país cujo nome bate com a busca), já abertas.
+function desenharPastas(itens, termo) {
+  const paises = artigos.filter(ehPasta).sort((a, b) => a.titulo.localeCompare(b.titulo));
+  const idsPaises = new Set(paises.map(p => p.id));
+  const procurando = !!termo || !!filtro;
+
+  const grupos = paises.map(p => {
+    const dele = itens.filter(a => a.paisId === p.id);
+    const nomeBate = !!termo && normalizar(p.titulo).includes(termo);
+    return { id: p.id, pais: p, itens: nomeBate ? dele : dele.filter(a => passaNaBusca(a, termo)), nomeBate };
+  });
+  grupos.push({ id: 'outros', pais: null, itens: itens.filter(a => !idsPaises.has(a.paisId) && passaNaBusca(a, termo)) });
+
+  const mostrar = grupos.filter(g => (procurando ? g.itens.length || g.nomeBate : g.pais || g.itens.length));
+  if (!mostrar.length) {
+    lista.innerHTML = '<p class="vazio">Nada encontrado.</p>';
+    return;
+  }
+
+  lista.innerHTML = mostrar.map(g => {
+    const cor = g.pais ? g.pais.mapaCor || SECAO.cor : '#6b6478';
+    const aberta = procurando || !fechadas.has(g.id);
+    return `
+      <section class="pasta${aberta ? ' aberta' : ''}${g.pais ? '' : ' outros'}" style="--cor: ${cor}">
+        <div class="pasta-cabeca" data-pasta="${esc(g.id)}" role="button" tabindex="0" aria-expanded="${aberta}">
+          <span class="pasta-losango" aria-hidden="true"></span>
+          <h2>${g.pais ? esc(g.pais.titulo) : 'Outros'}</h2>
+          ${g.pais ? `<button type="button" class="pasta-info" data-info="${esc(g.id)}" title="Ficha de ${esc(g.pais.titulo)}" aria-label="Ficha de ${esc(g.pais.titulo)}">${ICONE_INFO}</button>` : ''}
+          <span class="pasta-qtd">${g.itens.length}</span>
+          <span class="pasta-seta" aria-hidden="true">▾</span>
+        </div>
+        <div class="pasta-itens">
+          ${g.itens.length
+            ? `<div class="grade">${g.itens.map(a => card(a, cor)).join('')}</div>`
+            : `<p class="pasta-vazia">${g.pais ? 'Nenhum lugar neste país ainda. No editor de um verbete, escolha este país no campo “País”.' : 'Nada aqui.'}</p>`}
+        </div>
+      </section>
+    `;
+  }).join('');
+}
+
+function alternarPasta(id) {
+  if (fechadas.has(id)) fechadas.delete(id);
+  else fechadas.add(id);
+  try {
+    localStorage.setItem(CHAVE_FECHADAS, JSON.stringify([...fechadas]));
+  } catch {
+    // Sem armazenamento: só não lembra da próxima vez
+  }
+  desenhar();
+}
+
+// ⓘ abre a ficha do país por cima do mapa (fora do mapa, abre a página do país)
+function abrirFichaPais(id) {
+  if (embutido) window.parent.postMessage({ tipo: 'abrir-pais', id }, location.origin);
+  else location.href = `artigo.html?id=${encodeURIComponent(id)}`;
+}
+
+lista.addEventListener('click', e => {
+  const info = e.target.closest('[data-info]');
+  if (info) {
+    abrirFichaPais(info.dataset.info);
+    return;
+  }
+  const cabeca = e.target.closest('[data-pasta]');
+  if (cabeca && !busca.value.trim() && !filtro) alternarPasta(cabeca.dataset.pasta);
+});
+lista.addEventListener('keydown', e => {
+  const cabeca = e.target.closest?.('[data-pasta]');
+  if (!cabeca || e.target !== cabeca || (e.key !== 'Enter' && e.key !== ' ')) return;
+  e.preventDefault();
+  if (!busca.value.trim() && !filtro) alternarPasta(cabeca.dataset.pasta);
+});
 
 filtros.addEventListener('click', e => {
   const botao = e.target.closest('button');

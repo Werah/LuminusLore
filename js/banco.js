@@ -110,7 +110,13 @@ const banco = (() => {
     const detalhes = {};
     for (const campo of SECOES[secao].campos) {
       const valor = texto(b.detalhes?.[campo.chave]);
-      if (valor) detalhes[campo.chave] = valor;
+      if (!valor) continue;
+      if (campo.numero && !Number.isFinite(Number(valor.replace(',', '.')))) throw new Error(`${campo.rotulo} precisa ser um número`);
+      detalhes[campo.chave] = campo.numero ? String(Number(valor.replace(',', '.'))) : valor;
+    }
+    // Campo que só vale com outro valor (ex.: Inventário só para personagem de jogador) não é guardado à toa
+    for (const campo of SECOES[secao].campos) {
+      if (!campoVisivel(campo, detalhes)) delete detalhes[campo.chave];
     }
     const dados = {
       secao,
@@ -197,6 +203,12 @@ const banco = (() => {
     return linhas.map(l => ({ id: l.id, titulo: l.titulo, cor: l.mapa_cor || SECOES[l.secao].cor }));
   }
 
+  // Textos que pertencem a um país (para a ficha do país)
+  async function lugaresDoPais(paisId) {
+    const linhas = await rodar(de('artigos').select('id, titulo, secao, mapa_icone').eq('pais_id', paisId).order('titulo'));
+    return linhas.map(doBanco);
+  }
+
   // Coloca, move ou (com x/y null) tira o texto do mapa. x/y em fração da imagem (0 a 1).
   async function posicionar(id, x, y) {
     const dentro = v => (v === null ? null : Math.min(1, Math.max(0, Number(v))));
@@ -247,6 +259,16 @@ const banco = (() => {
     await apagarArquivos([item.imagem]);
   }
 
+  // Imagem posta no meio do texto (![](endereço)): só envia e devolve o endereço público.
+  // Se a imagem sair do texto depois, o arquivo fica no Storage (não atrapalha nada).
+  async function enviarImagemDoTexto(dataUrl) {
+    if (!sb) throw new Error('Supabase não configurado (js/config.js)');
+    const blob = await (await fetch(dataUrl)).blob();
+    const arquivo = `texto-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.jpg`;
+    await rodar(sb.storage.from('imagens').upload(arquivo, blob, { contentType: blob.type, cacheControl: '31536000' }));
+    return urlImagem(arquivo);
+  }
+
   async function removerImagem(id) {
     const item = await buscarArtigo(id);
     await rodar(de('artigos').update({ imagem: '' }).eq('id', id));
@@ -255,6 +277,7 @@ const banco = (() => {
 
   return {
     titulos, listarArtigos, buscarArtigo, criarArtigo, salvarArtigo, excluirArtigo,
-    revisoes, mencoes, pontosDoMapa, paises, posicionar, estilizarPonto, nomes, urlImagem, trocarImagem, removerImagem,
+    revisoes, mencoes, pontosDoMapa, paises, lugaresDoPais, posicionar, estilizarPonto, nomes, urlImagem, trocarImagem, removerImagem,
+    enviarImagemDoTexto,
   };
 })();

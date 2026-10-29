@@ -4,6 +4,7 @@
 //   artigo.html?titulo=...              usado pelos links [[Título]]: abre o texto com esse título,
 //                                       ou oferece criar se ainda não existir
 //   artigo.html?secao=mundo&x=..&y=..   texto novo que já nasce com ponto no mapa (vem do mapa.html)
+//   artigo.html?id=...&modo=pais        ficha do país, aberta por cima do mapa (ícone ⓘ da lista do Mundo)
 // Textos de seção com mapa (Mundo) abrem no painel do mapa.html.
 
 exigirLogin();
@@ -11,6 +12,14 @@ montarTopo('');
 
 const params = new URLSearchParams(location.search);
 const pagina = document.getElementById('pagina');
+
+// Ficha do país: visual de destaque, e os links abrem no painel de texto do mapa (iframe "painel")
+const modoPais = params.get('modo') === 'pais';
+if (modoPais) {
+  document.documentElement.classList.add('modo-pais');
+  document.head.insertAdjacentHTML('beforeend', '<base target="painel">');
+}
+const urlDoTexto = id => `artigo.html?id=${encodeURIComponent(id)}${modoPais ? '&modo=pais' : ''}`;
 
 let artigo = null;       // texto aberto; null enquanto um texto novo não foi salvo
 let secao = '';          // chave em SECOES
@@ -64,39 +73,63 @@ function desenharTexto() {
   window.salvarAlteracoes = null;
 
   const pais = artigo.paisId && [...titulos.values()].find(t => t.id === artigo.paisId);
-  const ficha = (pais ? `<div><dt>País</dt><dd>${linkWiki(pais.titulo, '', titulos)}</dd></div>` : '')
-    + s.campos
-      .filter(c => artigo.detalhes[c.chave])
+  const preenchidos = s.campos.filter(c => artigo.detalhes[c.chave] && campoVisivel(c, artigo.detalhes));
+  const ficha = (pais ? `<div><dt>${esc(s.rotuloPais || 'País')}</dt><dd>${linkWiki(pais.titulo, '', titulos)}</dd></div>` : '')
+    + preenchidos
+      .filter(c => !c.longo)
       .map(c => `<div><dt>${esc(c.rotulo)}</dt><dd>${linhaComLinks(artigo.detalhes[c.chave], titulos)}</dd></div>`)
       .join('');
-  const temFicha = artigo.imagem || ficha;
-
-  pagina.innerHTML = `
-    <a class="voltar" href="${s.pagina}">← ${esc(s.nome)}</a>
-    <article class="artigo" style="--cor: ${s.cor}">
+  // Campos longos (Descrição, Inventário...) viram blocos antes ou depois do texto principal
+  const blocos = depois => preenchidos
+    .filter(c => c.longo && !!c.depois === depois)
+    .map(c => `<section class="bloco-campo"><h2>${esc(c.rotulo)}</h2>${renderizarTexto(artigo.detalhes[c.chave], titulos)}</section>`)
+    .join('');
+  const temAlgumTexto = artigo.conteudo || preenchidos.some(c => c.longo);
+  // Na ficha do país a imagem vira a capa, em vez de ficar na ficha ao lado do texto
+  const imagemNaFicha = artigo.imagem && !modoPais;
+  const temFicha = imagemNaFicha || ficha;
+  const acoes = `
+    <div class="acoes">
+      <button class="primario" id="btn-editar">Editar</button>
+      <button id="btn-historico">Histórico</button>
+      <button class="perigo" id="btn-excluir">Excluir</button>
+    </div>`;
+  const cabeca = modoPais ? `
+      <header class="capa-pais" style="--cor-pais: ${artigo.mapaCor || s.cor}">
+        ${artigo.imagem ? `<img class="fundo-capa" src="${banco.urlImagem(artigo.imagem)}" alt="">` : ''}
+        <div class="capa-conteudo">
+          <p class="secao-artigo">${desenhoSvg(ICONES_MAPA[ICONE_PAIS].svg)} País</p>
+          <h1>${esc(artigo.titulo)}</h1>
+          ${artigo.subtitulo ? `<p class="subtitulo">${esc(artigo.subtitulo)}</p>` : ''}
+        </div>
+      </header>
+      ${acoes}` : `
       <header class="cabeca-artigo">
         <div>
           <p class="secao-artigo">${s.icone} ${esc(s.nome)}</p>
           <h1>${esc(artigo.titulo)}</h1>
           ${artigo.subtitulo ? `<p class="subtitulo">${esc(artigo.subtitulo)}</p>` : ''}
         </div>
-        <div class="acoes">
-          <button class="primario" id="btn-editar">Editar</button>
-          <button id="btn-historico">Histórico</button>
-          <button class="perigo" id="btn-excluir">Excluir</button>
-        </div>
-      </header>
+        ${acoes}
+      </header>`;
+
+  pagina.innerHTML = `
+    <a class="voltar" href="${s.pagina}">← ${esc(s.nome)}</a>
+    <article class="artigo" style="--cor: ${s.cor}">
+      ${cabeca}
 
       <div class="corpo-artigo${temFicha ? '' : ' sem-ficha'}">
         ${temFicha ? `
           <aside class="ficha">
-            ${artigo.imagem ? `<img src="${banco.urlImagem(artigo.imagem)}" alt="">` : ''}
+            ${imagemNaFicha ? `<img src="${banco.urlImagem(artigo.imagem)}" alt="">` : ''}
             ${ficha ? `<dl>${ficha}</dl>` : ''}
           </aside>` : ''}
         <div class="prosa">
-          ${artigo.conteudo
-            ? renderizarTexto(artigo.conteudo, titulos)
-            : '<p class="sem-texto">Ainda não tem nada escrito aqui. Clique em <strong>Editar</strong> para começar.</p>'}
+          ${blocos(false)}
+          ${artigo.conteudo && s.rotuloTexto ? `<h2>${esc(s.rotuloTexto)}</h2>` : ''}
+          ${artigo.conteudo ? renderizarTexto(artigo.conteudo, titulos) : ''}
+          ${blocos(true)}
+          ${temAlgumTexto ? '' : '<p class="sem-texto">Ainda não tem nada escrito aqui. Clique em <strong>Editar</strong> para começar.</p>'}
         </div>
       </div>
 
@@ -104,6 +137,7 @@ function desenharTexto() {
         Criado por <strong>${esc(nomeDe(artigo.criadoPor, nomes))}</strong> em ${formatarData(artigo.criadoEm)}
         · Última edição por <strong>${esc(nomeDe(artigo.editadoPor, nomes))}</strong> em ${formatarDataHora(artigo.atualizadoEm)}
       </footer>
+      ${modoPais ? '<section class="lugares-pais" id="lugares" hidden></section>' : ''}
       <section class="mencoes" id="mencoes" hidden></section>
     </article>
   `;
@@ -120,6 +154,44 @@ function desenharTexto() {
   document.getElementById('btn-historico').addEventListener('click', desenharHistorico);
   document.getElementById('btn-excluir').addEventListener('click', excluir);
   carregarMencoes();
+  if (modoPais) carregarLugares();
+}
+
+// Ficha do país: os textos que pertencem a ele, separados por seção (lugares, personagens, eventos...).
+// Abrem no painel de texto do mapa.
+async function carregarLugares() {
+  try {
+    const lista = await banco.lugaresDoPais(artigo.id);
+    const el = document.getElementById('lugares');
+    if (!el) return;
+    const grupos = Object.entries(SECOES)
+      .map(([chave, s]) => [s, lista.filter(l => l.secao === chave)])
+      .filter(([, itens]) => itens.length);
+    el.innerHTML = grupos.length
+      ? grupos.map(([s, itens]) => `
+        <h2>${s === SECOES.mundo ? `Lugares de ${esc(artigo.titulo)}` : esc(s.nome)}</h2>
+        <ul>${itens.map(l => `
+          <li><a href="artigo.html?id=${encodeURIComponent(l.id)}">
+            ${ICONES_MAPA[l.mapaIcone]?.svg ? desenhoSvg(ICONES_MAPA[l.mapaIcone].svg) : `<span class="icone-lugar">${s.icone}</span>`}
+            ${esc(l.titulo)}
+          </a></li>`).join('')}</ul>
+      `).join('')
+      : `<h2>Lugares de ${esc(artigo.titulo)}</h2>
+         <p class="sem-texto">Nada ligado a este país ainda. No editor de um texto, escolha este país no campo “País” (ou “Nacionalidade”).</p>`;
+    el.hidden = false;
+  } catch {
+    // Não é essencial: se falhar, só não mostra
+  }
+}
+
+// Ficha do país (por cima do mapa): pede para o mapa fechar a ficha
+function fecharFichaDoPais() {
+  window.parent.postMessage({ tipo: 'fechar-pais' }, location.origin);
+}
+if (modoPais) {
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !document.getElementById('form-artigo')) fecharFichaDoPais();
+  });
 }
 
 // "Mencionado em": outros textos com link para este
@@ -171,13 +243,26 @@ function editar(tituloInicial = '') {
     : null;
   let pontoPendente = pontoNovo;
 
-  const campos = s.campos.map(c => {
+  // Texto que tem (ou vai ter) ponto no mapa escolhe aqui o ícone e a cor do ponto.
+  // cor '' = herda a do país (ou, sem país, a da seção)
+  const temPonto = !!pontoNovo || (artigo?.mapaX ?? null) !== null;
+  const estiloPonto = { cor: a.mapaCor || '', icone: a.mapaIcone || '' };
+
+  // Campos curtos vão na grade; os longos (várias linhas) ficam embaixo, largos.
+  // data-campo: para esconder os que só valem com certo valor de outro campo (soSe)
+  const campoHtml = c => {
     const valor = a.detalhes[c.chave] || '';
+    if (c.longo) {
+      return `
+        <label class="campo-longo" data-campo="${c.chave}">${esc(c.rotulo)}
+          <textarea name="d-${c.chave}" rows="4" placeholder="${esc(c.dica || '')}">${esc(valor)}</textarea>
+        </label>`;
+    }
     if (c.opcoes) {
       // Valor antigo que saiu da lista de opções continua aparecendo
       const opcoes = !valor || c.opcoes.includes(valor) ? c.opcoes : [...c.opcoes, valor];
       return `
-        <label>${esc(c.rotulo)}
+        <label data-campo="${c.chave}">${esc(c.rotulo)}
           <select name="d-${c.chave}">
             <option value="">—</option>
             ${opcoes.map(o => `<option${o === valor ? ' selected' : ''}>${esc(o)}</option>`).join('')}
@@ -185,10 +270,12 @@ function editar(tituloInicial = '') {
         </label>`;
     }
     return `
-      <label>${esc(c.rotulo)}
-        <input type="text" name="d-${c.chave}" value="${esc(valor)}" placeholder="${esc(c.dica || '')}">
+      <label data-campo="${c.chave}">${esc(c.rotulo)}
+        <input type="${c.numero ? 'number' : 'text'}"${c.numero ? ' step="any"' : ''} name="d-${c.chave}" value="${esc(valor)}" placeholder="${esc(c.dica || '')}">
       </label>`;
-  }).join('');
+  };
+  const campos = s.campos.filter(c => !c.longo).map(campoHtml).join('');
+  const camposLongos = s.campos.filter(c => c.longo).map(campoHtml).join('');
 
   pagina.innerHTML = `
     <form class="editor" id="form-artigo" style="--cor: ${s.cor}">
@@ -206,7 +293,7 @@ function editar(tituloInicial = '') {
       </div>
 
       <div class="grade-campos">
-        <label>País
+        <label>${esc(s.rotuloPais || 'País')}
           <span class="campo-pais">
             <select name="pais">
               <option value="">Nenhum (região neutra)</option>
@@ -217,6 +304,18 @@ function editar(tituloInicial = '') {
         </label>
         ${campos}
       </div>
+      ${camposLongos}
+
+      ${temPonto ? `
+        <fieldset class="campo-ponto">
+          <legend>Ponto no mapa</legend>
+          <div class="icones-ponto">${botoesIcones(estiloPonto.icone)}</div>
+          <div class="linha-estilo">
+            <label class="campo-cor">Cor <input type="color" name="mapa-cor"></label>
+            <button type="button" class="pequeno" data-acao="cor-padrao"></button>
+          </div>
+          <p class="dica">A estrela marca um <strong>país</strong>: aparece só com o mapa afastado, e os outros textos podem pertencer a ele (e herdam a cor).</p>
+        </fieldset>` : ''}
 
       <div class="campo">Imagem
         <div class="campo-imagem">
@@ -229,12 +328,16 @@ function editar(tituloInicial = '') {
       </div>
 
       <div class="campo">
+        ${s.rotuloTexto ? `<span class="rotulo-texto">${esc(s.rotuloTexto)}</span>` : ''}
         <div class="abas abas-editor">
           <button type="button" class="ativo" data-aba="escrever">Escrever</button>
           <button type="button" data-aba="ver">Pré-visualizar</button>
           <button type="button" class="btn-link" title="Link para outro texto">🔗 Link</button>
+          <label class="botao btn-imagem-texto" title="Pôr uma imagem no meio do texto">🖼 Imagem
+            <input type="file" accept="image/*" hidden>
+          </label>
         </div>
-        <textarea name="conteudo" class="texto-grande" placeholder="Escreva aqui…">${esc(a.conteudo)}</textarea>
+        <textarea name="conteudo" class="texto-grande" placeholder="${s.rotuloTexto ? `${esc(s.rotuloTexto)}…` : 'Escreva aqui…'}">${esc(a.conteudo)}</textarea>
         <div class="prosa previa" hidden></div>
         <p class="dica">
           <code>**negrito**</code> <code>*itálico*</code> <code># Título</code> <code>- lista</code> <code>&gt; citação</code>
@@ -261,6 +364,15 @@ function editar(tituloInicial = '') {
   alterado = false;
   form.addEventListener('input', () => { alterado = true; });
   form.addEventListener('change', () => { alterado = true; });
+
+  // Mostra só os campos que valem para os valores escolhidos (ex.: Inventário só para jogador)
+  function mostrarCamposVisiveis() {
+    const valores = {};
+    for (const c of s.campos) valores[c.chave] = form[`d-${c.chave}`].value;
+    for (const c of s.campos) form.querySelector(`[data-campo="${c.chave}"]`).hidden = !campoVisivel(c, valores);
+  }
+  form.addEventListener('change', mostrarCamposVisiveis);
+  mostrarCamposVisiveis();
   if (!artigo) form.titulo.focus();
 
   // País: os textos com o ponto de estrela no mapa. O ponto deste texto herda a cor do país.
@@ -270,8 +382,41 @@ function editar(tituloInicial = '') {
     const cor = selPais.selectedOptions[0]?.dataset.cor;
     amostra.hidden = !cor;
     if (cor) amostra.style.background = cor;
+    desenharPonto();
   }
-  selPais.addEventListener('change', mostrarCorPais);
+  selPais.addEventListener('change', () => {
+    estiloPonto.cor = ''; // trocou de país: passa a usar a cor dele
+    mostrarCorPais();
+  });
+
+  // Ícone e cor do ponto
+  const caixaPonto = form.querySelector('.campo-ponto');
+  function desenharPonto() {
+    if (!caixaPonto) return;
+    const herdada = selPais.selectedOptions[0]?.dataset.cor || s.cor;
+    const cor = estiloPonto.cor || herdada;
+    caixaPonto.querySelector('.icones-ponto').style.setProperty('--cor', cor);
+    caixaPonto.querySelectorAll('[data-icone]').forEach(b => b.classList.toggle('ativo', b.dataset.icone === estiloPonto.icone));
+    form['mapa-cor'].value = cor;
+    const padrao = caixaPonto.querySelector('[data-acao="cor-padrao"]');
+    padrao.textContent = selPais.value ? 'Usar cor do país' : 'Usar cor da seção';
+    padrao.disabled = !estiloPonto.cor;
+  }
+  if (caixaPonto) {
+    caixaPonto.addEventListener('click', e => {
+      const botao = e.target.closest('button');
+      if (!botao) return;
+      if (botao.dataset.icone !== undefined) estiloPonto.icone = botao.dataset.icone;
+      if (botao.dataset.acao === 'cor-padrao') estiloPonto.cor = '';
+      alterado = true;
+      desenharPonto();
+    });
+    form['mapa-cor'].addEventListener('input', () => {
+      estiloPonto.cor = form['mapa-cor'].value;
+      desenharPonto();
+    });
+    desenharPonto();
+  }
   banco.paises().then(lista => {
     const escolhido = selPais.value;
     const opcoes = lista.filter(p => p.id !== artigo?.id);
@@ -289,7 +434,7 @@ function editar(tituloInicial = '') {
 
   // Digitar [[ sugere os títulos (no texto e nos campos da ficha, que também aceitam links)
   ligarSugestaoDeLinks(textarea, titulos);
-  form.querySelectorAll('input[name^="d-"]').forEach(campo => ligarSugestaoDeLinks(campo, titulos));
+  form.querySelectorAll('input[type="text"][name^="d-"], textarea[name^="d-"]').forEach(campo => ligarSugestaoDeLinks(campo, titulos));
 
   // Escrever / Pré-visualizar
   const abas = form.querySelectorAll('.abas-editor button[data-aba]');
@@ -300,6 +445,29 @@ function editar(tituloInicial = '') {
     textarea.focus();
     textarea.setRangeText('[[', textarea.selectionStart, textarea.selectionEnd, 'end');
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
+  // Botão "Imagem": envia a imagem e escreve ![](endereço) onde está o cursor
+  const inputImagemTexto = form.querySelector('.btn-imagem-texto input');
+  inputImagemTexto.addEventListener('change', async () => {
+    const arquivo = inputImagemTexto.files[0];
+    inputImagemTexto.value = '';
+    if (!arquivo) return;
+    if (textarea.hidden) abas[0].click();
+    const rotulo = form.querySelector('.btn-imagem-texto');
+    rotulo.classList.add('enviando');
+    try {
+      const url = await banco.enviarImagemDoTexto(await redimensionarImagem(arquivo, 1600));
+      const antes = textarea.value.slice(0, textarea.selectionStart);
+      const quebra = antes && !antes.endsWith('\n') ? '\n\n' : '';
+      textarea.setRangeText(`${quebra}![](${url})\n\n`, textarea.selectionStart, textarea.selectionEnd, 'end');
+      textarea.focus();
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    } catch (e) {
+      erro.textContent = e.message;
+    } finally {
+      rotulo.classList.remove('enviando');
+    }
   });
 
   abas.forEach(aba => aba.addEventListener('click', () => {
@@ -336,7 +504,6 @@ function editar(tituloInicial = '') {
     for (const c of s.campos) detalhes[c.chave] = form[`d-${c.chave}`].value;
     const paisId = form.pais.value || null;
     const dados = { secao, titulo: form.titulo.value, subtitulo: form.subtitulo.value, conteudo: textarea.value, detalhes, paisId };
-    const paisMudou = paisId !== (a.paisId || null);
 
     return semCliqueDuplo(form, async () => {
       try {
@@ -348,8 +515,9 @@ function editar(tituloInicial = '') {
           await banco.posicionar(artigo.id, pontoPendente.x, pontoPendente.y);
           pontoPendente = null;
         }
-        // Mudou de país: o ponto passa a usar a cor do país novo (some a cor escolhida antes)
-        if (paisMudou && artigo.mapaCor) await banco.estilizarPonto(artigo.id, '', artigo.mapaIcone);
+        if (temPonto && (estiloPonto.cor !== (artigo.mapaCor || '') || estiloPonto.icone !== (artigo.mapaIcone || ''))) {
+          await banco.estilizarPonto(artigo.id, estiloPonto.cor, estiloPonto.icone);
+        }
         await campoImagem.salvar(artigo.id);
         alterado = false;
         return true;
@@ -362,7 +530,7 @@ function editar(tituloInicial = '') {
 
   form.addEventListener('submit', async e => {
     e.preventDefault();
-    if (await gravar()) location.replace(`artigo.html?id=${encodeURIComponent(artigo.id)}`);
+    if (await gravar()) location.replace(urlDoTexto(artigo.id));
   });
 
   // Usado pelo mapa ao clicar fora de um ponto: grava se tiver mudança, senão só deixa sair.
@@ -456,7 +624,8 @@ async function excluir() {
   if (!confirm(`Excluir “${artigo.titulo}”?\n\nO histórico dele também é apagado. Não dá para desfazer.`)) return;
   try {
     await banco.excluirArtigo(artigo.id);
-    location.href = SECOES[secao].pagina;
+    if (modoPais) fecharFichaDoPais();
+    else location.href = SECOES[secao].pagina;
   } catch (e) {
     alert(e.message);
   }

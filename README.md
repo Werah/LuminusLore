@@ -1,7 +1,7 @@
 # LuminusLore
 
 Site para guardar os textos do cenário de fantasia e escrever junto com os amigos:
-**Mundo**, **Panteão** e **Organizações**.
+**Mundo**, **História**, **Personagens**, **Panteão** e **Organizações**.
 
 - **Páginas:** HTML, CSS e JavaScript puro, hospedadas de graça no **GitHub Pages**.
 - **Dados, login e imagens:** no **Supabase** (Postgres na nuvem, plano grátis).
@@ -15,7 +15,8 @@ são as regras de segurança do banco (`supabase/schema.sql`).
 index.html                   login
 home.html                    escolha da seção
 mapa.html                    o Mundo: metade mapa, metade texto (js/mapa.js)
-mundo.html, panteao.html,
+mundo.html, historia.html,
+personagens.html, panteao.html,
 organizacoes.html            lista de textos de cada seção (todas usam js/secao.js)
 artigo.html                  ler, escrever, histórico de um texto
 mapa/                        imagens do mapa (geradas por ferramentas/preparar_mapa.py)
@@ -117,6 +118,14 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
 - **Pertencer a um país:** no editor de qualquer texto, o campo *País* lista os países
   (ou *Nenhum* para regiões neutras). O ponto herda a cor do país, a menos que tenha cor própria;
   trocar de país volta a usar a cor do país novo.
+- **Ícone e cor no cadastro:** o editor de um texto que tem (ou vai ganhar) ponto no mapa mostra o
+  quadro *Ponto no mapa*, com os ícones e a cor. O *🎨 Cor e ícone* do mapa continua funcionando.
+- **Lista do Mundo em pastas:** cada país vira uma pasta (na cor do país) com os textos que
+  pertencem a ele; o que não tem país fica em *Outros*. Clicar na faixa abre/fecha a pasta
+  (o navegador lembra). O ⓘ ao lado do nome abre a **ficha do país** por cima do mapa: capa com a
+  imagem do país, texto, os lugares dele, e dá para editar ali mesmo.
+- **Imagens no texto:** o botão *🖼 Imagem* do editor envia uma imagem e a coloca no ponto do texto
+  onde está o cursor (vale para qualquer texto, e é o jeito de montar a ficha de um país com fotos).
 - **Links andam pelo mapa:** clicar num `[[link]]` dentro do texto abre o outro texto no painel
   e o mapa vai até o ponto dele.
 
@@ -132,6 +141,16 @@ python ferramentas/preparar_mapa.py "mapa/Artia Mapa Mundi.png"
 Se a nova imagem tiver outro tamanho, atualize `largura` e `altura` em `js/secoes.js` (o script
 mostra os valores). Os pontos são guardados em proporção da imagem, então continuam no lugar
 se o mapa novo for o mesmo desenho em outra resolução.
+
+## História e Personagens
+
+- **História do Mundo:** cada evento tem *Era*, *Ano* (e *Até o ano*, se durou mais) e aparece numa
+  linha do tempo. A ordem das eras é a da lista de opções do campo *Era* em `js/secoes.js`;
+  troque pelos nomes das eras do seu mundo.
+- **Personagens:** *Tipo* separa NPCs de personagens de jogadores. Todos têm nome, alcunha,
+  descrição, história, imagem e nacionalidade (um país do mapa). Personagens de jogador também têm
+  *Jogador*, *Raça*, *Classe* e *Inventário* (um item por linha).
+- A ficha de um país mostra também os personagens com essa nacionalidade e os eventos ligados a ele.
 
 ## Mudar categorias e campos
 

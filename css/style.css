@@ -287,6 +287,184 @@ body.pagina-home {
 .divisoria:hover .icone { transform: scale(1.25); }
 .divisoria:hover small { opacity: 1; transform: none; }
 
+/* Fatias (home com 5 seções): cada seção é um polígono saindo do centro (--forma, montado no
+   home.html). O centro --cx/--cy se move no hover; registrado com @property para animar. */
+@property --cx { syntax: '<percentage>'; inherits: true; initial-value: 50%; }
+@property --cy { syntax: '<percentage>'; inherits: true; initial-value: 50%; }
+
+.divisorias.fatias { position: relative; transition: --cx 0.5s ease, --cy 0.5s ease; }
+
+/* A moldura desenha o contorno da fatia (a sombra segue o recorte do polígono) */
+.fatias .fatia {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 0 0.6px rgba(255, 255, 255, 0.45));
+}
+
+.fatias .divisoria {
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 0;
+  border: none;
+  pointer-events: auto;
+  clip-path: var(--forma);
+  background:
+    radial-gradient(circle at var(--lx) var(--ly), color-mix(in srgb, var(--cor) 20%, transparent), transparent 38%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.5)),
+    var(--bg);
+}
+
+.fatias .divisoria::before {
+  background: radial-gradient(circle at var(--lx) var(--ly), color-mix(in srgb, var(--cor) 34%, transparent), transparent 50%);
+}
+
+/* Ícone gigante apagado atrás do nome */
+.fatias .divisoria::after {
+  left: var(--lx);
+  top: var(--ly);
+  right: auto;
+  bottom: auto;
+  font-size: min(34vh, 18rem);
+  transform: translate(-50%, -50%);
+}
+
+.fatias .divisoria:hover::after { transform: translate(-50%, -50%) scale(1.05); }
+
+.fatia-conteudo {
+  position: absolute;
+  left: var(--lx);
+  top: var(--ly);
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: 34vw;
+}
+
+.fatias .divisoria .icone { font-size: 3rem; }
+.fatias .divisoria .titulo { font-size: clamp(1.3rem, 2.3vw, 2.3rem); }
+.fatias .divisoria small { font-size: 0.95rem; }
+
+/* ---------- Seções: blocos de campos longos, linha do tempo ---------- */
+
+/* Campos longos (Descrição, Inventário...) no texto */
+.bloco-campo {
+  margin: 0 0 1.4em;
+  padding: 4px 18px 6px;
+  border: 1px solid var(--borda);
+  border-left: 3px solid var(--cor, var(--ouro));
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.prosa .bloco-campo h2 { margin: 0.6em 0 0.4em; font-size: 1.05rem; border: none; padding: 0; }
+.campo-longo textarea { min-height: 90px; }
+.rotulo-texto { display: block; margin-bottom: 2px; color: var(--texto-2); font-size: 0.9rem; }
+.lugares-pais h2 { margin-top: 18px; }
+.lugares-pais h2:first-child { margin-top: 0; }
+.lugares-pais .icone-lugar { width: 18px; text-align: center; color: var(--ouro-2); }
+
+/* Retrato: a parte de cima da imagem (o rosto) aparece no card */
+body[data-secao="personagens"] .capa img { object-position: center 20%; }
+body[data-secao="personagens"] .capa { height: 190px; }
+
+/* Linha do tempo: linha no meio, eventos alternando os lados */
+.linha-tempo { position: relative; padding: 10px 0 30px; }
+
+.linha-tempo::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: linear-gradient(180deg, transparent, var(--cor) 4%, var(--cor) 96%, transparent);
+  opacity: 0.6;
+}
+
+.marco-era { position: relative; margin: 26px 0 18px; text-align: center; font-size: 1rem; }
+
+.marco-era span {
+  position: relative;
+  display: inline-block;
+  padding: 6px 18px;
+  border: 1px solid var(--cor);
+  border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--ouro-2);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.evento {
+  position: relative;
+  display: flex;
+  width: 50%;
+  margin-bottom: 18px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.evento.esquerda { padding-right: 34px; justify-content: flex-end; }
+.evento.direita { margin-left: 50%; padding-left: 34px; }
+
+/* A bolinha na linha */
+.evento::before {
+  content: '';
+  position: absolute;
+  top: 20px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--cor);
+  border: 3px solid var(--bg);
+  box-shadow: 0 0 0 2px var(--cor);
+}
+
+.evento.esquerda::before { right: -7px; }
+.evento.direita::before { left: -7px; }
+
+.evento-data {
+  position: absolute;
+  top: 14px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  background: var(--cor);
+  color: #1b1408;
+  font-weight: 700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+/* A data fica do outro lado da linha */
+.evento.esquerda .evento-data { left: calc(100% + 18px); }
+.evento.direita .evento-data { right: calc(100% + 18px); }
+
+.evento-cartao {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+  padding: 12px 14px;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: var(--card);
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.evento:hover .evento-cartao { border-color: var(--cor); transform: translateY(-2px); }
+.evento-cartao img { width: 72px; height: 72px; flex-shrink: 0; border-radius: 6px; object-fit: cover; }
+.evento-texto { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.evento-texto strong { font-family: 'Cinzel', Georgia, serif; font-size: 1.05rem; }
+.evento-texto em { color: var(--ouro-2); font-size: 0.9rem; }
+.evento-texto small { color: var(--texto-2); line-height: 1.45; }
+
 /* ---------- Página da seção: busca, filtros e cards ---------- */
 
 .ferramentas { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -592,6 +770,192 @@ a.wiki.inexistente { color: #e8807c; border-bottom: 1px dashed currentColor; }
 .historico .versao { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--borda); max-width: none; }
 .historico .versao .subtitulo { margin: 0 0 12px; }
 
+/* ---------- Pastas de país (lista do Mundo) ---------- */
+
+.pastas { display: flex; flex-direction: column; gap: 14px; }
+
+.pasta-cabeca {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  /* Degradê a partir da cor do país, escurecendo para a direita, com um brilho por cima */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 55%),
+    linear-gradient(90deg,
+      var(--cor) 0%,
+      color-mix(in srgb, var(--cor) 70%, #120e1a) 45%,
+      color-mix(in srgb, var(--cor) 22%, #120e1a) 100%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cor) 60%, transparent), 0 4px 14px rgba(0, 0, 0, 0.35);
+  transition: filter 0.15s;
+}
+
+.pasta-cabeca:hover { filter: brightness(1.12); }
+.pasta-cabeca:focus-visible { outline: 2px solid var(--ouro-2); outline-offset: 2px; }
+
+.pasta-cabeca h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pasta-losango {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin: 0 4px;
+  background: #fff;
+  transform: rotate(45deg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.pasta.outros .pasta-losango { background: transparent; border: 2px solid #fff; }
+
+.pasta-info {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 3px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+
+.pasta-info svg { width: 100%; height: 100%; }
+.pasta-info:hover { background: rgba(255, 255, 255, 0.25); }
+
+.pasta-qtd {
+  margin-left: auto;
+  font-size: 0.8rem;
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.pasta-seta { transition: transform 0.2s; transform: rotate(-90deg); }
+.pasta.aberta .pasta-seta { transform: none; }
+.pasta-itens { display: none; padding: 12px 4px 4px; }
+.pasta.aberta .pasta-itens { display: block; }
+.pasta-vazia { margin: 0; padding: 6px 4px; color: var(--texto-2); font-size: 0.9rem; font-style: italic; }
+
+/* ---------- Ficha do país (por cima do mapa) ---------- */
+
+.sobre-mapa {
+  position: absolute;
+  z-index: 1100;
+  inset: 12px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--borda);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+  background: var(--bg);
+  animation: surgir 0.25s ease;
+}
+
+.sobre-mapa iframe { width: 100%; height: 100%; border: none; display: block; }
+
+.fechar-sobre {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(10, 8, 15, 0.75);
+  font-size: 1rem;
+}
+
+@keyframes surgir { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
+
+/* A página do país dentro da ficha */
+.modo-pais .voltar { display: none; }
+.modo-pais .conteudo { max-width: 980px; padding-top: 0; }
+
+.capa-pais {
+  position: relative;
+  min-height: 220px;
+  margin: 0 -16px 18px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 20% 0%, color-mix(in srgb, var(--cor-pais) 70%, transparent), transparent 70%),
+    linear-gradient(135deg, color-mix(in srgb, var(--cor-pais) 55%, #120e1a), #120e1a);
+  border-bottom: 3px solid var(--cor-pais);
+}
+
+.capa-pais .fundo-capa { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* Escurece embaixo para o nome ficar legível, puxando para a cor do país */
+.capa-pais::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 30%, color-mix(in srgb, var(--cor-pais) 25%, rgba(12, 9, 18, 0.92)) 100%);
+}
+
+.capa-conteudo { position: relative; z-index: 1; padding: 60px 28px 22px; }
+.capa-conteudo h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.2rem); text-shadow: 0 2px 14px #000; }
+.capa-conteudo .secao-artigo { color: #fff; display: flex; align-items: center; gap: 6px; text-shadow: 0 1px 4px #000; }
+.capa-conteudo .secao-artigo svg { width: 16px; height: 16px; color: var(--cor-pais); filter: drop-shadow(0 0 4px #000); }
+.capa-conteudo .subtitulo { color: #e8e0f2; text-shadow: 0 1px 6px #000; }
+.modo-pais .artigo > .acoes { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 20px; }
+.modo-pais .prosa { max-width: none; }
+.modo-pais .prosa img { display: block; margin: 1.2em auto; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5); }
+
+.lugares-pais { margin-top: 32px; }
+.lugares-pais h2 { font-size: 1.05rem; color: var(--ouro-2); margin: 0 0 12px; }
+.lugares-pais ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+
+.lugares-pais a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 10px;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--texto);
+  text-decoration: none;
+}
+
+.lugares-pais a:hover { border-color: var(--ouro); }
+.lugares-pais svg { width: 18px; height: 18px; color: var(--ouro-2); }
+.lugares-pais .gema { width: 10px; height: 10px; border-radius: 50%; background: var(--ouro-2); }
+
+/* ---------- Ponto no mapa e imagem no texto (editor) ---------- */
+
+.campo-ponto {
+  margin: 0 0 14px;
+  padding: 12px 14px 10px;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background: var(--bg-2);
+}
+
+.campo-ponto legend { padding: 0 6px; color: var(--texto-2); font-size: 0.9rem; }
+.campo-ponto .icones-ponto { margin-bottom: 10px; }
+.campo-ponto .linha-estilo { margin-bottom: 0; }
+.campo-ponto .dica strong { color: var(--ouro-2); }
+
+.btn-imagem-texto { margin: 0; padding: 6px 12px; font-size: 0.88rem; color: var(--texto); align-self: center; }
+.btn-imagem-texto.enviando { opacity: 0.6; pointer-events: none; }
+.btn-imagem-texto.enviando::after { content: ' (enviando…)'; }
+
 /* ---------- Sugestões de [[link]] no editor ---------- */
 
 .btn-link { margin-left: auto; }
@@ -728,15 +1092,15 @@ body.pagina-mapa {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  border: 3px solid #fff8e8;
+  border: 2px solid #fff8e8;
   background: var(--cor);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.7);
   cursor: pointer;
   transition: transform 0.15s ease;
 }
 
 /* Com ícone: um selo redondo maior, ícone dentro (branco, ou escuro em cor clara) */
-.ponto-mapa.com-icone span { display: grid; place-items: center; padding: 5px; border-width: 2px; }
+.ponto-mapa.com-icone span { display: grid; place-items: center; padding: 3.5px; border-width: 1.5px; }
 .ponto-mapa.com-icone svg { width: 100%; height: 100%; display: block; }
 
 .ponto-mapa:hover span { transform: scale(1.25); }
@@ -744,8 +1108,8 @@ body.pagina-mapa {
 .ponto-mapa.provisorio span { opacity: 0.75; border-style: dashed; animation: pulsar 1.6s ease-out infinite; }
 
 @keyframes pulsar {
-  0% { box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 0 0 color-mix(in srgb, var(--ouro-2) 80%, transparent); }
-  100% { box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 0 16px transparent; }
+  0% { box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55), 0 0 0 0 color-mix(in srgb, var(--ouro-2) 80%, transparent); }
+  100% { box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55), 0 0 0 12px transparent; }
 }
 
 .leaflet-tooltip.dica-ponto {
@@ -884,4 +1248,20 @@ body.pagina-mapa {
   .divisoria .icone { font-size: 2.6rem; }
   .divisoria small { opacity: 1; transform: none; font-size: 0.9rem; }
   .divisoria::after { font-size: 9rem; }
+
+  /* Fatias viram faixas, uma embaixo da outra */
+  .fatias .fatia { position: relative; inset: auto; flex: 1; filter: none; border-bottom: 1px solid var(--borda); }
+  .fatias .fatia:last-child { border-bottom: none; }
+  .fatias .divisoria { clip-path: none; --lx: 50% !important; --ly: 50% !important; }
+  .fatias .divisoria .icone { font-size: 1.8rem; }
+  .fatias .divisoria small { display: none; }
+  .fatias .divisoria::after { font-size: 6rem; }
+  .fatia-conteudo { flex-direction: row; gap: 12px; max-width: 90vw; }
+
+  /* Linha do tempo com a linha à esquerda */
+  .linha-tempo::before { left: 14px; }
+  .evento, .evento.direita { width: 100%; margin-left: 0; padding: 30px 0 0 40px; justify-content: flex-start; }
+  .evento.esquerda::before, .evento.direita::before { left: 7px; right: auto; top: 8px; }
+  .evento.esquerda .evento-data, .evento.direita .evento-data { left: 40px; right: auto; top: 0; }
+  .marco-era { text-align: left; padding-left: 30px; }
 }

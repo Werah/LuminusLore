@@ -237,6 +237,57 @@ function capaArtigo(a) {
   return `<div class="capa">${emblemaSecao(a.secao)}</div>`;
 }
 
+// ---------- Pontos do mapa: ícones ----------
+
+// Ícones que dá para escolher para um ponto (desenhos 24x24). '' = só o ponto redondo.
+// Para adicionar um: chave só com letras minúsculas, um rótulo e o desenho em SVG.
+const ICONES_MAPA = {
+  '': { rotulo: 'Ponto', svg: '' },
+  cidade: { rotulo: 'Cidade', svg: '<path d="M2 22V12h4V8h3v14zm8 0V3h6v19zm7 0V10h5v12z"/>' },
+  vila: { rotulo: 'Vila', svg: '<path d="M12 3 2 11h3v10h5v-6h4v6h5V11h3z"/>' },
+  castelo: { rotulo: 'Castelo', svg: '<path d="M3 21V7h3v2h2V7h3v2h2V7h3v2h2V7h3v14h-7v-5a2 2 0 0 0-4 0v5z"/>' },
+  caveira: {
+    rotulo: 'Caveira',
+    svg: '<path fill-rule="evenodd" d="M12 2C7 2 3.5 5.6 3.5 10c0 2.6 1.2 4.6 3 5.8V19a1 1 0 0 0 1 1H9v-2h2v2h2v-2h2v2h1.5a1 1 0 0 0 1-1v-3.2c1.8-1.2 3-3.2 3-5.8C20.5 5.6 17 2 12 2zM8.5 13.5a2.2 2.2 0 1 1 0-4.4 2.2 2.2 0 0 1 0 4.4zm7 0a2.2 2.2 0 1 1 0-4.4 2.2 2.2 0 0 1 0 4.4zM12 13.5l-1.2 2.3h2.4z"/>',
+  },
+  floresta: { rotulo: 'Floresta', svg: '<path d="M8 2 3 10h3l-4 6h5v5h2v-5h5l-4-6h3zm9 4-3.5 5.5H16L13 16h3v5h2v-5h3l-3-4.5h2.5z"/>' },
+  espadas: {
+    rotulo: 'Espadas cruzadas',
+    // Uma espada em pé (lâmina, guarda, cabo, pomo) desenhada duas vezes, girada para cada lado
+    svg: ['45', '-45'].map(giro => `<g transform="rotate(${giro} 12 12)">`
+      + '<path d="M12 1.5 13.4 4v11h-2.8V4z"/><rect x="7.5" y="15" width="9" height="2" rx="1"/>'
+      + '<rect x="11" y="17" width="2" height="4"/><circle cx="12" cy="22" r="1.4"/></g>').join(''),
+  },
+  montanha: { rotulo: 'Montanha', svg: '<path d="M1 20 9 6l4.5 7 2.5-3.5L23 20z"/>' },
+  templo: { rotulo: 'Templo', svg: '<path d="M12 2 2 7v2h20V7zM4 10h3v8H4zm6.5 0h3v8h-3zM17 10h3v8h-3zM2 19h20v3H2z"/>' },
+  porto: {
+    rotulo: 'Porto',
+    svg: '<g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="4.5" r="2"/><path d="M12 6.5V21M8 10h8M4 13a8 8 0 0 0 16 0"/></g>',
+  },
+  estrela: { rotulo: 'País (estrela)', svg:'<path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3l-6.2 3.6 1.6-7L2 9.2l7.1-.6z"/>' },
+};
+
+const desenhoSvg = d => `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${d}</svg>`;
+
+// Cor clara pede ícone escuro (senão o ícone branco some)
+function corClara(hex) {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+  return 0.299 * r + 0.587 * g + 0.114 * b > 0.62;
+}
+
+// Ponto com ícone de estrela é um país: os outros textos podem pertencer a ele
+const ICONE_PAIS = 'estrela';
+const ehPais = p => p.mapaIcone === ICONE_PAIS;
+
+// Botões para escolher o ícone (usados no mapa e no editor); "escolhido" fica marcado
+function botoesIcones(escolhido) {
+  return Object.entries(ICONES_MAPA).map(([chave, i]) => `
+    <button type="button" class="${chave === (escolhido || '') ? 'ativo' : ''}" data-icone="${chave}" title="${i.rotulo}" aria-label="${i.rotulo}">
+      ${i.svg ? desenhoSvg(i.svg) : '<span class="gema"></span>'}
+    </button>
+  `).join('');
+}
+
 // ---------- Imagens ----------
 
 // Lê um arquivo de imagem e reduz o tamanho antes de enviar (devolve data URL em JPEG)

@@ -15,6 +15,8 @@
   <main class="tela-mapa" id="tela-mapa">
     <section class="lado-mapa">
       <div id="mapa"></div>
+      <!-- Ficha do país (ícone ⓘ na lista do Mundo): abre por cima do mapa -->
+      <div class="sobre-mapa" id="sobre-mapa" hidden></div>
       <div class="controles-mapa">
         <div class="estilo-ponto" id="estilo-ponto" hidden></div>
         <div class="barra-mapa" id="barra-mapa"></div>
@@ -28,7 +30,8 @@
       <button type="button" data-passo="1" title="Diminuir o texto"><span>›</span></button>
     </div>
     <!-- As páginas de texto (lista do Mundo, verbetes, editor) abrem aqui dentro -->
-    <iframe class="lado-texto" id="painel" title="Texto"></iframe>
+    <!-- name="painel": os links da ficha do país abrem aqui -->
+    <iframe class="lado-texto" id="painel" name="painel" title="Texto"></iframe>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>

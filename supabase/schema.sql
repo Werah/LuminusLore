@@ -38,7 +38,7 @@ $$;
 -- ficam em "detalhes" e são definidos em js/secoes.js.
 create table if not exists public.artigos (
   id            text primary key default gen_random_uuid()::text,
-  secao         text not null check (secao in ('mundo', 'panteao', 'organizacoes')),
+  secao         text not null check (secao in ('mundo', 'historia', 'personagens', 'panteao', 'organizacoes')),
   titulo        text not null check (length(trim(titulo)) > 0),
   subtitulo     text not null default '',
   conteudo      text not null default '',
@@ -66,6 +66,12 @@ alter table public.artigos add column if not exists pais_id text references publ
 alter table public.artigos drop constraint if exists artigos_pais_nao_e_ele_mesmo;
 alter table public.artigos add constraint artigos_pais_nao_e_ele_mesmo check (pais_id is null or pais_id <> id);
 create index if not exists artigos_pais on public.artigos (pais_id);
+
+-- Seções que existem (as mesmas de js/secoes.js). Refeita aqui para quem já tinha rodado
+-- este arquivo antes de existirem História e Personagens.
+alter table public.artigos drop constraint if exists artigos_secao_check;
+alter table public.artigos add constraint artigos_secao_check
+  check (secao in ('mundo', 'historia', 'personagens', 'panteao', 'organizacoes'));
 
 -- Título não se repete (é por ele que os links [[Título]] encontram o texto)
 create unique index if not exists artigos_titulo on public.artigos (lower(titulo));

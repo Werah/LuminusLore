@@ -11,7 +11,7 @@
 <body class="pagina-home">
   <header class="topo" id="topo"></header>
 
-  <main class="divisorias" id="divisorias"></main>
+  <main class="divisorias fatias" id="divisorias"></main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
   <script src="js/config.js"></script>
@@ -22,14 +22,64 @@
     exigirLogin();
     montarTopo('');
 
-    // Uma divisória por seção (vêm de js/secoes.js)
-    document.getElementById('divisorias').innerHTML = Object.values(SECOES).map(s => `
-      <a class="divisoria" href="${paginaDaSecao(s)}" style="--cor: ${s.cor}" data-icone="${s.icone}">
-        <span class="icone">${s.icone}</span>
-        <span class="titulo">${esc(s.nome)}</span>
-        <small>${esc(s.descricao)}</small>
-      </a>
-    `).join('');
+    // Uma fatia por seção, saindo do centro da tela, todas com a mesma área.
+    // Ordem das fatias no sentido horário, começando em cima à esquerda (seções novas entram no fim)
+    const ORDEM = ['mundo', 'personagens', 'organizacoes', 'panteao', 'historia'];
+    const chaves = [...ORDEM.filter(k => SECOES[k]), ...Object.keys(SECOES).filter(k => !ORDEM.includes(k))];
+
+    // A borda da tela é percorrida de 0 a 4 (um lado por unidade, no sentido horário a partir do
+    // canto de cima à esquerda). Do centro, cada lado "vale" exatamente 1/4 da área da tela,
+    // seja ela larga ou estreita; então fatias com o mesmo trecho dessa volta têm a mesma área.
+    function pontoNaBorda(t) {
+      const u = ((t % 4) + 4) % 4;
+      const lado = Math.floor(u);
+      const f = (u - lado) * 100;
+      return [[f, 0], [100, f], [100 - f, 100], [0, 100 - f]][lado];
+    }
+    const INICIO = -0.3;                 // onde começa a primeira fatia (deixa uma fatia bem embaixo)
+    const TRECHO = 4 / chaves.length;
+    const ATE_O_TEXTO = 0.55;            // o nome fica a 55% do caminho entre o centro e a borda
+    const pct = ([x, y]) => `${x.toFixed(2)}% ${y.toFixed(2)}%`;
+
+    const fatias = chaves.map((chave, i) => {
+      const s = SECOES[chave];
+      const t0 = INICIO + i * TRECHO;
+      const t1 = t0 + TRECHO;
+      const pontos = [pontoNaBorda(t0)];
+      for (let canto = Math.floor(t0) + 1; canto < t1; canto++) pontos.push(pontoNaBorda(canto));
+      pontos.push(pontoNaBorda(t1));
+      const meio = pontoNaBorda(t0 + TRECHO / 2);
+      // O centro (--cx, --cy) muda no hover, por isso fica em variável dentro do polígono
+      const forma = `polygon(var(--cx) var(--cy), ${pontos.map(pct).join(', ')})`;
+      const lx = `calc(var(--cx) + (${meio[0].toFixed(2)}% - var(--cx)) * ${ATE_O_TEXTO})`;
+      const ly = `calc(var(--cy) + (${meio[1].toFixed(2)}% - var(--cy)) * ${ATE_O_TEXTO})`;
+      return { s, meio, html: `
+        <div class="fatia">
+          <a class="divisoria" href="${paginaDaSecao(s)}" data-i="${i}" data-icone="${s.icone}"
+             style="--cor: ${s.cor}; --forma: ${forma}; --lx: ${lx}; --ly: ${ly}">
+            <span class="fatia-conteudo">
+              <span class="icone">${s.icone}</span>
+              <span class="titulo">${esc(s.nome)}</span>
+              <small>${esc(s.descricao)}</small>
+            </span>
+          </a>
+        </div>` };
+    });
+
+    const area = document.getElementById('divisorias');
+    area.innerHTML = fatias.map(f => f.html).join('');
+
+    // Hover: o centro se afasta da fatia, que cresce e empurra as outras
+    const EMPURRAO = 0.3;
+    area.querySelectorAll('.divisoria').forEach(a => a.addEventListener('mouseenter', () => {
+      const [mx, my] = fatias[a.dataset.i].meio;
+      area.style.setProperty('--cx', `${50 - (mx - 50) * EMPURRAO}%`);
+      area.style.setProperty('--cy', `${50 - (my - 50) * EMPURRAO}%`);
+    }));
+    area.addEventListener('mouseleave', () => {
+      area.style.removeProperty('--cx');
+      area.style.removeProperty('--cy');
+    });
   </script>
 </body>
 </html>

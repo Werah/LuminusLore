@@ -43,10 +43,8 @@ L.imageOverlay(MAPA.previa, limites).addTo(mapa);
 const completa = L.imageOverlay(MAPA.imagem, limites, { opacity: 0, className: 'mapa-completo' }).addTo(mapa);
 completa.on('load', () => completa.setOpacity(1));
 
-// Dois níveis de detalhe: com o mapa afastado só aparecem os países (pontos com o ícone de estrela);
+// Dois níveis de detalhe: com o mapa afastado só aparecem os países (ehPais, em api.js);
 // chegando mais perto, os países somem e aparecem todos os outros pontos.
-const ICONE_PAIS = 'estrela';
-const ehPais = p => p.mapaIcone === ICONE_PAIS;
 const camadaPaises = L.layerGroup();
 const camadaLocais = L.layerGroup();
 let zoomDetalhe = -2; // a partir deste zoom aparecem os pontos locais (recalculado em ajustarTamanho)
@@ -81,41 +79,6 @@ new ResizeObserver(ajustarTamanho).observe(document.getElementById('mapa'));
 const paraMapa = (x, y) => L.latLng((1 - y) * MAPA.altura, x * MAPA.largura);
 const paraFracao = ll => ({ x: ll.lng / MAPA.largura, y: 1 - ll.lat / MAPA.altura });
 
-// Ícones que dá para escolher para um ponto (desenhos 24x24). '' = só o ponto redondo.
-// Para adicionar um: chave só com letras minúsculas, um rótulo e o desenho em SVG.
-const ICONES_MAPA = {
-  '': { rotulo: 'Ponto', svg: '' },
-  cidade: { rotulo: 'Cidade', svg: '<path d="M2 22V12h4V8h3v14zm8 0V3h6v19zm7 0V10h5v12z"/>' },
-  vila: { rotulo: 'Vila', svg: '<path d="M12 3 2 11h3v10h5v-6h4v6h5V11h3z"/>' },
-  castelo: { rotulo: 'Castelo', svg: '<path d="M3 21V7h3v2h2V7h3v2h2V7h3v2h2V7h3v14h-7v-5a2 2 0 0 0-4 0v5z"/>' },
-  caveira: {
-    rotulo: 'Caveira',
-    svg: '<path fill-rule="evenodd" d="M12 2C7 2 3.5 5.6 3.5 10c0 2.6 1.2 4.6 3 5.8V19a1 1 0 0 0 1 1H9v-2h2v2h2v-2h2v2h1.5a1 1 0 0 0 1-1v-3.2c1.8-1.2 3-3.2 3-5.8C20.5 5.6 17 2 12 2zM8.5 13.5a2.2 2.2 0 1 1 0-4.4 2.2 2.2 0 0 1 0 4.4zm7 0a2.2 2.2 0 1 1 0-4.4 2.2 2.2 0 0 1 0 4.4zM12 13.5l-1.2 2.3h2.4z"/>',
-  },
-  floresta: { rotulo: 'Floresta', svg: '<path d="M8 2 3 10h3l-4 6h5v5h2v-5h5l-4-6h3zm9 4-3.5 5.5H16L13 16h3v5h2v-5h3l-3-4.5h2.5z"/>' },
-  espadas: {
-    rotulo: 'Espadas cruzadas',
-    // Uma espada em pé (lâmina, guarda, cabo, pomo) desenhada duas vezes, girada para cada lado
-    svg: ['45', '-45'].map(giro => `<g transform="rotate(${giro} 12 12)">`
-      + '<path d="M12 1.5 13.4 4v11h-2.8V4z"/><rect x="7.5" y="15" width="9" height="2" rx="1"/>'
-      + '<rect x="11" y="17" width="2" height="4"/><circle cx="12" cy="22" r="1.4"/></g>').join(''),
-  },
-  montanha: { rotulo: 'Montanha', svg: '<path d="M1 20 9 6l4.5 7 2.5-3.5L23 20z"/>' },
-  templo: { rotulo: 'Templo', svg: '<path d="M12 2 2 7v2h20V7zM4 10h3v8H4zm6.5 0h3v8h-3zM17 10h3v8h-3zM2 19h20v3H2z"/>' },
-  porto: {
-    rotulo: 'Porto',
-    svg: '<g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="4.5" r="2"/><path d="M12 6.5V21M8 10h8M4 13a8 8 0 0 0 16 0"/></g>',
-  },
-  estrela: { rotulo: 'País (estrela)', svg:'<path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3l-6.2 3.6 1.6-7L2 9.2l7.1-.6z"/>' },
-};
-
-const desenhoSvg = d => `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${d}</svg>`;
-
-// Cor clara pede ícone escuro (senão o ícone branco some)
-function corClara(hex) {
-  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
-  return 0.299 * r + 0.587 * g + 0.114 * b > 0.62;
-}
 
 // Cor do ponto: a escolhida; se não tiver, a do país dele; se não tiver país, a da seção
 function corDoPonto(p, profundidade = 0) {
@@ -128,13 +91,13 @@ function icone(p) {
   const cor = corDoPonto(p);
   const desenho = ICONES_MAPA[p.mapaIcone]?.svg;
   if (!desenho) {
-    return L.divIcon({ className: 'ponto-mapa', html: `<span style="--cor: ${cor}"></span>`, iconSize: [22, 22], iconAnchor: [11, 11] });
+    return L.divIcon({ className: 'ponto-mapa', html: `<span style="--cor: ${cor}"></span>`, iconSize: [16, 16], iconAnchor: [8, 8] });
   }
   return L.divIcon({
     className: 'ponto-mapa com-icone',
     html: `<span style="--cor: ${cor}; color: ${corClara(cor) ? '#1b1408' : '#fff'}">${desenhoSvg(desenho)}</span>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
   });
 }
 
@@ -151,7 +114,7 @@ async function carregarPontos() {
   for (const info of pontos.values()) {
     const p = info.ponto;
     info.marcador = L.marker(paraMapa(p.mapaX, p.mapaY), { icon: icone(p), riseOnHover: true })
-      .bindTooltip(() => dicaDoPonto(p), { direction: 'top', offset: [0, -12], className: 'dica-ponto' })
+      .bindTooltip(() => dicaDoPonto(p), { direction: 'top', offset: [0, -9], className: 'dica-ponto' })
       .on('click', () => abrir(p.id));
     (ehPais(p) ? camadaPaises : camadaLocais).addLayer(info.marcador);
   }
@@ -258,13 +221,7 @@ function desenharEstilo() {
       <button class="pequeno" data-acao="cor-padrao"${p.mapaCor ? '' : ' disabled'}>${temPais ? 'Usar cor do país' : 'Usar cor da seção'}</button>
       <button class="pequeno fechar-estilo" data-acao="fechar" title="Fechar">✕</button>
     </div>
-    <div class="icones-ponto" style="--cor: ${cor}">
-      ${Object.entries(ICONES_MAPA).map(([chave, i]) => `
-        <button class="${chave === (p.mapaIcone || '') ? 'ativo' : ''}" data-icone="${chave}" title="${i.rotulo}" aria-label="${i.rotulo}">
-          ${i.svg ? desenhoSvg(i.svg) : '<span class="gema"></span>'}
-        </button>
-      `).join('')}
-    </div>
+    <div class="icones-ponto" style="--cor: ${cor}">${botoesIcones(p.mapaIcone)}</div>
     <p class="dica-estilo">A estrela marca um <strong>país</strong>: aparece só com o mapa afastado, e os outros textos podem escolher pertencer a ele (e herdam a cor).</p>
   `;
 }
@@ -319,7 +276,7 @@ function desenharBarra() {
     `;
   } else if (!atual) {
     barra.innerHTML = `
-      <span class="dica-mapa">Clique num ponto para abrir o texto · Botão direito no mapa (ou toque longo) cria um verbete ali</span>
+      <span class="dica-mapa">Clique num ponto para abrir o texto · Botão direito no mapa (ou toque longo) cria um ponto de interesse ali</span>
     `;
   } else if (pontos.has(atual.id)) {
     barra.innerHTML = `
@@ -373,14 +330,14 @@ mapa.on('click', e => {
   posicionar(atual.id, x, y);
 });
 
-// Botão direito (ou toque longo): criar um verbete ali, ou pôr ali o texto aberto
+// Botão direito (ou toque longo): criar um ponto de interesse ali, ou pôr ali o texto aberto
 mapa.on('contextmenu', e => {
   if (!limites.contains(e.latlng)) return;
   const { x, y } = paraFracao(e.latlng);
   const menu = document.createElement('div');
   menu.className = 'menu-mapa';
   menu.innerHTML = `
-    <button class="pequeno primario" data-acao="novo">+ Novo verbete aqui</button>
+    <button class="pequeno primario" data-acao="novo">+ Novo ponto de interesse aqui</button>
     ${atual ? `<button class="pequeno" data-acao="mover">📍 Pôr “${esc(atual.titulo)}” aqui</button>` : ''}
   `;
   menu.addEventListener('click', async ev => {
@@ -482,6 +439,44 @@ try {
 }
 aplicarParte(parte, false);
 ajustarTamanho(); // primeira vista do mapa, já com o tamanho certo do lado dele
+
+// ---------- Ficha do país (por cima do mapa) ----------
+
+// Aberta pelo ícone ⓘ das pastas de país na lista do Mundo. É a página do país (artigo.html)
+// no modo de destaque; os links dela abrem no painel de texto.
+const sobreMapa = document.getElementById('sobre-mapa');
+const janelaFicha = () => sobreMapa.querySelector('iframe')?.contentWindow;
+
+function abrirFichaPais(id) {
+  if (parte < 0.3) aplicarParte(0.5); // com o mapa escondido, a ficha não teria onde aparecer
+  sobreMapa.innerHTML = `
+    <button type="button" class="fechar-sobre" title="Fechar (Esc)">✕</button>
+    <iframe title="Ficha do país" src="artigo.html?id=${encodeURIComponent(id)}&modo=pais"></iframe>
+  `;
+  sobreMapa.querySelector('.fechar-sobre').addEventListener('click', fecharFichaPais);
+  sobreMapa.hidden = false;
+}
+
+// Fecha a ficha (gravando antes, se o editor estiver aberto com mudanças) e atualiza o mapa
+// e a lista, porque a cor, o ícone ou o nome do país podem ter mudado
+async function fecharFichaPais() {
+  const salvar = janelaFicha()?.salvarAlteracoes;
+  if (salvar && (await salvar()) !== true) return;
+  sobreMapa.hidden = true;
+  sobreMapa.innerHTML = '';
+  carregarPontos().catch(() => {});
+  if (painel.contentWindow.location.pathname.endsWith(SECOES.mundo.pagina)) painel.contentWindow.location.reload();
+}
+
+window.addEventListener('message', e => {
+  if (e.origin !== location.origin) return;
+  if (e.source === painel.contentWindow && e.data?.tipo === 'abrir-pais') abrirFichaPais(e.data.id);
+  if (e.source === janelaFicha() && e.data?.tipo === 'fechar-pais') fecharFichaPais();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !sobreMapa.hidden && !marcando) fecharFichaPais();
+});
 
 // ---------- Conversa com o painel de texto ----------
 
