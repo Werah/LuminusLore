@@ -5,7 +5,10 @@ exigirLogin();
 
 const chave = document.body.dataset.secao;
 const SECAO = SECOES[chave];
+// Seção com mapa (Mundo): a lista aparece no painel de texto do mapa
+if (SECAO.mapa && !embutido) location.replace(SECAO.mapa.pagina);
 montarTopo(SECAO.nome);
+avisarMapa(null);
 
 const lista = document.getElementById('lista');
 const filtros = document.getElementById('filtros');

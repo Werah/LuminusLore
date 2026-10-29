@@ -3,6 +3,8 @@
 //   artigo.html?secao=mundo&titulo=...  escreve um texto novo (o título é opcional)
 //   artigo.html?titulo=...              usado pelos links [[Título]]: abre o texto com esse título,
 //                                       ou oferece criar se ainda não existir
+//   artigo.html?secao=mundo&x=..&y=..   texto novo que já nasce com ponto no mapa (vem do mapa.html)
+// Textos de seção com mapa (Mundo) abrem no painel do mapa.html.
 
 exigirLogin();
 montarTopo('');
@@ -30,6 +32,10 @@ async function iniciar() {
     if (id) {
       artigo = await banco.buscarArtigo(id);
       secao = artigo.secao;
+      if (SECOES[secao].mapa && !embutido) {
+        location.replace(`${SECOES[secao].mapa.pagina}?id=${encodeURIComponent(id)}`);
+        return;
+      }
       montarTopo(SECOES[secao].nome);
       desenharTexto();
     } else if (SECOES[params.get('secao')]) {
@@ -53,6 +59,7 @@ async function iniciar() {
 function desenharTexto() {
   const s = SECOES[secao];
   document.title = `${artigo.titulo} - LuminusLore`;
+  avisarMapa(artigo);
 
   const ficha = s.campos
     .filter(c => artigo.detalhes[c.chave])
@@ -131,6 +138,7 @@ async function carregarMencoes() {
 
 function desenharInexistente(titulo) {
   document.title = `${titulo} - LuminusLore`;
+  avisarMapa(null);
   pagina.innerHTML = `
     <div class="vazio caixa-inexistente">
       <h2>“${esc(titulo)}” ainda não foi escrito</h2>
@@ -150,6 +158,12 @@ function editar(tituloInicial = '') {
   const s = SECOES[secao];
   const a = artigo || { titulo: tituloInicial, subtitulo: '', conteudo: '', detalhes: {}, imagem: '' };
   document.title = `${artigo ? `Editando ${artigo.titulo}` : s.novo} - LuminusLore`;
+  avisarMapa(artigo);
+
+  // Texto novo criado com o botão direito no mapa: já nasce com o ponto
+  const pontoNovo = !artigo && params.has('x') && params.has('y')
+    ? { x: Number(params.get('x')), y: Number(params.get('y')) }
+    : null;
 
   const campos = s.campos.map(c => {
     const valor = a.detalhes[c.chave] || '';
@@ -174,6 +188,7 @@ function editar(tituloInicial = '') {
     <form class="editor" id="form-artigo" style="--cor: ${s.cor}">
       <p class="secao-artigo">${s.icone} ${esc(s.nome)}</p>
       <h1>${artigo ? `Editando “${esc(artigo.titulo)}”` : esc(s.novo)}</h1>
+      ${pontoNovo ? '<p class="aviso-ponto">📍 Este texto vai ficar no ponto que você marcou no mapa.</p>' : ''}
 
       <div class="duas-colunas">
         <label>Título*
@@ -200,12 +215,13 @@ function editar(tituloInicial = '') {
         <div class="abas abas-editor">
           <button type="button" class="ativo" data-aba="escrever">Escrever</button>
           <button type="button" data-aba="ver">Pré-visualizar</button>
+          <button type="button" class="btn-link" title="Link para outro texto">🔗 Link</button>
         </div>
         <textarea name="conteudo" class="texto-grande" placeholder="Escreva aqui…">${esc(a.conteudo)}</textarea>
         <div class="prosa previa" hidden></div>
         <p class="dica">
           <code>**negrito**</code> <code>*itálico*</code> <code># Título</code> <code>- lista</code> <code>&gt; citação</code>
-          · Link para outro texto: <code>[[Nome do texto]]</code> ou <code>[[Nome do texto|como aparece]]</code>
+          · Link para outro texto: digite <code>[[</code> e escolha, ou <code>[[Nome do texto|como aparece]]</code>
           · <kbd>Ctrl</kbd>+<kbd>S</kbd> salva
         </p>
       </div>
@@ -230,8 +246,21 @@ function editar(tituloInicial = '') {
   form.addEventListener('change', () => { alterado = true; });
   if (!artigo) form.titulo.focus();
 
+  // Digitar [[ sugere os títulos (no texto e nos campos da ficha, que também aceitam links)
+  ligarSugestaoDeLinks(textarea, titulos);
+  form.querySelectorAll('input[name^="d-"]').forEach(campo => ligarSugestaoDeLinks(campo, titulos));
+
   // Escrever / Pré-visualizar
-  const abas = form.querySelectorAll('.abas-editor button');
+  const abas = form.querySelectorAll('.abas-editor button[data-aba]');
+
+  // Botão "Link": escreve [[ onde está o cursor, e aí aparecem as sugestões
+  form.querySelector('.btn-link').addEventListener('click', () => {
+    if (textarea.hidden) abas[0].click();
+    textarea.focus();
+    textarea.setRangeText('[[', textarea.selectionStart, textarea.selectionEnd, 'end');
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
   abas.forEach(aba => aba.addEventListener('click', () => {
     const ver = aba.dataset.aba === 'ver';
     abas.forEach(b => b.classList.toggle('ativo', b === aba));
@@ -268,9 +297,11 @@ function editar(tituloInicial = '') {
     semCliqueDuplo(form, async () => {
       try {
         // Guarda em "artigo" logo depois de salvar: se a imagem falhar, tentar de novo não cria outro texto
+        const novo = !artigo;
         artigo = artigo
           ? await banco.salvarArtigo(artigo.id, dados, artigo.atualizadoEm)
           : await banco.criarArtigo(dados);
+        if (novo && pontoNovo) await banco.posicionar(artigo.id, pontoNovo.x, pontoNovo.y);
         await campoImagem.salvar(artigo.id);
         alterado = false;
         location.replace(`artigo.html?id=${encodeURIComponent(artigo.id)}`);

@@ -24,7 +24,7 @@
 
     // Uma divisória por seção (vêm de js/secoes.js)
     document.getElementById('divisorias').innerHTML = Object.values(SECOES).map(s => `
-      <a class="divisoria" href="${s.pagina}" style="--cor: ${s.cor}" data-icone="${s.icone}">
+      <a class="divisoria" href="${paginaDaSecao(s)}" style="--cor: ${s.cor}" data-icone="${s.icone}">
         <span class="icone">${s.icone}</span>
         <span class="titulo">${esc(s.nome)}</span>
         <small>${esc(s.descricao)}</small>

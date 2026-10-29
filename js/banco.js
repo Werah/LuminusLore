@@ -176,6 +176,29 @@ const banco = (() => {
     return linhas.filter(l => link.test(l.conteudo));
   }
 
+  // ---------- Mapa ----------
+
+  // Textos que têm ponto no mapa (de qualquer seção)
+  async function pontosDoMapa() {
+    const linhas = await rodar(de('artigos').select('id, titulo, subtitulo, secao, mapa_x, mapa_y, mapa_cor, mapa_icone')
+      .not('mapa_x', 'is', null).not('mapa_y', 'is', null));
+    return linhas.map(doBanco);
+  }
+
+  // Coloca, move ou (com x/y null) tira o texto do mapa. x/y em fração da imagem (0 a 1).
+  async function posicionar(id, x, y) {
+    const dentro = v => (v === null ? null : Math.min(1, Math.max(0, Number(v))));
+    await rodar(de('artigos').update({ mapa_x: dentro(x), mapa_y: dentro(y) }).eq('id', id));
+  }
+
+  // Cor (#rrggbb, ou '' para a cor da seção) e ícone (ou '' para só o ponto) do ponto no mapa
+  async function estilizarPonto(id, cor, icone) {
+    await rodar(de('artigos').update({
+      mapa_cor: /^#[0-9a-fA-F]{6}$/.test(cor) ? cor.toLowerCase() : '',
+      mapa_icone: /^[a-z]{1,20}$/.test(icone) ? icone : '',
+    }).eq('id', id));
+  }
+
   // ---------- Membros ----------
 
   // Nome de cada membro, para mostrar quem escreveu: mapa e-mail -> nome
@@ -220,6 +243,6 @@ const banco = (() => {
 
   return {
     titulos, listarArtigos, buscarArtigo, criarArtigo, salvarArtigo, excluirArtigo,
-    revisoes, mencoes, nomes, urlImagem, trocarImagem, removerImagem,
+    revisoes, mencoes, pontosDoMapa, posicionar, estilizarPonto, nomes, urlImagem, trocarImagem, removerImagem,
   };
 })();

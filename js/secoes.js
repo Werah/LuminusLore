@@ -14,6 +14,15 @@ const SECOES = {
     descricao: 'Terras, povos, eras e lugares do cenário',
     novo: 'Novo verbete',
     subtitulo: { rotulo: 'Resumo em uma linha', dica: 'Ex.: O reino das mil pontes' },
+    // O Mundo abre no mapa: metade mapa, metade texto. As imagens são geradas por
+    // ferramentas/preparar_mapa.py; largura/altura são as da imagem original (o script mostra).
+    mapa: {
+      pagina: 'mapa.html',
+      imagem: 'mapa/mapa.webp',
+      previa: 'mapa/mapa-previa.webp',
+      largura: 5068,
+      altura: 5635,
+    },
     campos: [
       { chave: 'categoria', rotulo: 'Categoria', opcoes: ['Região', 'Reino', 'Cidade', 'Lugar', 'Povo', 'Era / História', 'Cultura', 'Criatura', 'Outro'] },
       { chave: 'localizacao', rotulo: 'Fica em', dica: 'Ex.: [[Costa de Vel]]' },

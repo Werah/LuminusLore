@@ -14,9 +14,11 @@ são as regras de segurança do banco (`supabase/schema.sql`).
 ```
 index.html                   login
 home.html                    escolha da seção
+mapa.html                    o Mundo: metade mapa, metade texto (js/mapa.js)
 mundo.html, panteao.html,
 organizacoes.html            lista de textos de cada seção (todas usam js/secao.js)
 artigo.html                  ler, escrever, histórico de um texto
+mapa/                        imagens do mapa (geradas por ferramentas/preparar_mapa.py)
 css/style.css                visual
 js/config.js                 URL e chave pública do Supabase
 js/secoes.js                 as seções: nome, cor, ícone, categorias e campos da ficha
@@ -77,6 +79,8 @@ Para mudar o nome que aparece: `update public.membros set nome = 'Novo nome' whe
 - O texto aceita **Markdown**: `**negrito**`, `*itálico*`, `# Título`, `- lista`, `> citação`.
   O botão **Pré-visualizar** mostra como vai ficar.
 - **Links entre textos:** `[[Nome do texto]]` ou `[[Nome do texto|texto que aparece]]`.
+  Ao digitar `[[` aparece a lista de títulos para escolher (setas + Enter, ou clique); o botão
+  **🔗 Link** do editor faz o mesmo.
   Link para um texto que ainda não existe aparece tracejado em vermelho; clicando nele dá para criar.
   Os campos da ficha (ex.: *Sede*, *Divindade ligada*) também aceitam links.
 - No fim de cada texto aparece **Mencionado em**, com os textos que têm link para ele.
@@ -84,6 +88,36 @@ Para mudar o nome que aparece: `update public.membros set nome = 'Novo nome' whe
 - **Histórico:** toda vez que alguém salva, a versão anterior fica guardada. Dá para ver e restaurar.
 - Se duas pessoas editarem o mesmo texto ao mesmo tempo, quem salvar depois recebe um aviso
   em vez de apagar o que a outra escreveu.
+
+## O mapa (Mundo)
+
+A seção Mundo abre em `mapa.html`: o mapa à esquerda (roda do mouse dá zoom, arrastar move)
+e o texto à direita.
+
+- **Pontos:** cada texto pode ter um ponto no mapa. Clicar no ponto abre o texto ao lado.
+- **Criar um verbete num lugar:** botão direito no mapa (toque longo no celular) → *Novo verbete aqui*.
+- **Pôr no mapa um texto que já existe:** abra o texto e clique em *📍 Marcar no mapa* (barra embaixo
+  do mapa), depois clique no lugar. A mesma barra tem *Mover ponto* e *Tirar do mapa*.
+  Textos do Panteão e das Organizações também podem ter ponto (um templo, uma sede).
+- **Cor e ícone do ponto:** botão *🎨 Cor e ícone* na barra (abre sozinho quando o texto ganha
+  o primeiro ponto). Ícones: cidade, vila, castelo, caveira, floresta, espadas cruzadas, montanha,
+  templo, porto e estrela. Sem cor escolhida, o ponto usa a cor da seção. Para criar ícones novos,
+  veja `ICONES_MAPA` em `js/mapa.js`.
+- **Links andam pelo mapa:** clicar num `[[link]]` dentro do texto abre o outro texto no painel
+  e o mapa vai até o ponto dele.
+
+### Trocar a imagem do mapa
+
+A imagem original (`mapa/*.png`) é pesada demais para o site e não vai para o GitHub (está no
+`.gitignore`). O site usa versões comprimidas, geradas assim:
+
+```bash
+python ferramentas/preparar_mapa.py "mapa/Artia Mapa Mundi.png"
+```
+
+Se a nova imagem tiver outro tamanho, atualize `largura` e `altura` em `js/secoes.js` (o script
+mostra os valores). Os pontos são guardados em proporção da imagem, então continuam no lugar
+se o mapa novo for o mesmo desenho em outra resolução.
 
 ## Mudar categorias e campos
 

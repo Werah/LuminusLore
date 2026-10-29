@@ -1,6 +1,22 @@
 // Funções de tela compartilhadas por todas as páginas
 // (login, consultas e imagens ficam em banco.js)
 
+// Página aberta dentro do painel de texto do mapa (mapa.html)? Aí o topo some.
+const embutido = window.self !== window.top;
+if (embutido) document.documentElement.classList.add('embutido');
+
+// Conta para o mapa qual texto o painel está mostrando (null = nenhum: lista, texto inexistente...)
+function avisarMapa(artigo) {
+  if (!embutido) return;
+  const dados = artigo ? { id: artigo.id, titulo: artigo.titulo, secao: artigo.secao } : null;
+  window.parent.postMessage({ tipo: 'artigo', artigo: dados }, location.origin);
+}
+
+// Para onde o link de uma seção leva (o Mundo vai para o mapa)
+function paginaDaSecao(s) {
+  return s.mapa ? s.mapa.pagina : s.pagina;
+}
+
 // Evita que texto digitado vire HTML
 function esc(texto) {
   return String(texto ?? '')
@@ -79,6 +95,121 @@ function linhaComLinks(texto, titulos) {
 function renderizarTexto(texto, titulos) {
   const comLinks = String(texto || '').replace(LINK_WIKI, (_, alvo, rotulo) => linkWiki(alvo, rotulo, titulos));
   return DOMPurify.sanitize(marked.parse(comLinks, { breaks: true, gfm: true }));
+}
+
+// Posição na tela logo abaixo do cursor de um campo de texto.
+// No textarea, copia o texto até o cursor numa div invisível com o mesmo estilo e mede onde ele termina.
+function posicaoDoCursor(campo) {
+  const caixa = campo.getBoundingClientRect();
+  let x = caixa.left;
+  let y = caixa.bottom;
+  if (campo.tagName === 'TEXTAREA') {
+    const estilo = getComputedStyle(campo);
+    const espelho = document.createElement('div');
+    for (const p of ['boxSizing', 'width', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+      'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+      'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'wordSpacing', 'tabSize']) {
+      espelho.style[p] = estilo[p];
+    }
+    Object.assign(espelho.style, {
+      position: 'fixed', top: '0', left: '0', visibility: 'hidden', whiteSpace: 'pre-wrap', overflowWrap: 'break-word',
+    });
+    espelho.textContent = campo.value.slice(0, campo.selectionStart);
+    const marca = document.createElement('span');
+    marca.textContent = '​';
+    espelho.appendChild(marca);
+    document.body.appendChild(espelho);
+    const linha = parseFloat(estilo.lineHeight) || parseFloat(estilo.fontSize) * 1.4;
+    x = caixa.left + marca.offsetLeft - campo.scrollLeft;
+    y = caixa.top + marca.offsetTop - campo.scrollTop + linha;
+    espelho.remove();
+  }
+  return { x: Math.max(8, Math.min(x, innerWidth - 300)), y: Math.min(y + 4, innerHeight - 60) };
+}
+
+/**
+ * Ao digitar [[ num campo de texto, mostra os títulos que combinam com o que vem depois.
+ * Escolher (clique, Enter ou Tab) completa para [[Título]]. "titulos" é o mapa de banco.titulos().
+ */
+function ligarSugestaoDeLinks(campo, titulos) {
+  const lista = document.createElement('ul');
+  lista.className = 'sugestoes-link';
+  lista.hidden = true;
+  document.body.appendChild(lista);
+  let opcoes = [];
+  let escolhida = 0;
+  let inicio = 0; // onde começa o que foi digitado depois do [[
+
+  function fechar() {
+    lista.hidden = true;
+    opcoes = [];
+  }
+
+  function marcar(i) {
+    escolhida = (i + opcoes.length) % opcoes.length;
+    lista.querySelectorAll('li').forEach((li, j) => li.classList.toggle('ativa', j === escolhida));
+  }
+
+  function atualizar() {
+    const antes = campo.value.slice(0, campo.selectionStart);
+    const m = antes.match(/\[\[([^[\]|\n]*)$/);
+    if (!m || campo.selectionStart !== campo.selectionEnd) return fechar();
+    inicio = antes.length - m[1].length;
+    const termo = normalizar(m[1].trim());
+    const comeca = t => (normalizar(t.titulo).startsWith(termo) ? 0 : 1);
+    opcoes = [...titulos.values()]
+      .filter(t => normalizar(t.titulo).includes(termo))
+      .sort((a, b) => comeca(a) - comeca(b) || a.titulo.localeCompare(b.titulo))
+      .slice(0, 8);
+    if (!opcoes.length) {
+      lista.innerHTML = '<li class="nenhuma">Nenhum texto com esse nome (o link fica vermelho até alguém criar)</li>';
+    } else {
+      lista.innerHTML = opcoes.map((t, i) => `<li data-i="${i}">${SECOES[t.secao]?.icone || ''} ${esc(t.titulo)}</li>`).join('');
+      marcar(0);
+    }
+    const pos = posicaoDoCursor(campo);
+    lista.style.left = `${pos.x}px`;
+    lista.style.top = `${pos.y}px`;
+    lista.hidden = false;
+  }
+
+  function escolher(i) {
+    const titulo = opcoes[i].titulo;
+    const fim = campo.selectionStart;
+    // Se o cursor estava no meio de um link já fechado ("[[Mar|essa]]"), troca o link inteiro
+    const depois = campo.value.slice(fim).replace(/^[^[\]\n]*\]\]/, '');
+    campo.value = campo.value.slice(0, inicio) + titulo + ']]' + depois;
+    const cursor = inicio + titulo.length + 2;
+    campo.setSelectionRange(cursor, cursor);
+    fechar();
+    campo.focus();
+    campo.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  campo.addEventListener('input', atualizar);
+  campo.addEventListener('click', atualizar);
+  campo.addEventListener('blur', () => setTimeout(fechar, 150));
+  campo.addEventListener('scroll', fechar);
+  window.addEventListener('scroll', fechar, true);
+  campo.addEventListener('keydown', e => {
+    if (lista.hidden) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      fechar();
+    } else if (opcoes.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      marcar(escolhida + (e.key === 'ArrowDown' ? 1 : -1));
+    } else if (opcoes.length && (e.key === 'Enter' || e.key === 'Tab')) {
+      e.preventDefault();
+      escolher(escolhida);
+    }
+  });
+  // mousedown (e não click) para escolher antes do campo perder o foco
+  lista.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const li = e.target.closest('li[data-i]');
+    if (li) escolher(Number(li.dataset.i));
+  });
 }
 
 // Começo do texto sem a marcação, para mostrar nos cards
@@ -187,7 +318,7 @@ function ligarCampoImagem(raiz, semImagem) {
 // Monta a barra do topo; "atual" é o nome da seção ativa
 function montarTopo(atual) {
   const nav = Object.values(SECOES)
-    .map(s => `<a href="${s.pagina}" class="${s.nome === atual ? 'ativo' : ''}">${s.nome}</a>`)
+    .map(s => `<a href="${paginaDaSecao(s)}" class="${s.nome === atual ? 'ativo' : ''}">${s.nome}</a>`)
     .join('');
   document.getElementById('topo').innerHTML = `
     <a class="marca" href="home.html">✦ LuminusLore</a>

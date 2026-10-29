@@ -50,6 +50,16 @@ create table if not exists public.artigos (
   atualizado_em timestamptz not null default now()
 );
 
+-- Ponto no mapa (waypoint). Posição em fração da imagem: 0 = esquerda/topo, 1 = direita/base.
+-- Vazio = o texto não está no mapa. ("add column if not exists" para quem já tinha rodado este arquivo)
+alter table public.artigos add column if not exists mapa_x double precision check (mapa_x between 0 and 1);
+alter table public.artigos add column if not exists mapa_y double precision check (mapa_y between 0 and 1);
+-- Aparência do ponto: cor (#rrggbb; vazio = cor da seção) e ícone (nomes em js/mapa.js; vazio = só o ponto)
+alter table public.artigos add column if not exists mapa_cor text not null default ''
+  check (mapa_cor = '' or mapa_cor ~ '^#[0-9a-fA-F]{6}$');
+alter table public.artigos add column if not exists mapa_icone text not null default ''
+  check (mapa_icone ~ '^[a-z]{0,20}$');
+
 -- Título não se repete (é por ele que os links [[Título]] encontram o texto)
 create unique index if not exists artigos_titulo on public.artigos (lower(titulo));
 create index if not exists artigos_secao on public.artigos (secao, titulo);
@@ -70,7 +80,9 @@ create index if not exists revisoes_artigo on public.revisoes (artigo_id, editad
 
 -- ---------- Regras ----------
 
--- Quem criou / editou e quando: o banco preenche, o navegador não consegue mudar
+-- Quem criou / editou e quando: o banco preenche, o navegador não consegue mudar.
+-- Só conta como edição mudar o texto; mexer só na imagem ou no ponto do mapa não muda
+-- "atualizado_em" (assim marcar o mapa com o editor aberto não dá aviso de conflito).
 create or replace function public.carimbar_artigo()
 returns trigger
 language plpgsql
@@ -82,6 +94,12 @@ begin
   else
     new.criado_por := old.criado_por;
     new.criado_em := old.criado_em;
+    if (old.secao, old.titulo, old.subtitulo, old.conteudo, old.detalhes)
+       is not distinct from (new.secao, new.titulo, new.subtitulo, new.conteudo, new.detalhes) then
+      new.editado_por := old.editado_por;
+      new.atualizado_em := old.atualizado_em;
+      return new;
+    end if;
   end if;
   new.editado_por := public.email_atual();
   new.atualizado_em := now();

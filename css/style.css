@@ -588,12 +588,211 @@ a.wiki.inexistente { color: #e8807c; border-bottom: 1px dashed currentColor; }
 .historico .versao { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--borda); max-width: none; }
 .historico .versao .subtitulo { margin: 0 0 12px; }
 
+/* ---------- Sugestões de [[link]] no editor ---------- */
+
+.btn-link { margin-left: auto; }
+
+.sugestoes-link {
+  position: fixed;
+  z-index: 50;
+  min-width: 220px;
+  max-width: 300px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--card);
+  border: 1px solid var(--ouro);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.sugestoes-link li {
+  padding: 6px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sugestoes-link li.ativa, .sugestoes-link li[data-i]:hover { background: color-mix(in srgb, var(--ouro) 22%, var(--card)); }
+.sugestoes-link li.nenhuma { color: var(--texto-2); font-size: 0.85rem; white-space: normal; cursor: default; }
+
+.aviso-ponto { color: var(--ouro-2); margin: -10px 0 18px; }
+
+/* ---------- Mapa do Mundo: metade mapa, metade texto ---------- */
+
+/* Página aberta dentro do painel do mapa: sem o topo */
+.embutido .topo { display: none; }
+
+body.pagina-mapa {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tela-mapa { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; }
+.lado-mapa { position: relative; min-width: 0; min-height: 0; }
+#mapa { position: absolute; inset: 0; background: #0b1a26; }
+#mapa.marcando { cursor: crosshair; }
+
+.lado-texto {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-left: 1px solid var(--borda);
+  background: var(--bg);
+}
+
+.leaflet-container { font: inherit; }
+.mapa-completo { transition: opacity 0.6s ease; }
+
+.leaflet-bar a, .leaflet-bar a:hover {
+  background: var(--card);
+  color: var(--texto);
+  border-bottom-color: var(--borda);
+}
+
+.leaflet-bar { border: 1px solid var(--borda) !important; }
+.leaflet-bar a:hover { color: var(--ouro-2); }
+
+/* Ponto no mapa: uma gema na cor da seção; o do texto aberto pulsa */
+.ponto-mapa span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 3px solid #fff8e8;
+  background: var(--cor);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.7);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+/* Com ícone: um selo redondo maior, ícone dentro (branco, ou escuro em cor clara) */
+.ponto-mapa.com-icone span { display: grid; place-items: center; padding: 5px; border-width: 2px; }
+.ponto-mapa.com-icone svg { width: 100%; height: 100%; display: block; }
+
+.ponto-mapa:hover span { transform: scale(1.25); }
+.ponto-mapa.ativo span { transform: scale(1.35); border-color: var(--ouro-2); animation: pulsar 1.6s ease-out infinite; }
+.ponto-mapa.provisorio span { opacity: 0.75; border-style: dashed; animation: pulsar 1.6s ease-out infinite; }
+
+@keyframes pulsar {
+  0% { box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 0 0 color-mix(in srgb, var(--ouro-2) 80%, transparent); }
+  100% { box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 0 16px transparent; }
+}
+
+.leaflet-tooltip.dica-ponto {
+  background: rgba(20, 16, 28, 0.95);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  font-size: 0.9rem;
+}
+
+.leaflet-tooltip.dica-ponto strong { font-family: 'Cinzel', Georgia, serif; color: var(--ouro-2); }
+.leaflet-tooltip.dica-ponto small { color: var(--texto-2); }
+.leaflet-tooltip-top.dica-ponto::before { border-top-color: var(--borda); }
+
+.popup-mapa .leaflet-popup-content-wrapper, .popup-mapa .leaflet-popup-tip {
+  background: var(--card);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+}
+
+.popup-mapa .leaflet-popup-content { margin: 10px; }
+.menu-mapa { display: flex; flex-direction: column; gap: 6px; }
+.menu-mapa button { text-align: left; }
+
+/* Embaixo do mapa: caixa de cor/ícone (quando aberta) em cima da barra de ações */
+.controles-mapa {
+  position: absolute;
+  z-index: 1000;
+  left: 12px;
+  right: 12px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none; /* o vão entre as caixas não bloqueia o mapa */
+}
+
+.controles-mapa > * { pointer-events: auto; }
+
+.barra-mapa {
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(20, 16, 28, 0.92);
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  font-size: 0.9rem;
+}
+
+.barra-mapa:empty { display: none; }
+.barra-mapa button.ativo { border-color: var(--ouro); color: var(--ouro-2); }
+
+/* Caixa de cor e ícone do ponto, logo acima da barra */
+.estilo-ponto {
+  width: min(380px, 100%);
+  padding: 12px;
+  background: rgba(20, 16, 28, 0.95);
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+.linha-estilo { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.campo-cor { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--texto); }
+.campo-cor input { width: 44px; height: 30px; margin: 0; padding: 2px; cursor: pointer; }
+.fechar-estilo { margin-left: auto; }
+
+.icones-ponto { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 6px; }
+
+.icones-ponto button {
+  height: 38px;
+  padding: 6px;
+  display: grid;
+  place-items: center;
+  color: var(--cor);
+  background: var(--bg-2);
+}
+
+.icones-ponto button svg { width: 22px; height: 22px; }
+.icones-ponto button.ativo { border-color: var(--ouro); background: color-mix(in srgb, var(--cor) 25%, var(--bg-2)); }
+
+.icones-ponto .gema {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--cor);
+  border: 2px solid #fff8e8;
+}
+.barra-mapa .nome-atual { font-family: 'Cinzel', Georgia, serif; color: var(--ouro-2); }
+.barra-mapa .dica-mapa { color: var(--texto-2); text-align: center; }
+.barra-mapa .erro { margin: 0; }
+
 /* ---------- Telas menores ---------- */
 
 @media (max-width: 800px) {
   /* Ficha em cima do texto */
   .corpo-artigo { grid-template-columns: minmax(0, 1fr); grid-template-areas: "ficha" "prosa"; gap: 24px; }
   .ficha { position: static; }
+
+  /* Mapa em cima, texto embaixo */
+  .tela-mapa { grid-template-columns: 1fr; grid-template-rows: 45% 55%; }
+  .lado-texto { border-left: none; border-top: 1px solid var(--borda); }
+  .controles-mapa { bottom: 8px; }
+  .barra-mapa { font-size: 0.82rem; }
 }
 
 @media (max-width: 700px) {
