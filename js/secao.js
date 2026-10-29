@@ -64,10 +64,59 @@ async function carregar() {
     [artigos, nomes] = await Promise.all([banco.listarArtigos(chave), banco.nomes()]);
     desenharFiltros();
     desenhar();
+    carregarExcluidos();
   } catch (e) {
     lista.innerHTML = `<p class="vazio">${esc(e.message)}</p>`;
   }
 }
+
+// ---------- Textos excluídos ----------
+
+// No fim da lista: os textos excluídos desta seção, com o botão de restaurar.
+// (O banco guarda uma cópia de tudo ao excluir; o histórico nunca é apagado.)
+lista.insertAdjacentHTML('afterend', '<details class="lixeira" id="lixeira" hidden></details>');
+const lixeira = document.getElementById('lixeira');
+let excluidos = [];
+
+async function carregarExcluidos() {
+  try {
+    excluidos = await banco.excluidos(chave);
+  } catch {
+    return; // Não é essencial: se falhar, só não mostra
+  }
+  lixeira.hidden = !excluidos.length;
+  lixeira.innerHTML = `
+    <summary>🗑 Textos excluídos <span class="qtd">${excluidos.length}</span></summary>
+    <ul>${excluidos.map((r, i) => {
+      const resumo = resumoTexto(r.linha.conteudo || '', 220);
+      return `
+        <li>
+          <div class="cabeca">
+            <strong>${esc(r.titulo)}</strong>
+            <span>excluído por ${esc(nomeDe(r.excluidoPor, nomes))} em ${formatarDataHora(r.excluidoEm)}</span>
+          </div>
+          ${r.linha.subtitulo ? `<p class="subtitulo">${esc(r.linha.subtitulo)}</p>` : ''}
+          ${resumo ? `<p class="resumo">${esc(resumo)}</p>` : ''}
+          <button class="pequeno" data-restaurar="${i}">Restaurar</button>
+        </li>`;
+    }).join('')}</ul>
+  `;
+}
+
+lixeira.addEventListener('click', async e => {
+  const botao = e.target.closest('[data-restaurar]');
+  if (!botao) return;
+  const r = excluidos[botao.dataset.restaurar];
+  if (!confirm(`Restaurar “${r.titulo}”? Ele volta com o histórico, a imagem e o ponto no mapa.`)) return;
+  botao.disabled = true;
+  try {
+    const id = await banco.restaurarExcluido(r.id);
+    location.href = `artigo.html?id=${encodeURIComponent(id)}`;
+  } catch (err) {
+    alert(err.message);
+    botao.disabled = false;
+  }
+});
 
 function valorFiltro(a) {
   return campoFiltro ? a.detalhes[campoFiltro.chave] || '' : '';
@@ -97,8 +146,16 @@ function desenharFiltros() {
 // Resumo do card: o texto principal ou, sem ele, o primeiro campo longo preenchido (ex.: Descrição)
 const resumoDe = a => a.conteudo || SECAO.campos.filter(c => c.longo).map(c => a.detalhes[c.chave]).find(Boolean) || '';
 
+// Selo "✎ Ana editando" nos cards dos textos que alguém está editando agora
+let meuEmail = '';
+emailAtual().then(e => { meuEmail = e; });
+edicao.ouvir(() => {
+  if (artigos.length) desenhar();
+});
+
 function card(a, cor) {
   const resumo = resumoDe(a);
+  const editores = edicao.agora(a.id);
   return `
     <a class="card clicavel artigo-card" href="artigo.html?id=${encodeURIComponent(a.id)}" style="--cor: ${cor}">
       ${capaArtigo(a)}
@@ -110,6 +167,7 @@ function card(a, cor) {
         ${a.subtitulo ? `<p class="subtitulo">${esc(a.subtitulo)}</p>` : ''}
         ${resumo ? `<p class="descricao">${esc(resumoTexto(resumo))}</p>` : ''}
         <p class="info rodape-card">✎ ${esc(nomeDe(a.editadoPor, nomes))} · ${formatarData(a.atualizadoEm)}</p>
+        ${editores.length ? `<p class="editando-agora">✎ ${esc(nomesEditando(editores, nomes, meuEmail))} editando agora</p>` : ''}
       </div>
     </a>
   `;

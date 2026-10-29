@@ -781,6 +781,63 @@ a.wiki.inexistente { color: #e8807c; border-bottom: 1px dashed currentColor; }
 .historico .versao { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--borda); max-width: none; }
 .historico .versao .subtitulo { margin: 0 0 12px; }
 
+/* ---------- Quem está editando, textos excluídos ---------- */
+
+.aviso-edicao {
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--ouro) 55%, transparent);
+  border-left: 4px solid var(--ouro);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ouro) 12%, var(--bg-2));
+  color: var(--texto);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.aviso-edicao strong { color: var(--ouro-2); }
+.aviso-edicao span { display: block; color: var(--texto-2); font-size: 0.85rem; }
+
+.card .editando-agora {
+  margin: 0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ouro) 18%, transparent);
+  color: var(--ouro-2);
+  font-size: 0.8rem;
+  animation: piscar-leve 2s ease-in-out infinite;
+}
+
+@keyframes piscar-leve { 50% { opacity: 0.6; } }
+
+.lixeira {
+  margin-top: 32px;
+  border: 1px dashed var(--borda);
+  border-radius: var(--raio);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.lixeira summary { padding: 12px 16px; cursor: pointer; color: var(--texto-2); }
+.lixeira summary:hover { color: var(--texto); }
+.lixeira summary .qtd { margin-left: 4px; font-size: 0.8rem; opacity: 0.7; }
+.lixeira ul { list-style: none; margin: 0; padding: 0 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+.lixeira li { padding: 10px 12px; border: 1px solid var(--borda); border-radius: 8px; background: var(--card); }
+.lixeira .cabeca { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.lixeira .cabeca span { color: var(--texto-2); font-size: 0.85rem; }
+.lixeira .subtitulo { margin: 0 0 4px; font-size: 0.9rem; color: var(--ouro-2); }
+.lixeira .resumo { margin: 0 0 8px; color: var(--texto-2); font-size: 0.88rem; }
+
+.selo-excluido {
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--perigo);
+  color: var(--perigo);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
 /* ---------- Pastas de país (lista do Mundo) ---------- */
 
 .pastas { display: flex; flex-direction: column; gap: 14px; }
@@ -1261,10 +1318,32 @@ body.pagina-mapa {
   .divisoria::after { font-size: 9rem; }
 
   /* Fatias viram faixas, uma embaixo da outra */
-  .fatias .fatia { position: relative; inset: auto; flex: 1; filter: none; border-bottom: 1px solid var(--borda); }
+  .fatias .fatia { position: relative; inset: auto; flex: 1; border-bottom: 1px solid var(--borda); }
   .fatias .fatia:last-child { border-bottom: none; }
-  .fatias .fatia:hover { transform: none; filter: none; }
+  /* Tocando (ou com o mouse em cima): a faixa não cresce, mas a borda brilha como no computador */
+  .fatias .fatia:hover, .fatias .fatia:active {
+    z-index: 2;
+    transform: none;
+    filter:
+      drop-shadow(0 0 2px color-mix(in srgb, var(--cor) 85%, #fff))
+      drop-shadow(0 0 12px color-mix(in srgb, var(--cor) 55%, transparent))
+      drop-shadow(0 6px 18px rgba(0, 0, 0, 0.6));
+  }
   .fatias .divisoria { clip-path: none; --lx: 50% !important; --ly: 50% !important; }
+
+  /* A faixa inteira na cor da seção (o brilho redondo do computador ficaria pequeno numa faixa baixa) */
+  .fatias .divisoria {
+    background:
+      radial-gradient(ellipse at 50% 50%, color-mix(in srgb, var(--cor) 28%, transparent), transparent 80%),
+      linear-gradient(90deg,
+        color-mix(in srgb, var(--cor) 18%, var(--bg)),
+        color-mix(in srgb, var(--cor) 9%, var(--bg)) 50%,
+        color-mix(in srgb, var(--cor) 18%, var(--bg)));
+  }
+
+  .fatias .divisoria::before {
+    background: radial-gradient(ellipse at 50% 50%, color-mix(in srgb, var(--cor) 38%, transparent), transparent 85%);
+  }
   .fatias .divisoria .icone { font-size: 1.8rem; }
   .fatias .divisoria small { display: none; }
   .fatias .divisoria::after { font-size: 6rem; }

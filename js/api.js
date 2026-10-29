@@ -65,6 +65,12 @@ function nomeDe(email, nomes) {
   return nomes.get(email) || (email ? email.split('@')[0] : 'alguém');
 }
 
+// Quem está editando (de edicao.agora): "Ana", "Ana e Bia", "você (em outra aba)"
+function nomesEditando(editores, nomes, meuEmail) {
+  const lista = [...new Set(editores.map(e => (e.email === meuEmail ? 'você (em outra aba)' : nomeDe(e.email, nomes))))];
+  return lista.length > 1 ? `${lista.slice(0, -1).join(', ')} e ${lista.at(-1)}` : lista[0] || '';
+}
+
 // ---------- Textos: links entre eles e Markdown ----------
 
 // [[Título]] ou [[Título|texto que aparece]]

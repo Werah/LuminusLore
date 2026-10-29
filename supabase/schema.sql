@@ -77,10 +77,11 @@ alter table public.artigos add constraint artigos_secao_check
 create unique index if not exists artigos_titulo on public.artigos (lower(titulo));
 create index if not exists artigos_secao on public.artigos (secao, titulo);
 
--- Versões anteriores de cada texto (guardadas sozinhas a cada edição)
+-- Versões anteriores de cada texto (guardadas sozinhas a cada edição).
+-- O histórico nunca é apagado: nem quando o texto é excluído (ver "Regras" abaixo).
 create table if not exists public.revisoes (
   id          bigint generated always as identity primary key,
-  artigo_id   text not null references public.artigos(id) on delete cascade,
+  artigo_id   text not null,
   titulo      text not null,
   subtitulo   text not null default '',
   conteudo    text not null default '',
@@ -89,7 +90,18 @@ create table if not exists public.revisoes (
   editado_em  timestamptz not null
 );
 
+-- Antes o histórico era apagado junto com o texto; agora fica (para quem já tinha rodado este arquivo)
+alter table public.revisoes drop constraint if exists revisoes_artigo_id_fkey;
+
+-- Cópia feita na hora de excluir um texto: "linha" guarda o texto inteiro (seção, imagem, ponto
+-- no mapa...), para dar para restaurar depois em "Textos excluídos"
+alter table public.revisoes add column if not exists excluido     boolean not null default false;
+alter table public.revisoes add column if not exists excluido_por text not null default '';
+alter table public.revisoes add column if not exists excluido_em  timestamptz;
+alter table public.revisoes add column if not exists linha        jsonb;
+
 create index if not exists revisoes_artigo on public.revisoes (artigo_id, editado_em desc);
+create index if not exists revisoes_excluidos on public.revisoes (excluido_em desc) where excluido;
 
 -- ---------- Regras ----------
 
@@ -146,6 +158,77 @@ create trigger guardar_revisao
   after update on public.artigos
   for each row execute function public.guardar_revisao();
 
+-- Ao excluir um texto, guarda uma cópia completa dele no histórico (dá para restaurar depois)
+create or replace function public.guardar_exclusao()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.revisoes (artigo_id, titulo, subtitulo, conteudo, detalhes, editado_por, editado_em,
+                               excluido, excluido_por, excluido_em, linha)
+  values (old.id, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.editado_por, old.atualizado_em,
+          true, public.email_atual(), now(), to_jsonb(old));
+  return old;
+end
+$$;
+
+drop trigger if exists guardar_exclusao on public.artigos;
+create trigger guardar_exclusao
+  before delete on public.artigos
+  for each row execute function public.guardar_exclusao();
+
+-- O histórico não pode ser alterado nem apagado, por ninguém (nem pelo SQL Editor, a não ser
+-- que alguém desligue esta regra de propósito)
+create or replace function public.proteger_historico()
+returns trigger
+language plpgsql
+as $$
+begin
+  raise exception 'O histórico não pode ser alterado nem apagado.';
+end
+$$;
+
+drop trigger if exists proteger_historico on public.revisoes;
+create trigger proteger_historico
+  before update or delete on public.revisoes
+  for each row execute function public.proteger_historico();
+
+drop trigger if exists proteger_historico_truncate on public.revisoes;
+create trigger proteger_historico_truncate
+  before truncate on public.revisoes
+  for each statement execute function public.proteger_historico();
+
+-- Restaura um texto excluído a partir da cópia guardada na exclusão (mesmo id, então o
+-- histórico antigo dele volta junto). O país só volta se ainda existir.
+create or replace function public.restaurar_texto(revisao bigint)
+returns text
+language plpgsql
+as $$
+declare
+  l jsonb;
+begin
+  select linha into l from public.revisoes where id = revisao and excluido;
+  if l is null then
+    raise exception 'Não achei a cópia desse texto excluído.';
+  end if;
+  if exists (select 1 from public.artigos where id = l->>'id') then
+    raise exception 'Esse texto já foi restaurado.';
+  end if;
+  insert into public.artigos (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, pais_id,
+                              mapa_x, mapa_y, mapa_cor, mapa_icone)
+  values (
+    l->>'id', l->>'secao', l->>'titulo',
+    coalesce(l->>'subtitulo', ''), coalesce(l->>'conteudo', ''), coalesce(l->'detalhes', '{}'::jsonb),
+    coalesce(l->>'imagem', ''),
+    (select id from public.artigos where id = l->>'pais_id'),
+    (l->>'mapa_x')::double precision, (l->>'mapa_y')::double precision,
+    coalesce(l->>'mapa_cor', ''), coalesce(l->>'mapa_icone', '')
+  );
+  return l->>'id';
+end
+$$;
+
 -- ---------- Segurança (Row Level Security) ----------
 
 alter table public.membros  enable row level security;
@@ -167,6 +250,9 @@ grant select on public.membros, public.revisoes to authenticated;
 grant select, insert, update, delete on public.artigos to authenticated;
 revoke all on public.membros, public.artigos, public.revisoes from anon;
 grant execute on function public.eh_membro() to authenticated;
+-- restaurar_texto roda com a permissão de quem chama: só membros conseguem (regras acima)
+grant execute on function public.restaurar_texto(bigint) to authenticated;
+revoke execute on function public.restaurar_texto(bigint) from anon, public;
 
 -- ---------- Imagens (Storage) ----------
 

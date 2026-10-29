@@ -33,6 +33,31 @@ window.addEventListener('beforeunload', e => {
   if (alterado) e.preventDefault();
 });
 
+// ---------- Quem está editando ----------
+
+// Faixa "Ana está editando este texto agora" no texto e no editor. Só avisa, não bloqueia.
+let meuEmail = '';
+emailAtual().then(e => { meuEmail = e; });
+
+function mostrarAvisoEdicao() {
+  const el = document.getElementById('aviso-edicao');
+  if (!el || !artigo) return;
+  const editores = edicao.agora(artigo.id);
+  el.hidden = !editores.length;
+  if (!editores.length) return;
+  const desde = editores.map(e => e.desde).sort()[0];
+  const hora = new Date(desde).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const noEditor = !!document.getElementById('form-artigo');
+  el.innerHTML = `
+    ✎ <strong>${esc(nomesEditando(editores, nomes, meuEmail))}</strong>
+    ${editores.length > 1 ? 'estão' : 'está'} editando este texto agora (desde ${hora}).
+    <span>${noEditor
+      ? 'Se vocês dois salvarem, quem salvar por último recebe um aviso para juntar as mudanças.'
+      : 'Melhor esperar terminar antes de editar.'}</span>
+  `;
+}
+edicao.ouvir(mostrarAvisoEdicao);
+
 async function iniciar() {
   try {
     [titulos, nomes] = await Promise.all([banco.titulos(), banco.nomes()]);
@@ -71,6 +96,7 @@ function desenharTexto() {
   document.title = `${artigo.titulo} - LuminusLore`;
   avisarMapa(artigo);
   window.salvarAlteracoes = null;
+  edicao.marcar(null);
 
   const pais = artigo.paisId && [...titulos.values()].find(t => t.id === artigo.paisId);
   const preenchidos = s.campos.filter(c => artigo.detalhes[c.chave] && campoVisivel(c, artigo.detalhes));
@@ -117,6 +143,7 @@ function desenharTexto() {
     <a class="voltar" href="${s.pagina}">← ${esc(s.nome)}</a>
     <article class="artigo" style="--cor: ${s.cor}">
       ${cabeca}
+      <p class="aviso-edicao" id="aviso-edicao" hidden></p>
 
       <div class="corpo-artigo${temFicha ? '' : ' sem-ficha'}">
         ${temFicha ? `
@@ -155,6 +182,7 @@ function desenharTexto() {
   document.getElementById('btn-excluir').addEventListener('click', excluir);
   carregarMencoes();
   if (modoPais) carregarLugares();
+  mostrarAvisoEdicao();
 }
 
 // Ficha do país: os textos que pertencem a ele, separados por seção (lugares, personagens, eventos...).
@@ -215,6 +243,7 @@ async function carregarMencoes() {
 function desenharInexistente(titulo) {
   document.title = `${titulo} - LuminusLore`;
   avisarMapa(null);
+  edicao.marcar(null);
   pagina.innerHTML = `
     <div class="vazio caixa-inexistente">
       <h2>“${esc(titulo)}” ainda não foi escrito</h2>
@@ -281,6 +310,7 @@ function editar(tituloInicial = '') {
     <form class="editor" id="form-artigo" style="--cor: ${s.cor}">
       <p class="secao-artigo">${s.icone} ${esc(s.nome)}</p>
       <h1>${artigo ? `Editando “${esc(artigo.titulo)}”` : esc(s.novo)}</h1>
+      <p class="aviso-edicao" id="aviso-edicao" hidden></p>
       ${pontoNovo ? '<p class="aviso-ponto">📍 Este texto vai ficar no ponto que você marcou no mapa.</p>' : ''}
 
       <div class="duas-colunas">
@@ -360,6 +390,10 @@ function editar(tituloInicial = '') {
   const erro = document.getElementById('erro');
   const campoImagem = ligarCampoImagem(form.querySelector('.campo-imagem'), () => emblemaSecao(secao));
   campoImagem.iniciar(a.imagem);
+
+  // Avisa os outros que este texto está sendo editado (texto novo ainda não tem id: não avisa)
+  edicao.marcar(artigo?.id || null);
+  mostrarAvisoEdicao();
 
   alterado = false;
   form.addEventListener('input', () => { alterado = true; });
@@ -541,6 +575,7 @@ function editar(tituloInicial = '') {
 // ---------- Histórico ----------
 
 async function desenharHistorico() {
+  edicao.marcar(null);
   pagina.innerHTML = '<p class="vazio">Carregando histórico…</p>';
   let versoes;
   try {
@@ -557,7 +592,7 @@ async function desenharHistorico() {
     <div class="cabecalho-pagina">
       <div>
         <h1>Histórico</h1>
-        <p class="descricao-secao">Cada vez que alguém salva, a versão anterior fica guardada aqui.</p>
+        <p class="descricao-secao">Cada vez que alguém salva, a versão anterior fica guardada aqui. O histórico nunca é apagado.</p>
       </div>
     </div>
     <ul class="historico" style="--cor: ${SECOES[secao].cor}">
@@ -570,8 +605,9 @@ async function desenharHistorico() {
       ${versoes.map((v, i) => `
         <li>
           <div class="cabeca">
-            <strong>${esc(v.titulo)}</strong>
-            <span>${esc(nomeDe(v.editadoPor, nomes))} · ${formatarDataHora(v.editadoEm)}</span>
+            <strong>${esc(v.titulo)}${v.excluido ? ' <span class="selo-excluido">excluído aqui</span>' : ''}</strong>
+            <span>${esc(nomeDe(v.editadoPor, nomes))} · ${formatarDataHora(v.editadoEm)}${v.excluido
+              ? ` · excluído por ${esc(nomeDe(v.excluidoPor, nomes))} em ${formatarDataHora(v.excluidoEm)}` : ''}</span>
           </div>
           <div class="acoes">
             <button class="pequeno" data-ver="${i}">Ver</button>
@@ -621,7 +657,7 @@ async function desenharHistorico() {
 // ---------- Excluir ----------
 
 async function excluir() {
-  if (!confirm(`Excluir “${artigo.titulo}”?\n\nO histórico dele também é apagado. Não dá para desfazer.`)) return;
+  if (!confirm(`Excluir “${artigo.titulo}”?\n\nEle sai do site, mas fica em “Textos excluídos” (no fim da lista de ${SECOES[secao].nome}) e pode ser restaurado com todo o histórico.`)) return;
   try {
     await banco.excluirArtigo(artigo.id);
     if (modoPais) fecharFichaDoPais();

@@ -167,11 +167,32 @@ const banco = (() => {
     return buscarArtigo(id);
   }
 
+  // O banco guarda uma cópia completa no histórico antes de excluir, e o histórico fica.
+  // A imagem também fica no Storage, para voltar junto se o texto for restaurado.
   async function excluirArtigo(id) {
-    const a = await buscarArtigo(id);
-    // O histórico do texto é apagado junto pelo banco
     await rodar(de('artigos').delete().eq('id', id));
-    await apagarArquivos([a.imagem]);
+  }
+
+  // Textos excluídos de uma seção (a cópia mais recente de cada um), para restaurar
+  async function excluidos(secao) {
+    const [linhas, existentes] = await Promise.all([
+      rodar(de('revisoes').select('id, artigo_id, titulo, excluido_por, excluido_em, linha')
+        .eq('excluido', true).order('excluido_em', { ascending: false })),
+      titulos(),
+    ]);
+    const ids = new Set([...existentes.values()].map(t => t.id));
+    const vistos = new Set();
+    return linhas.map(doBanco).filter(r => {
+      if (r.linha?.secao !== secao || ids.has(r.artigoId) || vistos.has(r.artigoId)) return false;
+      vistos.add(r.artigoId);
+      return true;
+    });
+  }
+
+  // Devolve o id do texto restaurado
+  async function restaurarExcluido(revisaoId) {
+    if (!sb) throw new Error('Supabase não configurado (js/config.js)');
+    return rodar(sb.rpc('restaurar_texto', { revisao: revisaoId }));
   }
 
   // Versões anteriores de um texto, da mais nova para a mais antiga
@@ -279,8 +300,68 @@ const banco = (() => {
   }
 
   return {
-    titulos, listarArtigos, buscarArtigo, criarArtigo, salvarArtigo, excluirArtigo,
+    titulos, listarArtigos, buscarArtigo, criarArtigo, salvarArtigo, excluirArtigo, excluidos, restaurarExcluido,
     revisoes, mencoes, pontosDoMapa, paises, lugaresDoPais, posicionar, estilizarPonto, nomes, urlImagem, trocarImagem, removerImagem,
     enviarImagemDoTexto,
+  };
+})();
+
+// ---------- Quem está editando (ao vivo) ----------
+
+// Usa a "presença" do Realtime do Supabase: cada aba com o editor aberto avisa qual texto está
+// editando, e o aviso some sozinho quando a aba fecha ou perde a conexão. Não grava nada no banco
+// e não bloqueia ninguém: é só para avisar.
+const edicao = (() => {
+  const minhaChave = crypto.randomUUID(); // cada aba conta como uma presença
+  const ouvintes = new Set();
+  let canal = null;
+  let iniciando = null;
+  let editando = null;     // o que esta aba está editando: { artigo, desde }, ou null
+  let estado = new Map();  // id do texto -> [{ email, desde }] (das outras abas)
+
+  function atualizar() {
+    estado = new Map();
+    for (const [chave, metas] of Object.entries(canal.presenceState())) {
+      if (chave === minhaChave) continue;
+      for (const m of metas) {
+        if (!m.artigo) continue;
+        estado.set(m.artigo, [...(estado.get(m.artigo) || []), { email: m.email, desde: m.desde }]);
+      }
+    }
+    ouvintes.forEach(fn => fn(estado));
+  }
+
+  async function enviar() {
+    if (canal?.state !== 'joined') return; // ao conectar, envia o que estiver valendo
+    if (editando) await canal.track({ ...editando, email: await emailAtual() });
+    else await canal.untrack();
+  }
+
+  function iniciar() {
+    iniciando ||= (async () => {
+      if (!sb || !(await sessaoPronta)) return;
+      canal = sb.channel('luminus-edicao', { config: { presence: { key: minhaChave } } });
+      canal.on('presence', { event: 'sync' }, atualizar);
+      canal.subscribe(status => {
+        if (status === 'SUBSCRIBED') enviar();
+      });
+    })();
+    return iniciando;
+  }
+
+  return {
+    // fn(mapa) é chamada sempre que muda quem está editando o quê
+    ouvir(fn) {
+      ouvintes.add(fn);
+      iniciar();
+    },
+    // Esta aba começou a editar o texto (id) ou parou (null)
+    marcar(artigoId) {
+      if ((artigoId || null) === (editando?.artigo || null)) return;
+      editando = artigoId ? { artigo: artigoId, desde: new Date().toISOString() } : null;
+      iniciar().then(enviar);
+    },
+    // Quem (das outras abas) está editando este texto agora
+    agora: id => estado.get(id) || [],
   };
 })();

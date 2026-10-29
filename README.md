@@ -87,9 +87,16 @@ Para mudar o nome que aparece: `update public.membros set nome = 'Novo nome' whe
   Os campos da ficha (ex.: *Sede*, *Divindade ligada*) também aceitam links.
 - No fim de cada texto aparece **Mencionado em**, com os textos que têm link para ele.
 - Dois textos não podem ter o mesmo título (é por ele que os links acham o texto).
-- **Histórico:** toda vez que alguém salva, a versão anterior fica guardada. Dá para ver e restaurar.
-- Se duas pessoas editarem o mesmo texto ao mesmo tempo, quem salvar depois recebe um aviso
-  em vez de apagar o que a outra escreveu.
+- **Histórico:** toda vez que alguém salva, a versão anterior fica guardada. Dá para ver e restaurar
+  qualquer versão (restaurar também guarda a atual). **O histórico nunca é apagado**: o banco recusa
+  alterar ou apagar versões, até pelo SQL Editor.
+- **Excluir não perde nada:** o texto vai para *Textos excluídos*, no fim da lista da seção, e pode ser
+  restaurado com histórico, imagem e ponto no mapa. (Os textos que pertenciam a um país excluído não
+  voltam a ficar ligados a ele sozinhos.)
+- **Quem está editando:** com o editor aberto, os outros veem "Fulano está editando este texto agora"
+  na página do texto, no editor e no card da lista. Só avisa, não bloqueia. Se mesmo assim duas
+  pessoas salvarem, quem salvar depois recebe um aviso em vez de apagar o que a outra escreveu.
+  (Usa o Realtime do Supabase, que já vem ligado.)
 
 ## O mapa (Mundo)
 
