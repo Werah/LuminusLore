@@ -17,6 +17,7 @@ let secao = '';          // chave em SECOES
 let titulos = new Map(); // de banco.titulos(), para os [[links]]
 let nomes = new Map();   // e-mail -> nome de quem escreveu
 let alterado = false;    // tem mudança não salva no editor
+window.salvarAlteracoes = null; // com o editor aberto, função que grava (o mapa chama antes de trocar de texto)
 
 // Avisa antes de sair da página com o editor alterado
 window.addEventListener('beforeunload', e => {
@@ -60,11 +61,14 @@ function desenharTexto() {
   const s = SECOES[secao];
   document.title = `${artigo.titulo} - LuminusLore`;
   avisarMapa(artigo);
+  window.salvarAlteracoes = null;
 
-  const ficha = s.campos
-    .filter(c => artigo.detalhes[c.chave])
-    .map(c => `<div><dt>${esc(c.rotulo)}</dt><dd>${linhaComLinks(artigo.detalhes[c.chave], titulos)}</dd></div>`)
-    .join('');
+  const pais = artigo.paisId && [...titulos.values()].find(t => t.id === artigo.paisId);
+  const ficha = (pais ? `<div><dt>País</dt><dd>${linkWiki(pais.titulo, '', titulos)}</dd></div>` : '')
+    + s.campos
+      .filter(c => artigo.detalhes[c.chave])
+      .map(c => `<div><dt>${esc(c.rotulo)}</dt><dd>${linhaComLinks(artigo.detalhes[c.chave], titulos)}</dd></div>`)
+      .join('');
   const temFicha = artigo.imagem || ficha;
 
   pagina.innerHTML = `
@@ -156,7 +160,7 @@ function desenharInexistente(titulo) {
 
 function editar(tituloInicial = '') {
   const s = SECOES[secao];
-  const a = artigo || { titulo: tituloInicial, subtitulo: '', conteudo: '', detalhes: {}, imagem: '' };
+  const a = artigo || { titulo: tituloInicial, subtitulo: '', conteudo: '', detalhes: {}, imagem: '', paisId: null };
   document.title = `${artigo ? `Editando ${artigo.titulo}` : s.novo} - LuminusLore`;
   avisarMapa(artigo);
 
@@ -201,7 +205,18 @@ function editar(tituloInicial = '') {
         </label>
       </div>
 
-      ${campos ? `<div class="grade-campos">${campos}</div>` : ''}
+      <div class="grade-campos">
+        <label>País
+          <span class="campo-pais">
+            <select name="pais">
+              <option value="">Nenhum (região neutra)</option>
+              ${a.paisId ? `<option value="${esc(a.paisId)}" selected>Carregando…</option>` : ''}
+            </select>
+            <span class="amostra-cor" title="Cor que o ponto herda no mapa" hidden></span>
+          </span>
+        </label>
+        ${campos}
+      </div>
 
       <div class="campo">Imagem
         <div class="campo-imagem">
@@ -248,6 +263,30 @@ function editar(tituloInicial = '') {
   form.addEventListener('change', () => { alterado = true; });
   if (!artigo) form.titulo.focus();
 
+  // País: os textos com o ponto de estrela no mapa. O ponto deste texto herda a cor do país.
+  const selPais = form.pais;
+  const amostra = form.querySelector('.amostra-cor');
+  function mostrarCorPais() {
+    const cor = selPais.selectedOptions[0]?.dataset.cor;
+    amostra.hidden = !cor;
+    if (cor) amostra.style.background = cor;
+  }
+  selPais.addEventListener('change', mostrarCorPais);
+  banco.paises().then(lista => {
+    const escolhido = selPais.value;
+    const opcoes = lista.filter(p => p.id !== artigo?.id);
+    // País escolhido antes que deixou de ser país (tirou a estrela) continua aparecendo
+    const antigo = escolhido && !opcoes.some(p => p.id === escolhido)
+      ? `<option value="${esc(escolhido)}">${esc([...titulos.values()].find(t => t.id === escolhido)?.titulo || '(texto excluído)')}</option>`
+      : '';
+    selPais.innerHTML = '<option value="">Nenhum (região neutra)</option>' + antigo
+      + opcoes.map(p => `<option value="${esc(p.id)}" data-cor="${esc(p.cor)}">${esc(p.titulo)}</option>`).join('');
+    selPais.value = escolhido;
+    mostrarCorPais();
+  }).catch(() => {
+    // Sem a lista, fica só o país que já estava escolhido
+  });
+
   // Digitar [[ sugere os títulos (no texto e nos campos da ficha, que também aceitam links)
   ligarSugestaoDeLinks(textarea, titulos);
   form.querySelectorAll('input[name^="d-"]').forEach(campo => ligarSugestaoDeLinks(campo, titulos));
@@ -285,18 +324,21 @@ function editar(tituloInicial = '') {
   document.getElementById('btn-cancelar').addEventListener('click', () => {
     if ((alterado || campoImagem.mudou()) && !confirm('Descartar o que você mudou?')) return;
     alterado = false;
+    window.salvarAlteracoes = null;
     if (artigo) desenharTexto();
     else location.href = s.pagina;
   });
 
-  form.addEventListener('submit', e => {
-    e.preventDefault();
+  // Grava o que está no editor; devolve true se deu certo (o erro aparece no próprio editor)
+  function gravar() {
     erro.textContent = '';
     const detalhes = {};
     for (const c of s.campos) detalhes[c.chave] = form[`d-${c.chave}`].value;
-    const dados = { secao, titulo: form.titulo.value, subtitulo: form.subtitulo.value, conteudo: textarea.value, detalhes };
+    const paisId = form.pais.value || null;
+    const dados = { secao, titulo: form.titulo.value, subtitulo: form.subtitulo.value, conteudo: textarea.value, detalhes, paisId };
+    const paisMudou = paisId !== (a.paisId || null);
 
-    semCliqueDuplo(form, async () => {
+    return semCliqueDuplo(form, async () => {
       try {
         // Guarda em "artigo" logo depois de salvar: se a imagem falhar, tentar de novo não cria outro texto
         artigo = artigo
@@ -306,14 +348,26 @@ function editar(tituloInicial = '') {
           await banco.posicionar(artigo.id, pontoPendente.x, pontoPendente.y);
           pontoPendente = null;
         }
+        // Mudou de país: o ponto passa a usar a cor do país novo (some a cor escolhida antes)
+        if (paisMudou && artigo.mapaCor) await banco.estilizarPonto(artigo.id, '', artigo.mapaIcone);
         await campoImagem.salvar(artigo.id);
         alterado = false;
-        location.replace(`artigo.html?id=${encodeURIComponent(artigo.id)}`);
+        return true;
       } catch (err) {
         erro.textContent = err.message;
+        return false;
       }
     });
+  }
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (await gravar()) location.replace(`artigo.html?id=${encodeURIComponent(artigo.id)}`);
   });
+
+  // Usado pelo mapa ao clicar fora de um ponto: grava se tiver mudança, senão só deixa sair.
+  // (Um texto novo em que nada foi escrito é só descartado.)
+  window.salvarAlteracoes = async () => (alterado || campoImagem.mudou() ? gravar() : true);
 }
 
 // ---------- Histórico ----------
@@ -386,7 +440,8 @@ async function desenharHistorico() {
     const v = versoes[botao.dataset.restaurar];
     if (!confirm(`Voltar o texto para a versão de ${formatarDataHora(v.editadoEm)}?\n\nA versão atual continua guardada no histórico.`)) return;
     try {
-      artigo = await banco.salvarArtigo(artigo.id, { ...v, secao }, artigo.atualizadoEm);
+      // O histórico guarda só o texto: o país continua o atual
+      artigo = await banco.salvarArtigo(artigo.id, { ...v, secao, paisId: artigo.paisId }, artigo.atualizadoEm);
       titulos = await banco.titulos();
       desenharTexto();
     } catch (err) {

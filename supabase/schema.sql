@@ -60,6 +60,13 @@ alter table public.artigos add column if not exists mapa_cor text not null defau
 alter table public.artigos add column if not exists mapa_icone text not null default ''
   check (mapa_icone ~ '^[a-z]{0,20}$');
 
+-- País a que o texto pertence (país = texto com ponto de estrela no mapa). Vazio = região neutra.
+-- Excluir o país só solta os textos dele.
+alter table public.artigos add column if not exists pais_id text references public.artigos(id) on delete set null;
+alter table public.artigos drop constraint if exists artigos_pais_nao_e_ele_mesmo;
+alter table public.artigos add constraint artigos_pais_nao_e_ele_mesmo check (pais_id is null or pais_id <> id);
+create index if not exists artigos_pais on public.artigos (pais_id);
+
 -- Título não se repete (é por ele que os links [[Título]] encontram o texto)
 create unique index if not exists artigos_titulo on public.artigos (lower(titulo));
 create index if not exists artigos_secao on public.artigos (secao, titulo);
@@ -81,7 +88,7 @@ create index if not exists revisoes_artigo on public.revisoes (artigo_id, editad
 -- ---------- Regras ----------
 
 -- Quem criou / editou e quando: o banco preenche, o navegador não consegue mudar.
--- Só conta como edição mudar o texto; mexer só na imagem ou no ponto do mapa não muda
+-- Só conta como edição mudar o texto ou o país; mexer só na imagem ou no ponto do mapa não muda
 -- "atualizado_em" (assim marcar o mapa com o editor aberto não dá aviso de conflito).
 create or replace function public.carimbar_artigo()
 returns trigger
@@ -94,8 +101,8 @@ begin
   else
     new.criado_por := old.criado_por;
     new.criado_em := old.criado_em;
-    if (old.secao, old.titulo, old.subtitulo, old.conteudo, old.detalhes)
-       is not distinct from (new.secao, new.titulo, new.subtitulo, new.conteudo, new.detalhes) then
+    if (old.secao, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.pais_id)
+       is not distinct from (new.secao, new.titulo, new.subtitulo, new.conteudo, new.detalhes, new.pais_id) then
       new.editado_por := old.editado_por;
       new.atualizado_em := old.atualizado_em;
       return new;

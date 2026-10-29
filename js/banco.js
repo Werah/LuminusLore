@@ -118,7 +118,8 @@ const banco = (() => {
       subtitulo: texto(b.subtitulo),
       conteudo: String(b.conteudo ?? '').replace(/\s+$/, ''),
       detalhes,
-      // "imagem" fica de fora: só é trocada pelas funções de imagem
+      pais_id: b.paisId ? String(b.paisId) : null, // texto do país a que pertence (null = região neutra)
+      // "imagem" e o ponto no mapa ficam de fora: são trocados pelas funções deles
     };
     if (!dados.titulo) throw new Error('Título é obrigatório');
     if (/[[\]|]/.test(dados.titulo)) throw new Error('O título não pode ter [ ] ou |');
@@ -184,9 +185,16 @@ const banco = (() => {
 
   // Textos que têm ponto no mapa (de qualquer seção)
   async function pontosDoMapa() {
-    const linhas = await rodar(de('artigos').select('id, titulo, subtitulo, secao, mapa_x, mapa_y, mapa_cor, mapa_icone')
+    const linhas = await rodar(de('artigos').select('id, titulo, subtitulo, secao, pais_id, mapa_x, mapa_y, mapa_cor, mapa_icone')
       .not('mapa_x', 'is', null).not('mapa_y', 'is', null));
     return linhas.map(doBanco);
+  }
+
+  // Países: os textos cujo ponto no mapa tem o ícone de estrela. "cor" já é a cor que os pontos herdam.
+  async function paises() {
+    const linhas = await rodar(de('artigos').select('id, titulo, secao, mapa_cor')
+      .eq('mapa_icone', 'estrela').not('mapa_x', 'is', null).order('titulo'));
+    return linhas.map(l => ({ id: l.id, titulo: l.titulo, cor: l.mapa_cor || SECOES[l.secao].cor }));
   }
 
   // Coloca, move ou (com x/y null) tira o texto do mapa. x/y em fração da imagem (0 a 1).
@@ -247,6 +255,6 @@ const banco = (() => {
 
   return {
     titulos, listarArtigos, buscarArtigo, criarArtigo, salvarArtigo, excluirArtigo,
-    revisoes, mencoes, pontosDoMapa, posicionar, estilizarPonto, nomes, urlImagem, trocarImagem, removerImagem,
+    revisoes, mencoes, pontosDoMapa, paises, posicionar, estilizarPonto, nomes, urlImagem, trocarImagem, removerImagem,
   };
 })();

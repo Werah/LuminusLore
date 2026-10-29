@@ -106,8 +106,16 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
   Textos do Panteão e das Organizações também podem ter ponto (um templo, uma sede).
 - **Cor e ícone do ponto:** botão *🎨 Cor e ícone* na barra (abre sozinho quando o texto ganha
   o primeiro ponto). Ícones: cidade, vila, castelo, caveira, floresta, espadas cruzadas, montanha,
-  templo, porto e estrela. Sem cor escolhida, o ponto usa a cor da seção. Para criar ícones novos,
+  templo, porto e estrela (país). Sem cor escolhida, o ponto usa a cor do país ou, sem país, da seção. Para criar ícones novos,
   veja `ICONES_MAPA` em `js/mapa.js`.
+- **Clicar fora dos pontos** solta o texto selecionado (o painel volta para a lista). Se o
+  editor estiver aberto com mudanças, elas são salvas antes.
+- **Países:** um ponto com o ícone de estrela é um país. Com o mapa afastado só aparecem os
+  países; aproximando, eles somem e aparecem os outros pontos. Clicar num país aproxima até a
+  área dele.
+- **Pertencer a um país:** no editor de qualquer texto, o campo *País* lista os países
+  (ou *Nenhum* para regiões neutras). O ponto herda a cor do país, a menos que tenha cor própria;
+  trocar de país volta a usar a cor do país novo.
 - **Links andam pelo mapa:** clicar num `[[link]]` dentro do texto abre o outro texto no painel
   e o mapa vai até o ponto dele.
 

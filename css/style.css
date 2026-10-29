@@ -620,6 +620,19 @@ a.wiki.inexistente { color: #e8807c; border-bottom: 1px dashed currentColor; }
 
 .aviso-ponto { color: var(--ouro-2); margin: -10px 0 18px; }
 
+/* País no editor: a lista e uma bolinha com a cor que o ponto herda */
+.campo-pais { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.campo-pais select { margin: 0; }
+
+.amostra-cor {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid #fff8e8;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
 /* ---------- Mapa do Mundo: metade mapa, metade texto ---------- */
 
 /* Página aberta dentro do painel do mapa: sem o topo */
@@ -802,6 +815,9 @@ body.pagina-mapa {
 .campo-cor { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--texto); }
 .campo-cor input { width: 44px; height: 30px; margin: 0; padding: 2px; cursor: pointer; }
 .fechar-estilo { margin-left: auto; }
+
+.dica-estilo { margin: 10px 0 0; color: var(--texto-2); font-size: 0.8rem; line-height: 1.4; }
+.dica-estilo strong { color: var(--ouro-2); }
 
 .icones-ponto { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 6px; }
 

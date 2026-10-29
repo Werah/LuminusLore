@@ -43,21 +43,39 @@ L.imageOverlay(MAPA.previa, limites).addTo(mapa);
 const completa = L.imageOverlay(MAPA.imagem, limites, { opacity: 0, className: 'mapa-completo' }).addTo(mapa);
 completa.on('load', () => completa.setOpacity(1));
 
+// Dois níveis de detalhe: com o mapa afastado só aparecem os países (pontos com o ícone de estrela);
+// chegando mais perto, os países somem e aparecem todos os outros pontos.
+const ICONE_PAIS = 'estrela';
+const ehPais = p => p.mapaIcone === ICONE_PAIS;
+const camadaPaises = L.layerGroup();
+const camadaLocais = L.layerGroup();
+let zoomDetalhe = -2; // a partir deste zoom aparecem os pontos locais (recalculado em ajustarTamanho)
+
+function mostrarCamadaCerta() {
+  const longe = mapa.getZoom() < zoomDetalhe;
+  (longe ? camadaLocais : camadaPaises).remove();
+  (longe ? camadaPaises : camadaLocais).addTo(mapa);
+  destacar();
+}
+mapa.on('zoomend', mostrarCamadaCerta);
+
 // O zoom mínimo é o que mostra o mapa inteiro, e depende do tamanho do lado do mapa.
 // Por isso é recalculado sempre que esse lado muda (inclusive quando estava escondido e volta).
+// O detalhe começa um nível de zoom (2x) mais perto que o mapa inteiro.
 let vistaEscolhida = false; // já mostrou alguma coisa (mapa inteiro ou um ponto)
 function ajustarTamanho() {
   mapa.invalidateSize({ pan: false });
   if (!mapa.getSize().x || !mapa.getSize().y) return; // lado do mapa escondido
-  mapa.setMinZoom(mapa.getBoundsZoom(limites) - 0.5);
+  const zoomInteiro = mapa.getBoundsZoom(limites);
+  mapa.setMinZoom(zoomInteiro - 0.5);
+  zoomDetalhe = zoomInteiro + 1;
   if (!vistaEscolhida) {
     mapa.fitBounds(limites);
     vistaEscolhida = true;
   }
+  mostrarCamadaCerta();
 }
 new ResizeObserver(ajustarTamanho).observe(document.getElementById('mapa'));
-
-const camadaPontos = L.layerGroup().addTo(mapa);
 
 // No banco a posição é fração da imagem (0 a 1, a partir do canto de cima à esquerda)
 const paraMapa = (x, y) => L.latLng((1 - y) * MAPA.altura, x * MAPA.largura);
@@ -88,7 +106,7 @@ const ICONES_MAPA = {
     rotulo: 'Porto',
     svg: '<g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="4.5" r="2"/><path d="M12 6.5V21M8 10h8M4 13a8 8 0 0 0 16 0"/></g>',
   },
-  estrela: { rotulo: 'Estrela', svg: '<path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3l-6.2 3.6 1.6-7L2 9.2l7.1-.6z"/>' },
+  estrela: { rotulo: 'País (estrela)', svg:'<path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3l-6.2 3.6 1.6-7L2 9.2l7.1-.6z"/>' },
 };
 
 const desenhoSvg = d => `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${d}</svg>`;
@@ -99,8 +117,12 @@ function corClara(hex) {
   return 0.299 * r + 0.587 * g + 0.114 * b > 0.62;
 }
 
-// Cor do ponto: a escolhida ou, se não tiver, a da seção
-const corDoPonto = p => p.mapaCor || SECOES[p.secao].cor;
+// Cor do ponto: a escolhida; se não tiver, a do país dele; se não tiver país, a da seção
+function corDoPonto(p, profundidade = 0) {
+  if (p.mapaCor) return p.mapaCor;
+  const pais = p.paisId && profundidade < 3 && pontos.get(p.paisId)?.ponto;
+  return pais ? corDoPonto(pais, profundidade + 1) : SECOES[p.secao].cor;
+}
 
 function icone(p) {
   const cor = corDoPonto(p);
@@ -122,20 +144,36 @@ async function carregarPontos() {
   const meu = ++carregamento;
   const lista = await banco.pontosDoMapa();
   if (meu !== carregamento) return; // já pediram de novo enquanto este carregava
-  camadaPontos.clearLayers();
-  pontos = new Map();
-  for (const p of lista) {
-    const marcador = L.marker(paraMapa(p.mapaX, p.mapaY), { icon: icone(p), riseOnHover: true })
-      .bindTooltip(
-        `<strong>${esc(p.titulo)}</strong>${p.subtitulo ? `<br><small>${esc(p.subtitulo)}</small>` : ''}`,
-        { direction: 'top', offset: [0, -12], className: 'dica-ponto' },
-      )
-      .on('click', () => abrir(p.id))
-      .addTo(camadaPontos);
-    pontos.set(p.id, { ponto: p, marcador });
+  camadaPaises.clearLayers();
+  camadaLocais.clearLayers();
+  pontos = new Map(lista.map(p => [p.id, { ponto: p }]));
+  // Os ícones são feitos depois de juntar todos, porque a cor pode vir do país
+  for (const info of pontos.values()) {
+    const p = info.ponto;
+    info.marcador = L.marker(paraMapa(p.mapaX, p.mapaY), { icon: icone(p), riseOnHover: true })
+      .bindTooltip(() => dicaDoPonto(p), { direction: 'top', offset: [0, -12], className: 'dica-ponto' })
+      .on('click', () => abrir(p.id));
+    (ehPais(p) ? camadaPaises : camadaLocais).addLayer(info.marcador);
+  }
+  mostrarCamadaCerta();
+  desenharEstilo();
+}
+
+function dicaDoPonto(p) {
+  return `<strong>${esc(p.titulo)}</strong>${p.subtitulo ? `<br><small>${esc(p.subtitulo)}</small>` : ''}`
+    + (ehPais(p) ? '<br><small>Clique para aproximar</small>' : '');
+}
+
+// Depois de mudar cor ou ícone: refaz todos os ícones (a cor de um país passa para os pontos dele)
+// e põe cada ponto na camada certa (virar ou deixar de ser país muda quando ele aparece)
+function redesenharPontos() {
+  for (const { ponto, marcador } of pontos.values()) {
+    marcador.setIcon(icone(ponto));
+    camadaPaises.removeLayer(marcador);
+    camadaLocais.removeLayer(marcador);
+    (ehPais(ponto) ? camadaPaises : camadaLocais).addLayer(marcador);
   }
   destacar();
-  desenharEstilo();
 }
 
 function destacar() {
@@ -146,17 +184,50 @@ function destacar() {
   }
 }
 
+// Leva o mapa até o ponto, perto o bastante para ele aparecer.
+// País: aproxima até a área dele (o país e os pontos que pertencem a ele), já no nível de detalhe.
 function centralizar(id) {
-  const { marcador } = pontos.get(id);
-  const zoom = Math.max(mapa.getZoom(), ZOOM_FOCO);
+  const { ponto, marcador } = pontos.get(id);
+  const escondido = !mapa.getSize().x || !mapa.getSize().y;
+  let centro = marcador.getLatLng();
+  let zoom = Math.max(mapa.getZoom(), ZOOM_FOCO, zoomDetalhe);
+  if (ehPais(ponto)) {
+    const membros = [...pontos.values()].filter(i => i.ponto.paisId === id).map(i => i.marcador.getLatLng());
+    zoom = zoomDetalhe + 0.5;
+    if (membros.length && !escondido) {
+      const area = L.latLngBounds([centro, ...membros]).pad(0.15);
+      centro = area.getCenter();
+      zoom = Math.max(Math.min(mapa.getBoundsZoom(area), ZOOM_FOCO), zoomDetalhe + 0.25);
+    }
+  }
   vistaEscolhida = true;
   // Com o lado do mapa escondido não dá para animar: só deixa centralizado para quando ele voltar
-  if (!mapa.getSize().x || !mapa.getSize().y) mapa.setView(marcador.getLatLng(), zoom, { animate: false });
-  else mapa.flyTo(marcador.getLatLng(), zoom, { duration: 0.8 });
+  if (escondido) mapa.setView(centro, zoom, { animate: false });
+  else mapa.flyTo(centro, zoom, { duration: 0.8 });
 }
 
-function abrir(id) {
+// Se o painel estiver no editor, grava antes de trocar o texto. Devolve false se não deu para gravar
+// (aí o painel continua no editor, mostrando o erro).
+async function salvarPainel() {
+  const salvar = painel.contentWindow?.salvarAlteracoes;
+  return !salvar || (await salvar()) === true;
+}
+
+async function abrir(id) {
+  if (!(await salvarPainel())) return;
   painel.src = `artigo.html?id=${encodeURIComponent(id)}`;
+}
+
+// Clique no mapa fora dos pontos: grava o que estiver sendo editado e solta o texto selecionado
+async function soltarSelecao() {
+  if (!atual && !painel.contentWindow?.salvarAlteracoes) return; // nada selecionado
+  if (!(await salvarPainel())) return;
+  atual = null;
+  editandoEstilo = false;
+  destacar();
+  desenharEstilo();
+  desenharBarra();
+  painel.src = SECOES.mundo.pagina;
 }
 
 // Põe, move ou tira o ponto. Quando o texto ganha um ponto pela primeira vez, já abre a escolha de cor e ícone.
@@ -180,10 +251,11 @@ function desenharEstilo() {
   if (!info) return;
   const p = info.ponto;
   const cor = corDoPonto(p);
+  const temPais = p.paisId && pontos.has(p.paisId);
   caixaEstilo.innerHTML = `
     <div class="linha-estilo">
       <label class="campo-cor">Cor <input type="color" value="${cor}"></label>
-      <button class="pequeno" data-acao="cor-secao"${p.mapaCor ? '' : ' disabled'}>Usar cor da seção</button>
+      <button class="pequeno" data-acao="cor-padrao"${p.mapaCor ? '' : ' disabled'}>${temPais ? 'Usar cor do país' : 'Usar cor da seção'}</button>
       <button class="pequeno fechar-estilo" data-acao="fechar" title="Fechar">✕</button>
     </div>
     <div class="icones-ponto" style="--cor: ${cor}">
@@ -193,6 +265,7 @@ function desenharEstilo() {
         </button>
       `).join('')}
     </div>
+    <p class="dica-estilo">A estrela marca um <strong>país</strong>: aparece só com o mapa afastado, e os outros textos podem escolher pertencer a ele (e herdam a cor).</p>
   `;
 }
 
@@ -201,8 +274,7 @@ async function mudarEstilo(mudanca, salvar = true) {
   const info = atual && pontos.get(atual.id);
   if (!info) return;
   Object.assign(info.ponto, mudanca);
-  info.marcador.setIcon(icone(info.ponto));
-  destacar();
+  redesenharPontos();
   caixaEstilo.querySelector('.icones-ponto')?.style.setProperty('--cor', corDoPonto(info.ponto));
   if (!salvar) return;
   try {
@@ -219,7 +291,7 @@ caixaEstilo.addEventListener('input', e => {
 caixaEstilo.addEventListener('change', e => {
   if (e.target.type !== 'color') return;
   mudarEstilo({ mapaCor: e.target.value });
-  caixaEstilo.querySelector('[data-acao="cor-secao"]').disabled = false;
+  caixaEstilo.querySelector('[data-acao="cor-padrao"]').disabled = false;
 });
 caixaEstilo.addEventListener('click', e => {
   const botao = e.target.closest('button');
@@ -230,7 +302,7 @@ caixaEstilo.addEventListener('click', e => {
     desenharBarra();
     return;
   }
-  if (botao.dataset.acao === 'cor-secao') mudarEstilo({ mapaCor: '' });
+  if (botao.dataset.acao === 'cor-padrao') mudarEstilo({ mapaCor: '' });
   if (botao.dataset.icone !== undefined) mudarEstilo({ mapaIcone: botao.dataset.icone });
   desenharEstilo();
 });
@@ -289,8 +361,13 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// Clique no mapa (fora dos pontos): no modo de marcar, põe o ponto ali; senão, solta a seleção
 mapa.on('click', e => {
-  if (!marcando || !atual || !limites.contains(e.latlng)) return;
+  if (!marcando) {
+    soltarSelecao();
+    return;
+  }
+  if (!atual || !limites.contains(e.latlng)) return;
   marcando = false;
   const { x, y } = paraFracao(e.latlng);
   posicionar(atual.id, x, y);
@@ -306,7 +383,7 @@ mapa.on('contextmenu', e => {
     <button class="pequeno primario" data-acao="novo">+ Novo verbete aqui</button>
     ${atual ? `<button class="pequeno" data-acao="mover">📍 Pôr “${esc(atual.titulo)}” aqui</button>` : ''}
   `;
-  menu.addEventListener('click', ev => {
+  menu.addEventListener('click', async ev => {
     const acao = ev.target.closest('button')?.dataset.acao;
     if (!acao) return;
     mapa.closePopup();
@@ -315,6 +392,7 @@ mapa.on('contextmenu', e => {
       posicionar(atual.id, x, y);
       return;
     }
+    if (!(await salvarPainel())) return;
     if (provisorio) provisorio.remove();
     provisorio = L.marker(e.latlng, { icon: icone({ secao: 'mundo' }), interactive: false }).addTo(mapa);
     provisorio.getElement()?.classList.add('provisorio');

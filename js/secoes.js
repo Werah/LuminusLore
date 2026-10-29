@@ -24,8 +24,8 @@ const SECOES = {
       altura: 5635,
     },
     campos: [
-      { chave: 'categoria', rotulo: 'Categoria', opcoes: ['Região', 'Reino', 'Cidade', 'Lugar', 'Povo', 'Era / História', 'Cultura', 'Criatura', 'Outro'] },
-      { chave: 'localizacao', rotulo: 'Fica em', dica: 'Ex.: [[Costa de Vel]]' },
+      { chave: 'categoria', rotulo: 'Categoria', opcoes: ['País/Reino', 'Cidade', 'Vilarejo', 'Floresta', 'Perigo', 'Montanha', 'Outro'] },
+      { chave: 'localizacao', rotulo: 'Fica em', dica: 'Ex.: [[Solarium]]' },
     ],
   },
   panteao: {
@@ -37,7 +37,7 @@ const SECOES = {
     novo: 'Nova divindade',
     subtitulo: { rotulo: 'Epíteto', dica: 'Ex.: A Senhora das Marés' },
     campos: [
-      { chave: 'hierarquia', rotulo: 'Hierarquia', opcoes: ['Primordial', 'Deus maior', 'Deus menor', 'Semideus', 'Esquecido', 'Outro'] },
+      { chave: 'hierarquia', rotulo: 'Hierarquia', opcoes: ['Deus maior', 'Deus menor', 'Aspecto', 'Outro'] },
       { chave: 'dominios', rotulo: 'Domínios', dica: 'Ex.: mar, tempestades, viagens' },
       { chave: 'simbolo', rotulo: 'Símbolo sagrado' },
       { chave: 'seguidores', rotulo: 'Seguidores' },
@@ -52,7 +52,7 @@ const SECOES = {
     novo: 'Nova organização',
     subtitulo: { rotulo: 'Lema', dica: 'Ex.: Pela chama, até o fim' },
     campos: [
-      { chave: 'tipo', rotulo: 'Tipo', opcoes: ['Ordem', 'Guilda', 'Culto', 'Governo', 'Companhia', 'Sociedade secreta', 'Outro'] },
+      { chave: 'tipo', rotulo: 'Tipo', opcoes: ['Culto', 'Bando Mercenário', 'Guilda', 'Milicia', 'Organização Criminosa', 'Cabala' 'Outro'] },
       { chave: 'sede', rotulo: 'Sede' },
       { chave: 'lideranca', rotulo: 'Liderança' },
       { chave: 'divindade', rotulo: 'Divindade ligada', dica: 'Ex.: [[Nome do deus]]' },
