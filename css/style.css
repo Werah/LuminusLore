@@ -840,7 +840,9 @@ a.wiki.inexistente { color: #e8807c; border-bottom: 1px dashed currentColor; }
 
 /* ---------- Pastas de país (lista do Mundo) ---------- */
 
-.pastas { display: flex; flex-direction: column; gap: 14px; }
+/* Sem espaço entre as pastas: fechadas, as faixas encostam uma na outra.
+   O respiro fica embaixo dos cards de uma pasta aberta (ver .pasta-itens). */
+.pastas { display: flex; flex-direction: column; }
 
 /* A faixa vai de uma parede à outra da tela: as margens negativas (50% - 50cqw) esticam até as
    bordas, e o mesmo tanto de padding deixa o conteúdo alinhado com os cards embaixo.
@@ -859,13 +861,13 @@ a.wiki.inexistente { color: #e8807c; border-bottom: 1px dashed currentColor; }
   user-select: none;
   color: #fff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-  /* Degradê a partir da cor do país, escurecendo para a direita, com um brilho leve por cima */
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 55%),
-    linear-gradient(90deg,
-      color-mix(in srgb, var(--cor) 78%, #0c0912) 0%,
-      color-mix(in srgb, var(--cor) 42%, #0c0912) 45%,
-      color-mix(in srgb, var(--cor) 12%, #0c0912) 100%);
+  /* Como uma bandeira: cor chapada que só vai escurecendo para a direita, sem brilho em cima
+     (o brilho vertical é o que dava cara de botão). A linha escura embaixo separa faixas encostadas. */
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--cor) 72%, #0c0912) 0%,
+    color-mix(in srgb, var(--cor) 60%, #0c0912) 30%,
+    color-mix(in srgb, var(--cor) 18%, #0c0912) 100%);
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.35);
   transition: filter 0.15s;
 }
 
@@ -912,7 +914,7 @@ button.pasta-globo:hover { background: rgba(255, 255, 255, 0.22); border: none; 
 
 .pasta-seta { transition: transform 0.2s; transform: rotate(-90deg); }
 .pasta.aberta .pasta-seta { transform: none; }
-.pasta-itens { display: none; padding: 12px 0 4px; }
+.pasta-itens { display: none; padding: 14px 0 24px; }
 .pasta.aberta .pasta-itens { display: block; }
 .pasta-vazia { margin: 0; padding: 6px 4px; color: var(--texto-2); font-size: 0.9rem; font-style: italic; }
 
