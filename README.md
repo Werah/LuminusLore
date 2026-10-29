@@ -66,8 +66,9 @@ Cada pessoa tem o próprio login, e o site mostra quem criou e quem editou cada 
    insert into public.membros (email, nome) values ('amigo@email.com', 'Nome que aparece no site');
    ```
 
-3. Mande o link do site, o e-mail e a senha provisória. Ela troca a senha clicando no próprio
-   nome, no topo do site.
+3. Mande o link do site, o e-mail e a senha provisória. Na tela de login, a aba
+   **Trocar senha** pede o e-mail, a senha provisória e a senha nova, e já entra no site.
+   (Logado, dá para trocar de novo clicando no próprio nome, no topo.)
 
 Para tirar alguém: `delete from public.membros where email = 'amigo@email.com';`
 (e, se quiser, apague o usuário em Authentication → Users). Os textos que a pessoa escreveu continuam.
