@@ -99,8 +99,14 @@ function desenharTexto() {
   edicao.marcar(null);
 
   const pais = artigo.paisId && [...titulos.values()].find(t => t.id === artigo.paisId);
+  // Líder / Prefeito (país, cidade, vila, organização)
+  const cargo = cargoDeLider(artigo);
+  const lider = cargo && artigo.liderId && [...titulos.values()].find(t => t.id === artigo.liderId);
   const preenchidos = s.campos.filter(c => artigo.detalhes[c.chave] && campoVisivel(c, artigo.detalhes));
-  const ficha = (pais ? `<div><dt>${esc(s.rotuloPais || 'País')}</dt><dd>${linkWiki(pais.titulo, '', titulos)}</dd></div>` : '')
+  const ficha = (lider ? `<div><dt>${esc(cargo)}</dt><dd>${linkWiki(lider.link, lider.titulo, titulos)}</dd></div>` : '')
+    + (pais ? `<div><dt>${esc(s.rotuloPais || 'País')}</dt><dd>${linkWiki(pais.link, pais.titulo, titulos)}</dd></div>` : '')
+    // Personagem: "Líder de" é preenchido depois (carregarLiderDe), procurando quem aponta para ele
+    + (secao === 'personagens' ? '<div id="lider-de" hidden></div>' : '')
     + preenchidos
       .filter(c => !c.longo)
       .map(c => `<div><dt>${esc(c.rotulo)}</dt><dd>${linhaComLinks(artigo.detalhes[c.chave], titulos)}</dd></div>`)
@@ -182,7 +188,34 @@ function desenharTexto() {
   document.getElementById('btn-excluir').addEventListener('click', excluir);
   carregarMencoes();
   if (modoPais) carregarLugares();
+  if (secao === 'personagens') carregarLiderDe();
   mostrarAvisoEdicao();
+}
+
+// Personagem: o que ele lidera (país, cidade, vila, organização). Se não lidera nada e a ficha
+// só tinha esse espaço, a ficha some.
+async function carregarLiderDe() {
+  const el = document.getElementById('lider-de');
+  let lista = [];
+  try {
+    lista = await banco.liderados(artigo.id);
+  } catch {
+    // Não é essencial: se falhar, só não mostra
+  }
+  if (!el) return;
+  if (lista.length) {
+    el.innerHTML = `<dt>Líder de</dt><dd>${lista.map(l => {
+      const t = [...titulos.values()].find(x => x.id === l.id);
+      return `${t ? linkWiki(t.link, t.titulo, titulos) : esc(l.titulo)} <small class="tipo-liderado">(${tipoDoLiderado(l)})</small>`;
+    }).join('<br>')}</dd>`;
+    el.hidden = false;
+    return;
+  }
+  const ficha = el.closest('.ficha');
+  if (ficha && !ficha.querySelector('img') && !el.parentElement.querySelector(':scope > div:not(#lider-de)')) {
+    ficha.remove();
+    document.querySelector('.corpo-artigo')?.classList.add('sem-ficha');
+  }
 }
 
 // Ficha do país: os textos que pertencem a ele, separados por seção (lugares, personagens, eventos...).
@@ -225,7 +258,9 @@ if (modoPais) {
 // "Mencionado em": outros textos com link para este
 async function carregarMencoes() {
   try {
-    const lista = await banco.mencoes(artigo.titulo, artigo.id);
+    // Os jeitos de escrever o link que chegam neste texto (um país pode ter dois: "Azraq" e "Azraq (país)")
+    const jeitos = [...titulos].filter(([, t]) => t.id === artigo.id).map(([chave]) => chave);
+    const lista = await banco.mencoes(artigo.titulo, artigo.id, jeitos);
     const el = document.getElementById('mencoes');
     if (!lista.length || !el) return;
     el.innerHTML = `
@@ -276,6 +311,14 @@ function editar(tituloInicial = '') {
   // cor '' = herda a do país (ou, sem país, a da seção)
   const temPonto = !!pontoNovo || (artigo?.mapaX ?? null) !== null;
   const estiloPonto = { cor: a.mapaCor || '', icone: a.mapaIcone || '' };
+
+  // Líder (país, cidade, vila, organização): um personagem, escolhido buscando pelo nome
+  const nomeDoTexto = id => [...titulos.values()].find(t => t.id === id)?.titulo || '';
+  let lider = a.liderId ? { id: a.liderId, titulo: nomeDoTexto(a.liderId) } : null;
+  const liderInicial = a.liderId || null;
+  // "Líder de" (personagem): o que ele lidera; carregado do banco ao abrir o editor
+  let lideraAgora = [];
+  let lideraAntes = [];
 
   // Campos curtos vão na grade; os longos (várias linhas) ficam embaixo, largos.
   // data-campo: para esconder os que só valem com certo valor de outro campo (soSe)
@@ -332,9 +375,23 @@ function editar(tituloInicial = '') {
             <span class="amostra-cor" title="Cor que o ponto herda no mapa" hidden></span>
           </span>
         </label>
+        <label class="campo-lider" hidden><span class="rotulo-lider">Líder</span>
+          <span class="campo-busca">
+            <input type="text" name="lider-busca" value="${esc(lider?.titulo || '')}" placeholder="Digite o nome do personagem…">
+            <button type="button" class="pequeno limpar-busca" title="Deixar sem líder">✕</button>
+          </span>
+        </label>
         ${campos}
       </div>
       ${camposLongos}
+      ${secao === 'personagens' ? `
+        <div class="campo campo-lider-de">Líder de
+          <div class="chips" id="chips-lider-de"></div>
+          <span class="campo-busca">
+            <input type="text" name="lider-de-busca" placeholder="Digite um país, cidade, vila ou organização…">
+          </span>
+          <p class="dica">Opcional. Ao salvar, o personagem vira o líder (ou prefeito) do que estiver aqui, e a página de lá passa a mostrar isso.</p>
+        </div>` : ''}
 
       ${temPonto ? `
         <fieldset class="campo-ponto">
@@ -408,6 +465,85 @@ function editar(tituloInicial = '') {
   form.addEventListener('change', mostrarCamposVisiveis);
   mostrarCamposVisiveis();
   if (!artigo) form.titulo.focus();
+
+  // Líder: o campo só aparece se este texto tem cargo (depende da categoria e do ícone, que mudam no editor)
+  const cargoAtual = () => cargoDeLider({
+    secao, detalhes: { categoria: form['d-categoria']?.value }, mapaIcone: estiloPonto.icone,
+  });
+  const campoLider = form.querySelector('.campo-lider');
+  const inputLider = form['lider-busca'];
+  function atualizarCargo() {
+    const cargo = cargoAtual();
+    campoLider.hidden = !cargo;
+    campoLider.querySelector('.rotulo-lider').textContent = cargo || 'Líder';
+  }
+  form.addEventListener('change', atualizarCargo);
+  form.addEventListener('click', atualizarCargo); // os ícones do ponto são botões
+  atualizarCargo();
+  ligarBusca(inputLider, {
+    buscar: termo => banco.buscarPersonagens(termo),
+    mostrar: p => `${SECOES.personagens.icone} ${esc(p.titulo)}${p.subtitulo ? ` <small>${esc(p.subtitulo)}</small>` : ''}`,
+    escolher: p => {
+      lider = { id: p.id, titulo: p.titulo };
+      inputLider.value = p.titulo;
+      alterado = true;
+    },
+  });
+  // Saiu do campo sem escolher: volta o nome do líder atual (ou fica vazio, se apagou tudo)
+  inputLider.addEventListener('blur', () => setTimeout(() => {
+    if (!inputLider.value.trim()) {
+      if (lider) alterado = true;
+      lider = null;
+    } else {
+      inputLider.value = lider?.titulo || '';
+    }
+  }, 200));
+  form.querySelector('.limpar-busca').addEventListener('click', () => {
+    lider = null;
+    inputLider.value = '';
+    alterado = true;
+  });
+
+  // Líder de (só personagens): etiquetas com ✕, e a busca acrescenta
+  const chipsLiderDe = document.getElementById('chips-lider-de');
+  function desenharLiderDe() {
+    if (!chipsLiderDe) return;
+    chipsLiderDe.innerHTML = lideraAgora.length
+      ? lideraAgora.map((l, i) => `
+          <span class="chip">${iconeDoTexto(l)} ${esc(l.titulo)} <small>${tipoDoLiderado(l)}</small>
+            <button type="button" data-tirar="${i}" title="Deixar de ser líder de ${esc(l.titulo)}">✕</button>
+          </span>`).join('')
+      : '<span class="sem-texto">Nenhum</span>';
+  }
+  if (chipsLiderDe) {
+    desenharLiderDe();
+    if (artigo) {
+      banco.liderados(artigo.id).then(lista => {
+        lideraAgora = lista;
+        lideraAntes = [...lista];
+        desenharLiderDe();
+      }).catch(() => {});
+    }
+    chipsLiderDe.addEventListener('click', e => {
+      const botao = e.target.closest('[data-tirar]');
+      if (!botao) return;
+      lideraAgora.splice(Number(botao.dataset.tirar), 1);
+      alterado = true;
+      desenharLiderDe();
+    });
+    const inputLiderDe = form['lider-de-busca'];
+    ligarBusca(inputLiderDe, {
+      buscar: termo => banco.buscarLideraveis(termo),
+      mostrar: l => `${iconeDoTexto(l)} ${esc(l.titulo)} <small>${tipoDoLiderado(l)}${
+        l.liderId && l.liderId !== artigo?.id ? ` · hoje: ${esc(nomeDoTexto(l.liderId) || 'outro')}` : ''}</small>`,
+      escolher: l => {
+        if (!lideraAgora.some(x => x.id === l.id)) lideraAgora.push(l);
+        inputLiderDe.value = '';
+        alterado = true;
+        desenharLiderDe();
+      },
+    });
+  }
 
   // País: os textos com o ponto de estrela no mapa. O ponto deste texto herda a cor do país.
   const selPais = form.pais;
@@ -552,6 +688,16 @@ function editar(tituloInicial = '') {
         if (temPonto && (estiloPonto.cor !== (artigo.mapaCor || '') || estiloPonto.icone !== (artigo.mapaIcone || ''))) {
           await banco.estilizarPonto(artigo.id, estiloPonto.cor, estiloPonto.icone);
         }
+        // Líder: só grava se mudou aqui (para não desfazer o que alguém fez pela página do personagem).
+        // Se o texto deixou de ter cargo (ex.: mudou de categoria), o cargo fica vago.
+        const cargo = cargoAtual();
+        if (cargo ? (lider?.id || null) !== liderInicial : artigo.liderId) {
+          await banco.definirLider(artigo.id, cargo ? lider?.id || null : null);
+        }
+        // Líder de (personagem): põe este personagem no que entrou e tira do que saiu
+        for (const l of lideraAgora.filter(x => !lideraAntes.some(y => y.id === x.id))) await banco.definirLider(l.id, artigo.id);
+        for (const l of lideraAntes.filter(x => !lideraAgora.some(y => y.id === x.id))) await banco.definirLider(l.id, null);
+        lideraAntes = [...lideraAgora];
         await campoImagem.salvar(artigo.id);
         alterado = false;
         return true;

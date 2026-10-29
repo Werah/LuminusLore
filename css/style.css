@@ -781,6 +781,77 @@ a.wiki.inexistente { color: #e8807c; border-bottom: 1px dashed currentColor; }
 .historico .versao { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--borda); max-width: none; }
 .historico .versao .subtitulo { margin: 0 0 12px; }
 
+/* ---------- Filtro em abas (NPCs | Personagens) e filtro por país ---------- */
+
+.filtros.abas-filtro {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0;
+  margin: 4px 0 20px;
+}
+
+.abas-filtro button {
+  position: relative;
+  padding: 10px 12px 12px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--texto-2);
+  font-size: 1.05rem;
+  border-bottom: 2px solid var(--borda);
+  transition: color 0.2s, border-color 0.2s, text-shadow 0.2s, box-shadow 0.2s;
+}
+
+/* Divisória entre as abas */
+.abas-filtro button + button::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--borda);
+}
+
+.abas-filtro button:hover { color: var(--texto); border-bottom-color: color-mix(in srgb, var(--cor-secao) 50%, var(--borda)); }
+
+/* A aba escolhida brilha de leve na cor da seção */
+.abas-filtro button.ativo {
+  color: var(--texto);
+  border-bottom-color: var(--cor-secao);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--cor-secao) 70%, transparent);
+  box-shadow: 0 8px 18px -10px color-mix(in srgb, var(--cor-secao) 80%, transparent);
+  background: linear-gradient(0deg, color-mix(in srgb, var(--cor-secao) 12%, transparent), transparent 70%);
+}
+
+.abas-filtro .qtd { margin-left: 4px; font-size: 0.8rem; opacity: 0.6; }
+
+.filtro-pais {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: var(--texto-2);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.filtro-pais svg { width: 18px; height: 18px; flex-shrink: 0; }
+.filtro-pais select { width: auto; margin: 0; padding: 8px 6px; border: none; background: none; }
+.filtro-pais select:focus { border: none; }
+.filtro-pais:focus-within { border-color: var(--ouro); }
+
+/* Filtrando por um país: o botão fica aceso */
+.filtro-pais.ativo {
+  border-color: var(--cor-secao);
+  color: var(--cor-secao);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--cor-secao) 45%, transparent);
+}
+
 /* ---------- Quem está editando, textos excluídos ---------- */
 
 .aviso-edicao {
@@ -1055,6 +1126,36 @@ button.pasta-globo:hover { background: rgba(255, 255, 255, 0.22); border: none; 
 .sugestoes-link li.nenhuma { color: var(--texto-2); font-size: 0.85rem; white-space: normal; cursor: default; }
 
 .aviso-ponto { color: var(--ouro-2); margin: -10px 0 18px; }
+.sugestoes-link small { color: var(--texto-2); font-size: 0.8rem; }
+
+/* ---------- Líder / Líder de (editor) ---------- */
+
+.campo-busca { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.campo-busca input { margin: 0; }
+.campo-busca .limpar-busca { flex-shrink: 0; }
+
+.campo-lider-de { margin: 0 0 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--texto);
+  font-size: 0.9rem;
+}
+
+.chip small { color: var(--texto-2); }
+.chip button { padding: 0 7px; border: none; border-radius: 50%; background: none; color: var(--texto-2); font-size: 0.8rem; }
+.chip button:hover { color: var(--perigo); }
+
+.icone-texto { display: inline-flex; width: 16px; justify-content: center; color: var(--ouro-2); vertical-align: -2px; }
+.icone-texto svg { width: 16px; height: 16px; }
+.tipo-liderado { color: var(--texto-2); }
 
 /* País no editor: a lista e uma bolinha com a cor que o ponto herda */
 .campo-pais { display: flex; align-items: center; gap: 8px; margin-top: 4px; }

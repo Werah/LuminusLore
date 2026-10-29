@@ -67,14 +67,25 @@ alter table public.artigos drop constraint if exists artigos_pais_nao_e_ele_mesm
 alter table public.artigos add constraint artigos_pais_nao_e_ele_mesmo check (pais_id is null or pais_id <> id);
 create index if not exists artigos_pais on public.artigos (pais_id);
 
+-- Líder (personagem) de um país, cidade, vila ou organização: o cargo fica guardado no lugar,
+-- e a ficha do personagem mostra "Líder de" procurando quem aponta para ele.
+-- Excluir o personagem só deixa o cargo vago.
+alter table public.artigos add column if not exists lider_id text references public.artigos(id) on delete set null;
+alter table public.artigos drop constraint if exists artigos_lider_nao_e_ele_mesmo;
+alter table public.artigos add constraint artigos_lider_nao_e_ele_mesmo check (lider_id is null or lider_id <> id);
+create index if not exists artigos_lider on public.artigos (lider_id);
+
 -- Seções que existem (as mesmas de js/secoes.js). Refeita aqui para quem já tinha rodado
 -- este arquivo antes de existirem História e Personagens.
 alter table public.artigos drop constraint if exists artigos_secao_check;
 alter table public.artigos add constraint artigos_secao_check
   check (secao in ('mundo', 'historia', 'personagens', 'panteao', 'organizacoes'));
 
--- Título não se repete (é por ele que os links [[Título]] encontram o texto)
-create unique index if not exists artigos_titulo on public.artigos (lower(titulo));
+-- Título não se repete (é por ele que os links [[Título]] encontram o texto), com uma exceção:
+-- um país (ponto de estrela) pode ter o mesmo nome de um outro texto, como a capital dele.
+-- Nos links: [[Azraq]] é o outro texto e [[Azraq (país)]] é o país.
+drop index if exists public.artigos_titulo;
+create unique index if not exists artigos_titulo_pais on public.artigos (lower(titulo), (mapa_icone = 'estrela'));
 create index if not exists artigos_secao on public.artigos (secao, titulo);
 
 -- Versões anteriores de cada texto (guardadas sozinhas a cada edição).
@@ -215,13 +226,14 @@ begin
   if exists (select 1 from public.artigos where id = l->>'id') then
     raise exception 'Esse texto já foi restaurado.';
   end if;
-  insert into public.artigos (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, pais_id,
+  insert into public.artigos (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, pais_id, lider_id,
                               mapa_x, mapa_y, mapa_cor, mapa_icone)
   values (
     l->>'id', l->>'secao', l->>'titulo',
     coalesce(l->>'subtitulo', ''), coalesce(l->>'conteudo', ''), coalesce(l->'detalhes', '{}'::jsonb),
     coalesce(l->>'imagem', ''),
     (select id from public.artigos where id = l->>'pais_id'),
+    (select id from public.artigos where id = l->>'lider_id'),
     (l->>'mapa_x')::double precision, (l->>'mapa_y')::double precision,
     coalesce(l->>'mapa_cor', ''), coalesce(l->>'mapa_icone', '')
   );

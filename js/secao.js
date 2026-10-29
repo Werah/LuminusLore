@@ -22,6 +22,25 @@ let artigos = [];
 let nomes = new Map();
 let filtro = ''; // valor escolhido no filtro ('' = todos)
 
+// Filtro em abas (ex.: NPCs | Personagens): sempre tem uma escolhida, e o navegador lembra qual.
+// Texto sem valor no campo conta como da primeira aba.
+const abas = campoFiltro?.abas;
+const CHAVE_ABA = `luminus-aba-${chave}`;
+if (abas) {
+  filtro = Object.keys(abas)[0];
+  try {
+    const salva = localStorage.getItem(CHAVE_ABA);
+    if (salva in abas) filtro = salva;
+  } catch {
+    // Sem armazenamento: começa na primeira aba
+  }
+}
+
+// Filtro por país (nacionalidade): '' = todos, SEM_PAIS = sem país, ou o id do país
+const SEM_PAIS = '-';
+let filtroPais = '';
+let paises = [];
+
 // No Mundo, os países (pontos de estrela no mapa) viram pastas com os textos que pertencem a eles,
 // e o que não pertence a nenhum fica na pasta "Outros". Os países não aparecem como cards.
 const comPastas = !!SECAO.mapa;
@@ -62,7 +81,10 @@ btnNovo.href = `artigo.html?secao=${chave}`;
 
 async function carregar() {
   try {
-    [artigos, nomes] = await Promise.all([banco.listarArtigos(chave), banco.nomes()]);
+    [artigos, nomes, paises] = await Promise.all([
+      banco.listarArtigos(chave), banco.nomes(), SECAO.filtroPais ? banco.paises() : [],
+    ]);
+    desenharFiltroPais();
     desenharFiltros();
     desenhar();
     carregarExcluidos();
@@ -120,17 +142,31 @@ lixeira.addEventListener('click', async e => {
 });
 
 function valorFiltro(a) {
-  return campoFiltro ? a.detalhes[campoFiltro.chave] || '' : '';
+  if (!campoFiltro) return '';
+  return a.detalhes[campoFiltro.chave] || (abas ? Object.keys(abas)[0] : '');
 }
+
+const passaNoPais = a => !filtroPais || (filtroPais === SEM_PAIS ? !a.paisId : a.paisId === filtroPais);
 
 function desenharFiltros() {
   if (!campoFiltro) return;
   const contagem = new Map();
-  const itens = artigos.filter(a => !ehPasta(a)); // países não contam: são as pastas
+  const itens = artigos.filter(a => !ehPasta(a) && passaNoPais(a)); // países não contam: são as pastas
   for (const a of itens) {
     const v = valorFiltro(a);
     if (v) contagem.set(v, (contagem.get(v) || 0) + 1);
   }
+
+  if (abas) {
+    filtros.classList.add('abas-filtro');
+    filtros.innerHTML = Object.entries(abas).map(([v, rotulo]) => `
+      <button class="${v === filtro ? 'ativo' : ''}" data-valor="${esc(v)}" role="tab" aria-selected="${v === filtro}">
+        ${esc(rotulo)} <span class="qtd">${contagem.get(v) || 0}</span>
+      </button>
+    `).join('');
+    return;
+  }
+
   // Na ordem das opções; valores antigos que não estão mais nas opções vão pro fim
   const posicao = v => (campoFiltro.opcoes.includes(v) ? campoFiltro.opcoes.indexOf(v) : Infinity);
   const valores = [...contagem.keys()].sort((a, b) => posicao(a) - posicao(b) || a.localeCompare(b));
@@ -163,7 +199,7 @@ function card(a, cor) {
       <div class="corpo-card">
         <div class="linha-titulo">
           <h3>${esc(a.titulo)}</h3>
-          ${valorFiltro(a) ? `<span class="selo">${esc(valorFiltro(a))}</span>` : ''}
+          ${valorFiltro(a) && !abas ? `<span class="selo">${esc(valorFiltro(a))}</span>` : ''}
         </div>
         ${a.subtitulo ? `<p class="subtitulo">${esc(a.subtitulo)}</p>` : ''}
         ${resumo ? `<p class="descricao">${esc(resumoTexto(resumo))}</p>` : ''}
@@ -180,7 +216,7 @@ const passaNaBusca = (a, termo) => !termo
 function desenhar() {
   const termo = normalizar(busca.value.trim());
   const ordenar = l => (ordem.value === 'recentes' ? l.sort((a, b) => b.atualizadoEm.localeCompare(a.atualizadoEm)) : l);
-  const itens = ordenar(artigos.filter(a => !ehPasta(a) && (!filtro || valorFiltro(a) === filtro)));
+  const itens = ordenar(artigos.filter(a => !ehPasta(a) && (!filtro || valorFiltro(a) === filtro) && passaNoPais(a)));
 
   if (!artigos.length) {
     lista.innerHTML = `<p class="vazio">Nenhum texto ainda. Que tal começar com <strong>${esc(SECAO.novo)}</strong>?</p>`;
@@ -329,10 +365,49 @@ filtros.addEventListener('click', e => {
   const botao = e.target.closest('button');
   if (!botao) return;
   filtro = botao.dataset.valor;
+  if (abas) {
+    try {
+      localStorage.setItem(CHAVE_ABA, filtro);
+    } catch {
+      // Sem armazenamento: só não lembra da próxima vez
+    }
+  }
   desenharFiltros();
   desenhar();
 });
 busca.addEventListener('input', desenhar);
 ordem.addEventListener('change', desenhar);
+
+// ---------- Filtro por país ----------
+
+// Botão com o globo ao lado da ordem: "Todos os países", cada país, ou "Sem <país>"
+let seletorPais = null;
+if (SECAO.filtroPais) {
+  const rotulo = SECAO.rotuloPais || 'País';
+  ordem.insertAdjacentHTML('beforebegin', `
+    <label class="filtro-pais" title="Filtrar por ${esc(rotulo.toLowerCase())}">
+      ${ICONE_GLOBO}
+      <select id="filtro-pais" aria-label="Filtrar por ${esc(rotulo.toLowerCase())}"></select>
+    </label>
+  `);
+  seletorPais = document.getElementById('filtro-pais');
+  seletorPais.addEventListener('change', () => {
+    filtroPais = seletorPais.value;
+    seletorPais.parentElement.classList.toggle('ativo', !!filtroPais);
+    desenharFiltros();
+    desenhar();
+  });
+}
+
+function desenharFiltroPais() {
+  if (!seletorPais) return;
+  const rotulo = (SECAO.rotuloPais || 'País').toLowerCase();
+  seletorPais.innerHTML = `
+    <option value="">Todos os países</option>
+    ${paises.map(p => `<option value="${esc(p.id)}">${esc(p.titulo)}</option>`).join('')}
+    <option value="${SEM_PAIS}">Sem ${esc(rotulo)}</option>
+  `;
+  seletorPais.value = filtroPais;
+}
 
 carregar();

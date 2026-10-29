@@ -9,11 +9,24 @@
 //   soSe:   só aparece quando outro campo tem certo valor, ex.: { tipo: 'Personagem de jogador' }
 // Nos campos da ficha também dá para usar [[links]] para outros textos.
 // Opcionais da seção: rotuloPais (nome do campo de país), rotuloTexto (título do texto principal)
-// e linhaDoTempo (a lista vira uma linha do tempo, ordenada pelos campos era e ano).
+// e linhaDoTempo (a lista vira uma linha do tempo, ordenada pelos campos era e ano),
+// filtroPais (botão para filtrar a lista pelo país / nacionalidade).
+// No campo de filtro, "abas" troca os botões de filtro por abas: { valor: 'Nome da aba' }.
 
 // Campo com "soSe" só aparece (e só é guardado) quando os outros campos têm os valores pedidos
 function campoVisivel(campo, detalhes) {
   return !campo.soSe || Object.entries(campo.soSe).every(([chave, valor]) => (detalhes[chave] || '') === valor);
+}
+
+// Quem pode ter um líder (um personagem) e o nome do cargo; '' = não tem cargo.
+// O personagem mostra "Líder de" com tudo o que aponta para ele.
+function cargoDeLider(a) {
+  const d = a.detalhes || {};
+  if (a.secao === 'organizacoes') return 'Líder';
+  if (a.secao !== 'mundo') return '';
+  if (a.mapaIcone === 'estrela') return 'Líder'; // país
+  if (['Cidade', 'Vilarejo'].includes(d.categoria) || ['cidade', 'vila'].includes(a.mapaIcone)) return 'Prefeito';
+  return '';
 }
 
 const SECOES = {
@@ -67,8 +80,10 @@ const SECOES = {
     subtitulo: { rotulo: 'Alcunha', dica: 'Ex.: O Lobo de Azraq' },
     rotuloPais: 'Nacionalidade',
     rotuloTexto: 'História',
+    filtroPais: true, // botão para filtrar pela nacionalidade
     campos: [
-      { chave: 'tipo', rotulo: 'Tipo', opcoes: ['NPC', 'Personagem de jogador'] },
+      // "abas": na lista, o filtro vira abas (uma sempre escolhida) com estes nomes
+      { chave: 'tipo', rotulo: 'Tipo', opcoes: ['NPC', 'Personagem de jogador'], abas: { 'NPC': 'NPCs', 'Personagem de jogador': 'Personagens' } },
       { chave: 'jogador', rotulo: 'Jogador', dica: 'Quem joga com ele', soSe: { tipo: 'Personagem de jogador' } },
       { chave: 'raca', rotulo: 'Raça', soSe: { tipo: 'Personagem de jogador' } },
       { chave: 'classe', rotulo: 'Classe', soSe: { tipo: 'Personagem de jogador' } },

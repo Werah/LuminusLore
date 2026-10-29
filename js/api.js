@@ -77,10 +77,11 @@ function nomesEditando(editores, nomes, meuEmail) {
 const LINK_WIKI = /\[\[([^[\]|]+)(?:\|([^[\]]+))?\]\]/g;
 
 // "titulos" é o mapa de banco.titulos(). Link para texto que ainda não existe fica marcado.
+// [[Azraq (país)]] aparece só como "Azraq" (o "(país)" serve para escolher o país, não para ler).
 function linkWiki(alvo, rotulo, titulos) {
   const nome = alvo.trim();
   const t = titulos.get(nome.toLowerCase());
-  const rotuloHtml = esc((rotulo || alvo).trim());
+  const rotuloHtml = esc((rotulo || (t?.pais ? t.titulo : alvo)).trim());
   if (t) return `<a class="wiki" href="artigo.html?id=${encodeURIComponent(t.id)}">${rotuloHtml}</a>`;
   return `<a class="wiki inexistente" href="artigo.html?titulo=${encodeURIComponent(nome)}" title="Esse texto ainda não existe">${rotuloHtml}</a>`;
 }
@@ -163,14 +164,18 @@ function ligarSugestaoDeLinks(campo, titulos) {
     inicio = antes.length - m[1].length;
     const termo = normalizar(m[1].trim());
     const comeca = t => (normalizar(t.titulo).startsWith(termo) ? 0 : 1);
-    opcoes = [...titulos.values()]
+    // Um país aparece no mapa de títulos com dois jeitos de escrever: aqui entra uma vez só
+    const unicos = [...new Map([...titulos.values()].map(t => [t.id, t])).values()];
+    opcoes = unicos
       .filter(t => normalizar(t.titulo).includes(termo))
-      .sort((a, b) => comeca(a) - comeca(b) || a.titulo.localeCompare(b.titulo))
+      .sort((a, b) => comeca(a) - comeca(b) || a.titulo.localeCompare(b.titulo) || a.pais - b.pais)
       .slice(0, 8);
     if (!opcoes.length) {
       lista.innerHTML = '<li class="nenhuma">Nenhum texto com esse nome (o link fica vermelho até alguém criar)</li>';
     } else {
-      lista.innerHTML = opcoes.map((t, i) => `<li data-i="${i}">${SECOES[t.secao]?.icone || ''} ${esc(t.titulo)}</li>`).join('');
+      lista.innerHTML = opcoes.map((t, i) => `
+        <li data-i="${i}">${SECOES[t.secao]?.icone || ''} ${esc(t.titulo)}${t.pais ? ' <small>(país)</small>' : ''}</li>
+      `).join('');
       marcar(0);
     }
     const pos = posicaoDoCursor(campo);
@@ -180,7 +185,7 @@ function ligarSugestaoDeLinks(campo, titulos) {
   }
 
   function escolher(i) {
-    const titulo = opcoes[i].titulo;
+    const titulo = opcoes[i].link; // "Azraq (país)" quando o país tem o mesmo nome de outro texto
     const fim = campo.selectionStart;
     // Se o cursor estava no meio de um link já fechado ("[[Mar|essa]]"), troca o link inteiro
     const depois = campo.value.slice(fim).replace(/^[^[\]\n]*\]\]/, '');
@@ -218,10 +223,109 @@ function ligarSugestaoDeLinks(campo, titulos) {
   });
 }
 
+/**
+ * Campo de texto que busca no banco enquanto a pessoa digita e mostra os resultados embaixo
+ * (para escolher um entre muitos, ex.: o líder entre centenas de personagens).
+ *   buscar(termo)  devolve a lista (Promise)
+ *   mostrar(item)  devolve o HTML de uma linha
+ *   escolher(item) chamado quando a pessoa escolhe (clique, Enter ou Tab)
+ * Enter neste campo nunca envia o formulário.
+ */
+function ligarBusca(input, { buscar, mostrar, escolher }) {
+  const lista = document.createElement('ul');
+  lista.className = 'sugestoes-link';
+  lista.hidden = true;
+  document.body.appendChild(lista);
+  let opcoes = [];
+  let escolhida = 0;
+  let pausa = null;
+  let pedido = 0; // para ignorar respostas que chegaram fora de ordem
+
+  function fechar() {
+    lista.hidden = true;
+    opcoes = [];
+  }
+
+  function marcar(i) {
+    escolhida = (i + opcoes.length) % opcoes.length;
+    lista.querySelectorAll('li').forEach((li, j) => li.classList.toggle('ativa', j === escolhida));
+  }
+
+  async function procurar() {
+    const termo = input.value.trim();
+    if (!termo) return fechar();
+    const meu = ++pedido;
+    let achados;
+    try {
+      achados = await buscar(termo);
+    } catch {
+      return;
+    }
+    if (meu !== pedido || document.activeElement !== input) return;
+    opcoes = achados;
+    lista.innerHTML = opcoes.length
+      ? opcoes.map((o, i) => `<li data-i="${i}">${mostrar(o)}</li>`).join('')
+      : '<li class="nenhuma">Nada encontrado com esse nome</li>';
+    if (opcoes.length) marcar(0);
+    const pos = posicaoDoCursor(input);
+    lista.style.left = `${pos.x}px`;
+    lista.style.top = `${pos.y}px`;
+    lista.style.minWidth = `${Math.min(input.offsetWidth, 300)}px`;
+    lista.hidden = false;
+  }
+
+  function pegar(i) {
+    const item = opcoes[i];
+    fechar();
+    if (item) escolher(item);
+  }
+
+  input.setAttribute('autocomplete', 'off');
+  input.addEventListener('input', () => {
+    clearTimeout(pausa);
+    pausa = setTimeout(procurar, 200);
+  });
+  input.addEventListener('blur', () => setTimeout(fechar, 150));
+  window.addEventListener('scroll', fechar, true);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') e.preventDefault();
+    if (lista.hidden) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      fechar();
+    } else if (opcoes.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      marcar(escolhida + (e.key === 'ArrowDown' ? 1 : -1));
+    } else if (opcoes.length && (e.key === 'Enter' || e.key === 'Tab')) {
+      e.preventDefault();
+      pegar(escolhida);
+    }
+  });
+  lista.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const li = e.target.closest('li[data-i]');
+    if (li) pegar(Number(li.dataset.i));
+  });
+}
+
+// Ícone de um texto: o do ponto no mapa, se tiver, ou o da seção
+function iconeDoTexto(a) {
+  const svg = ICONES_MAPA[a.mapaIcone]?.svg;
+  return svg ? `<span class="icone-texto">${desenhoSvg(svg)}</span>` : `<span class="icone-texto">${SECOES[a.secao]?.icone || ''}</span>`;
+}
+
+// "país", "cidade", "vila", "organização" (para o "Líder de" do personagem)
+function tipoDoLiderado(a) {
+  if (a.secao === 'organizacoes') return 'organização';
+  if (ehPais(a)) return 'país';
+  if (a.detalhes?.categoria === 'Vilarejo' || a.mapaIcone === 'vila') return 'vila';
+  return 'cidade';
+}
+
 // Começo do texto sem a marcação, para mostrar nos cards
 function resumoTexto(texto, tamanho = 180) {
   const limpo = String(texto || '')
-    .replace(LINK_WIKI, (_, alvo, rotulo) => rotulo || alvo)
+    .replace(LINK_WIKI, (_, alvo, rotulo) => rotulo || alvo.replace(/\s*\(país\)\s*$/i, ''))
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')       // imagens
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')    // links
     .replace(/^\s*([-*+]|\d+\.)\s+/gm, '')      // marcadores de lista

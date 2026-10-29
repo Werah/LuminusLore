@@ -73,7 +73,7 @@ const banco = (() => {
 
   // Transforma o erro do Supabase numa mensagem que dá pra mostrar
   function erroAmigavel(error) {
-    if (error.code === '23505') return 'Já existe um texto com esse título';
+    if (error.code === '23505') return 'Já existe um texto com esse título (só um país e um outro texto podem ter o mesmo nome)';
     if (error.code === '23514' && /secao_check/.test(error.message || '')) {
       return 'O banco ainda não conhece esta seção: rode o arquivo supabase/schema.sql de novo no SQL Editor do Supabase.';
     }
@@ -135,10 +135,24 @@ const banco = (() => {
     return dados;
   }
 
-  // Todos os títulos, para montar os links [[Título]]: mapa título em minúsculas -> { id, titulo, secao }
+  // Todos os títulos, para montar os links [[Título]]: mapa "como se escreve no link" (em minúsculas)
+  // -> { id, titulo, secao, pais, link }. Um país pode ter o mesmo nome de outro texto (ex.: a capital):
+  //   [[Azraq]]        o outro texto (ou o país, se não tiver outro com esse nome)
+  //   [[Azraq (país)]] sempre o país
+  // "link" é o que vai entre [[ ]] para chegar neste texto.
   async function titulos() {
-    const linhas = await rodar(de('artigos').select('id, titulo, secao'));
-    return new Map(linhas.map(l => [l.titulo.toLowerCase(), l]));
+    const linhas = await rodar(de('artigos').select('id, titulo, secao, mapa_icone'));
+    const mapa = new Map();
+    const comuns = new Set(linhas.filter(l => l.mapa_icone !== ICONE_PAIS).map(l => l.titulo.toLowerCase()));
+    for (const l of linhas) {
+      const nome = l.titulo.toLowerCase();
+      const pais = l.mapa_icone === ICONE_PAIS;
+      const homonimo = pais && comuns.has(nome);
+      const item = { id: l.id, titulo: l.titulo, secao: l.secao, pais, link: homonimo ? `${l.titulo} (país)` : l.titulo };
+      if (pais) mapa.set(`${nome} (país)`, item);
+      if (!homonimo) mapa.set(nome, item);
+    }
+    return mapa;
   }
 
   async function listarArtigos(secao) {
@@ -201,13 +215,14 @@ const banco = (() => {
     return linhas.map(doBanco);
   }
 
-  // Outros textos que têm um link [[titulo]] (ou [[titulo|...]]) para este
-  async function mencoes(titulo, id) {
+  // Outros textos que têm um link para este. "jeitos" são as formas de escrever o link que chegam
+  // neste texto (as chaves de titulos() com o id dele, ex.: ["azraq (país)", "azraq"]).
+  async function mencoes(titulo, id, jeitos) {
     const busca = titulo.replace(/[\\%_]/g, c => '\\' + c);
     const linhas = await rodar(de('artigos').select('id, titulo, secao, conteudo')
       .ilike('conteudo', `%${busca}%`).neq('id', id).order('titulo'));
-    const alvo = titulo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const link = new RegExp(`\\[\\[\\s*${alvo}\\s*(\\||\\]\\])`, 'i');
+    const alvos = (jeitos?.length ? jeitos : [titulo]).map(j => j.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const link = new RegExp(`\\[\\[\\s*(${alvos.join('|')})\\s*(\\||\\]\\])`, 'i');
     return linhas.filter(l => link.test(l.conteudo));
   }
 
@@ -225,6 +240,37 @@ const banco = (() => {
     const linhas = await rodar(de('artigos').select('id, titulo, secao, mapa_cor')
       .eq('mapa_icone', 'estrela').not('mapa_x', 'is', null).order('titulo'));
     return linhas.map(l => ({ id: l.id, titulo: l.titulo, cor: l.mapa_cor || SECOES[l.secao].cor }));
+  }
+
+  // ---------- Líderes ----------
+
+  // A busca vai ao banco (com tantos personagens, não dá para carregar a lista toda)
+  const padraoBusca = termo => `%${termo.trim().replace(/[\\%_]/g, c => '\\' + c)}%`;
+
+  // Personagens cujo nome tem o termo (para o campo "Líder")
+  async function buscarPersonagens(termo) {
+    const linhas = await rodar(de('artigos').select('id, titulo, subtitulo')
+      .eq('secao', 'personagens').ilike('titulo', padraoBusca(termo)).order('titulo').limit(8));
+    return linhas.map(doBanco);
+  }
+
+  // Países, cidades, vilas e organizações cujo nome tem o termo (para o "Líder de" do personagem)
+  async function buscarLideraveis(termo) {
+    const linhas = await rodar(de('artigos').select('id, titulo, secao, detalhes, mapa_icone, lider_id')
+      .in('secao', ['mundo', 'organizacoes']).ilike('titulo', padraoBusca(termo)).order('titulo').limit(30));
+    return linhas.map(doBanco).filter(cargoDeLider).slice(0, 8);
+  }
+
+  // O que este personagem lidera
+  async function liderados(personagemId) {
+    const linhas = await rodar(de('artigos').select('id, titulo, secao, detalhes, mapa_icone')
+      .eq('lider_id', personagemId).order('titulo'));
+    return linhas.map(doBanco);
+  }
+
+  // Põe (ou, com null, tira) o líder de um lugar/organização. Não conta como edição do texto.
+  async function definirLider(id, personagemId) {
+    await rodar(de('artigos').update({ lider_id: personagemId || null }).eq('id', id));
   }
 
   // Textos que pertencem a um país (para a ficha do país)
@@ -302,7 +348,7 @@ const banco = (() => {
   return {
     titulos, listarArtigos, buscarArtigo, criarArtigo, salvarArtigo, excluirArtigo, excluidos, restaurarExcluido,
     revisoes, mencoes, pontosDoMapa, paises, lugaresDoPais, posicionar, estilizarPonto, nomes, urlImagem, trocarImagem, removerImagem,
-    enviarImagemDoTexto,
+    enviarImagemDoTexto, buscarPersonagens, buscarLideraveis, liderados, definirLider,
   };
 })();
 

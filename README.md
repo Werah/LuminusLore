@@ -86,7 +86,10 @@ Para mudar o nome que aparece: `update public.membros set nome = 'Novo nome' whe
   Link para um texto que ainda não existe aparece tracejado em vermelho; clicando nele dá para criar.
   Os campos da ficha (ex.: *Sede*, *Divindade ligada*) também aceitam links.
 - No fim de cada texto aparece **Mencionado em**, com os textos que têm link para ele.
-- Dois textos não podem ter o mesmo título (é por ele que os links acham o texto).
+- Dois textos não podem ter o mesmo título (é por ele que os links acham o texto), com uma exceção:
+  um **país** pode ter o mesmo nome de um outro texto (ex.: o país Azraq e a cidade Azraq, capital dele).
+  Nesse caso `[[Azraq]]` leva à cidade e `[[Azraq (país)]]` leva ao país (as sugestões do `[[`
+  já escrevem o certo, e na leitura os dois aparecem só como "Azraq").
 - **Histórico:** toda vez que alguém salva, a versão anterior fica guardada. Dá para ver e restaurar
   qualquer versão (restaurar também guarda a atual). **O histórico nunca é apagado**: o banco recusa
   alterar ou apagar versões, até pelo SQL Editor.
@@ -154,10 +157,15 @@ se o mapa novo for o mesmo desenho em outra resolução.
 - **História do Mundo:** cada evento tem *Era*, *Ano* (e *Até o ano*, se durou mais) e aparece numa
   linha do tempo. A ordem das eras é a da lista de opções do campo *Era* em `js/secoes.js`;
   troque pelos nomes das eras do seu mundo.
-- **Personagens:** *Tipo* separa NPCs de personagens de jogadores. Todos têm nome, alcunha,
+- **Personagens:** *Tipo* separa NPCs de personagens de jogadores (na lista, são as abas *NPCs* e
+  *Personagens*; o botão do globo filtra pela nacionalidade). Todos têm nome, alcunha,
   descrição, história, imagem e nacionalidade (um país do mapa). Personagens de jogador também têm
   *Jogador*, *Raça*, *Classe* e *Inventário* (um item por linha).
 - A ficha de um país mostra também os personagens com essa nacionalidade e os eventos ligados a ele.
+- **Líderes:** países, cidades, vilas e organizações têm o campo *Líder* (em cidade e vila, *Prefeito*):
+  digite parte do nome e escolha o personagem na lista. No personagem, o campo *Líder de* faz o
+  mesmo pelo outro lado. Os dois são a mesma informação, então as duas páginas sempre batem.
+  Quem tem cargo é definido em `cargoDeLider` (`js/secoes.js`).
 
 ## Mudar categorias e campos
 
