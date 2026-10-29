@@ -12,7 +12,7 @@
 <body class="pagina-mapa">
   <header class="topo" id="topo"></header>
 
-  <main class="tela-mapa">
+  <main class="tela-mapa" id="tela-mapa">
     <section class="lado-mapa">
       <div id="mapa"></div>
       <div class="controles-mapa">
@@ -20,6 +20,13 @@
         <div class="barra-mapa" id="barra-mapa"></div>
       </div>
     </section>
+    <!-- Arrastar muda o tamanho de cada lado; as setas escondem um lado inteiro -->
+    <div class="divisor" id="divisor" role="separator" tabindex="0"
+         aria-label="Arraste para mudar o tamanho do mapa e do texto">
+      <button type="button" data-passo="-1" title="Diminuir o mapa"><span>‹</span></button>
+      <span class="pegador" aria-hidden="true"></span>
+      <button type="button" data-passo="1" title="Diminuir o texto"><span>›</span></button>
+    </div>
     <!-- As páginas de texto (lista do Mundo, verbetes, editor) abrem aqui dentro -->
     <iframe class="lado-texto" id="painel" title="Texto"></iframe>
   </main>

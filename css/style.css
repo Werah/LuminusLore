@@ -633,18 +633,65 @@ body.pagina-mapa {
   overflow: hidden;
 }
 
-.tela-mapa { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; }
-.lado-mapa { position: relative; min-width: 0; min-height: 0; }
+/* --parte-mapa (0 a 1) é quanto fica com o mapa; o divisor (js/mapa.js) muda esse valor */
+.tela-mapa {
+  --parte-mapa: 0.5;
+  --largura-divisor: 14px;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: calc((100% - var(--largura-divisor)) * var(--parte-mapa)) var(--largura-divisor) minmax(0, 1fr);
+}
+
+.lado-mapa { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 #mapa { position: absolute; inset: 0; background: #0b1a26; }
 #mapa.marcando { cursor: crosshair; }
 
 .lado-texto {
   width: 100%;
   height: 100%;
+  min-width: 0;
   border: none;
-  border-left: 1px solid var(--borda);
   background: var(--bg);
 }
+
+/* Divisor: arrastar muda o tamanho, as setas escondem/mostram um lado */
+.divisor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--bg-2);
+  border-left: 1px solid var(--borda);
+  border-right: 1px solid var(--borda);
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.divisor:hover, .divisor:focus-visible, .arrastando .divisor { background: color-mix(in srgb, var(--ouro) 18%, var(--bg-2)); outline: none; }
+.divisor .pegador { width: 4px; height: 40px; border-radius: 2px; background: var(--borda); }
+.divisor:hover .pegador, .arrastando .divisor .pegador { background: var(--ouro); }
+
+.divisor button {
+  width: var(--largura-divisor);
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--texto-2);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.divisor button:hover { color: var(--ouro-2); }
+.divisor button:disabled { visibility: hidden; }
+
+/* Enquanto arrasta: nada de selecionar texto, e o iframe não captura o mouse */
+.arrastando { cursor: col-resize; user-select: none; }
+.arrastando .lado-texto { pointer-events: none; }
 
 .leaflet-container { font: inherit; }
 .mapa-completo { transition: opacity 0.6s ease; }
@@ -789,8 +836,17 @@ body.pagina-mapa {
   .ficha { position: static; }
 
   /* Mapa em cima, texto embaixo */
-  .tela-mapa { grid-template-columns: 1fr; grid-template-rows: 45% 55%; }
-  .lado-texto { border-left: none; border-top: 1px solid var(--borda); }
+  .tela-mapa {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: calc((100% - var(--largura-divisor)) * var(--parte-mapa)) var(--largura-divisor) minmax(0, 1fr);
+  }
+
+  /* Divisor deitado; as setas giram para apontar para cima/baixo */
+  .divisor { flex-direction: row; border: none; border-top: 1px solid var(--borda); border-bottom: 1px solid var(--borda); cursor: row-resize; }
+  .divisor .pegador { width: 40px; height: 4px; }
+  .divisor button { width: 30px; height: var(--largura-divisor); }
+  .divisor button span { display: inline-block; transform: rotate(90deg); }
+  .arrastando { cursor: row-resize; }
   .controles-mapa { bottom: 8px; }
   .barra-mapa { font-size: 0.82rem; }
 }

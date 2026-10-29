@@ -160,10 +160,12 @@ function editar(tituloInicial = '') {
   document.title = `${artigo ? `Editando ${artigo.titulo}` : s.novo} - LuminusLore`;
   avisarMapa(artigo);
 
-  // Texto novo criado com o botão direito no mapa: já nasce com o ponto
+  // Texto novo criado com o botão direito no mapa: já nasce com o ponto.
+  // Fica pendente até ser gravado: se falhar, salvar de novo tenta outra vez.
   const pontoNovo = !artigo && params.has('x') && params.has('y')
     ? { x: Number(params.get('x')), y: Number(params.get('y')) }
     : null;
+  let pontoPendente = pontoNovo;
 
   const campos = s.campos.map(c => {
     const valor = a.detalhes[c.chave] || '';
@@ -297,11 +299,13 @@ function editar(tituloInicial = '') {
     semCliqueDuplo(form, async () => {
       try {
         // Guarda em "artigo" logo depois de salvar: se a imagem falhar, tentar de novo não cria outro texto
-        const novo = !artigo;
         artigo = artigo
           ? await banco.salvarArtigo(artigo.id, dados, artigo.atualizadoEm)
           : await banco.criarArtigo(dados);
-        if (novo && pontoNovo) await banco.posicionar(artigo.id, pontoNovo.x, pontoNovo.y);
+        if (pontoPendente) {
+          await banco.posicionar(artigo.id, pontoPendente.x, pontoPendente.y);
+          pontoPendente = null;
+        }
         await campoImagem.salvar(artigo.id);
         alterado = false;
         location.replace(`artigo.html?id=${encodeURIComponent(artigo.id)}`);

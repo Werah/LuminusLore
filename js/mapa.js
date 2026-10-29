@@ -43,8 +43,19 @@ L.imageOverlay(MAPA.previa, limites).addTo(mapa);
 const completa = L.imageOverlay(MAPA.imagem, limites, { opacity: 0, className: 'mapa-completo' }).addTo(mapa);
 completa.on('load', () => completa.setOpacity(1));
 
-mapa.fitBounds(limites);
-mapa.setMinZoom(mapa.getZoom() - 0.5);
+// O zoom mínimo é o que mostra o mapa inteiro, e depende do tamanho do lado do mapa.
+// Por isso é recalculado sempre que esse lado muda (inclusive quando estava escondido e volta).
+let vistaEscolhida = false; // já mostrou alguma coisa (mapa inteiro ou um ponto)
+function ajustarTamanho() {
+  mapa.invalidateSize({ pan: false });
+  if (!mapa.getSize().x || !mapa.getSize().y) return; // lado do mapa escondido
+  mapa.setMinZoom(mapa.getBoundsZoom(limites) - 0.5);
+  if (!vistaEscolhida) {
+    mapa.fitBounds(limites);
+    vistaEscolhida = true;
+  }
+}
+new ResizeObserver(ajustarTamanho).observe(document.getElementById('mapa'));
 
 const camadaPontos = L.layerGroup().addTo(mapa);
 
@@ -137,7 +148,11 @@ function destacar() {
 
 function centralizar(id) {
   const { marcador } = pontos.get(id);
-  mapa.flyTo(marcador.getLatLng(), Math.max(mapa.getZoom(), ZOOM_FOCO), { duration: 0.8 });
+  const zoom = Math.max(mapa.getZoom(), ZOOM_FOCO);
+  vistaEscolhida = true;
+  // Com o lado do mapa escondido não dá para animar: só deixa centralizado para quando ele voltar
+  if (!mapa.getSize().x || !mapa.getSize().y) mapa.setView(marcador.getLatLng(), zoom, { animate: false });
+  else mapa.flyTo(marcador.getLatLng(), zoom, { duration: 0.8 });
 }
 
 function abrir(id) {
@@ -307,6 +322,88 @@ mapa.on('contextmenu', e => {
   });
   L.popup({ closeButton: false, className: 'popup-mapa' }).setLatLng(e.latlng).setContent(menu).openOn(mapa);
 });
+
+// ---------- Divisão entre mapa e texto ----------
+
+// "parte" é quanto da tela fica com o mapa: 0 = só o texto, 1 = só o mapa. Fica guardada no navegador.
+const tela = document.getElementById('tela-mapa');
+const divisor = document.getElementById('divisor');
+const empilhado = matchMedia('(max-width: 800px)'); // celular: mapa em cima, texto embaixo
+const PARADAS = [0, 0.5, 1];                          // aonde as setas do divisor levam
+const CHAVE_PARTE = 'luminus-parte-mapa';
+let parte = 0.5;
+
+function aplicarParte(nova, guardar = true) {
+  parte = Math.min(1, Math.max(0, nova));
+  // Arrastou até perto da borda: esconde o lado inteiro
+  if (parte < 0.06) parte = 0;
+  if (parte > 0.94) parte = 1;
+  tela.style.setProperty('--parte-mapa', parte);
+  tela.classList.toggle('sem-mapa', parte === 0);
+  tela.classList.toggle('sem-texto', parte === 1);
+  divisor.setAttribute('aria-valuenow', Math.round(parte * 100));
+  divisor.querySelector('[data-passo="-1"]').disabled = parte === 0;
+  divisor.querySelector('[data-passo="1"]').disabled = parte === 1;
+  if (!guardar) return;
+  try {
+    localStorage.setItem(CHAVE_PARTE, String(parte));
+  } catch {
+    // Sem armazenamento (janela anônima etc.): só não lembra da próxima vez
+  }
+}
+
+function ajustarOrientacao() {
+  divisor.setAttribute('aria-orientation', empilhado.matches ? 'horizontal' : 'vertical');
+}
+
+// Arrastar o divisor
+divisor.addEventListener('pointerdown', e => {
+  if (e.target.closest('button')) return;
+  e.preventDefault();
+  divisor.setPointerCapture(e.pointerId);
+  tela.classList.add('arrastando'); // o iframe para de "roubar" o mouse enquanto arrasta
+});
+divisor.addEventListener('pointermove', e => {
+  if (!tela.classList.contains('arrastando')) return;
+  const r = tela.getBoundingClientRect();
+  aplicarParte(empilhado.matches ? (e.clientY - r.top) / r.height : (e.clientX - r.left) / r.width, false);
+});
+function soltar() {
+  if (!tela.classList.contains('arrastando')) return;
+  tela.classList.remove('arrastando');
+  aplicarParte(parte);
+}
+divisor.addEventListener('pointerup', soltar);
+divisor.addEventListener('lostpointercapture', soltar);
+
+// Setas: vão para a próxima parada (só texto, metade, só mapa). Duplo clique volta para a metade.
+divisor.addEventListener('click', e => {
+  const passo = Number(e.target.closest('button')?.dataset.passo);
+  if (passo === -1) aplicarParte([...PARADAS].reverse().find(p => p < parte - 0.01) ?? 0);
+  if (passo === 1) aplicarParte(PARADAS.find(p => p > parte + 0.01) ?? 1);
+});
+divisor.addEventListener('dblclick', e => {
+  if (!e.target.closest('button')) aplicarParte(0.5);
+});
+divisor.addEventListener('keydown', e => {
+  const passo = { ArrowLeft: -0.05, ArrowUp: -0.05, ArrowRight: 0.05, ArrowDown: 0.05 }[e.key];
+  if (passo === undefined) return;
+  e.preventDefault();
+  aplicarParte(parte + passo);
+});
+
+empilhado.addEventListener('change', ajustarOrientacao);
+divisor.setAttribute('aria-valuemin', '0');
+divisor.setAttribute('aria-valuemax', '100');
+ajustarOrientacao();
+try {
+  const salva = parseFloat(localStorage.getItem(CHAVE_PARTE));
+  if (salva >= 0 && salva <= 1) parte = salva;
+} catch {
+  // Sem armazenamento: começa na metade
+}
+aplicarParte(parte, false);
+ajustarTamanho(); // primeira vista do mapa, já com o tamanho certo do lado dele
 
 // ---------- Conversa com o painel de texto ----------
 

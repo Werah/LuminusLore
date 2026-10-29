@@ -92,7 +92,12 @@ Para mudar o nome que aparece: `update public.membros set nome = 'Novo nome' whe
 ## O mapa (Mundo)
 
 A seção Mundo abre em `mapa.html`: o mapa à esquerda (roda do mouse dá zoom, arrastar move)
-e o texto à direita.
+e o texto à direita. Arraste a barra do meio para mudar o tamanho de cada lado; as setas dela
+(ou arrastar até a borda) escondem um lado inteiro, e duplo clique volta para metade/metade.
+O navegador lembra a última divisão.
+
+Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no SQL Editor
+(o site ganhou colunas novas e o banco ainda não tem).
 
 - **Pontos:** cada texto pode ter um ponto no mapa. Clicar no ponto abre o texto ao lado.
 - **Criar um verbete num lugar:** botão direito no mapa (toque longo no celular) → *Novo verbete aqui*.

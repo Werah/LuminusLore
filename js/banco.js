@@ -76,6 +76,10 @@ const banco = (() => {
     if (error.code === '23505') return 'Já existe um texto com esse título';
     if (error.code === '23514') return 'Preencha os campos obrigatórios';
     if (error.code === '42501') return 'Sem permissão. Saia e entre de novo.';
+    // Coluna que o site usa mas o banco não tem: o schema.sql novo ainda não foi rodado
+    if (error.code === '42703' || error.code === 'PGRST204') {
+      return 'O banco está desatualizado: rode o arquivo supabase/schema.sql de novo no SQL Editor do Supabase.';
+    }
     if (/jwt/i.test(error.message || '')) {
       sair();
       return 'Sessão expirada';
