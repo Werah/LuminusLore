@@ -52,7 +52,7 @@ const SECOES = {
     novo: 'Nova organização',
     subtitulo: { rotulo: 'Lema', dica: 'Ex.: Pela chama, até o fim' },
     campos: [
-      { chave: 'tipo', rotulo: 'Tipo', opcoes: ['Culto', 'Bando Mercenário', 'Guilda', 'Milicia', 'Organização Criminosa', 'Cabala' 'Outro'] },
+      { chave: 'tipo', rotulo: 'Tipo', opcoes: ['Culto', 'Bando Mercenário', 'Guilda', 'Milicia', 'Organização Criminosa', 'Cabala', 'Outro'] },
       { chave: 'sede', rotulo: 'Sede' },
       { chave: 'lideranca', rotulo: 'Liderança' },
       { chave: 'divindade', rotulo: 'Divindade ligada', dica: 'Ex.: [[Nome do deus]]' },
