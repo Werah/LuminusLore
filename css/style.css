@@ -288,18 +288,24 @@ body.pagina-home {
 .divisoria:hover small { opacity: 1; transform: none; }
 
 /* Fatias (home com 5 seções): cada seção é um polígono saindo do centro (--forma, montado no
-   home.html). O centro --cx/--cy se move no hover; registrado com @property para animar. */
-@property --cx { syntax: '<percentage>'; inherits: true; initial-value: 50%; }
-@property --cy { syntax: '<percentage>'; inherits: true; initial-value: 50%; }
+   home.html); --lx/--ly é onde fica o nome. */
+.divisorias.fatias { position: relative; overflow: hidden; }
 
-.divisorias.fatias { position: relative; transition: --cx 0.5s ease, --cy 0.5s ease; }
-
-/* A moldura desenha o contorno da fatia (a sombra segue o recorte do polígono) */
+/* A moldura desenha o contorno da fatia (a sombra segue o recorte do polígono).
+   No hover, a fatia cresce um pouco para todos os lados, a partir do meio dela, por cima das outras. */
 .fatias .fatia {
   position: absolute;
   inset: 0;
   pointer-events: none;
   filter: drop-shadow(0 0 0.6px rgba(255, 255, 255, 0.45));
+  transform-origin: var(--lx) var(--ly);
+  transition: transform 0.35s ease, filter 0.35s ease;
+}
+
+.fatias .fatia:hover {
+  z-index: 2;
+  transform: scale(1.05);
+  filter: drop-shadow(0 0 1px color-mix(in srgb, var(--cor) 80%, #fff)) drop-shadow(0 10px 30px rgba(0, 0, 0, 0.75));
 }
 
 .fatias .divisoria {
@@ -1252,6 +1258,7 @@ body.pagina-mapa {
   /* Fatias viram faixas, uma embaixo da outra */
   .fatias .fatia { position: relative; inset: auto; flex: 1; filter: none; border-bottom: 1px solid var(--borda); }
   .fatias .fatia:last-child { border-bottom: none; }
+  .fatias .fatia:hover { transform: none; filter: none; }
   .fatias .divisoria { clip-path: none; --lx: 50% !important; --ly: 50% !important; }
   .fatias .divisoria .icone { font-size: 1.8rem; }
   .fatias .divisoria small { display: none; }

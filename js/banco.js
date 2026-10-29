@@ -74,6 +74,9 @@ const banco = (() => {
   // Transforma o erro do Supabase numa mensagem que dá pra mostrar
   function erroAmigavel(error) {
     if (error.code === '23505') return 'Já existe um texto com esse título';
+    if (error.code === '23514' && /secao_check/.test(error.message || '')) {
+      return 'O banco ainda não conhece esta seção: rode o arquivo supabase/schema.sql de novo no SQL Editor do Supabase.';
+    }
     if (error.code === '23514') return 'Preencha os campos obrigatórios';
     if (error.code === '42501') return 'Sem permissão. Saia e entre de novo.';
     // Coluna que o site usa mas o banco não tem: o schema.sql novo ainda não foi rodado

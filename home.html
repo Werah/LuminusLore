@@ -49,37 +49,23 @@
       for (let canto = Math.floor(t0) + 1; canto < t1; canto++) pontos.push(pontoNaBorda(canto));
       pontos.push(pontoNaBorda(t1));
       const meio = pontoNaBorda(t0 + TRECHO / 2);
-      // O centro (--cx, --cy) muda no hover, por isso fica em variável dentro do polígono
-      const forma = `polygon(var(--cx) var(--cy), ${pontos.map(pct).join(', ')})`;
-      const lx = `calc(var(--cx) + (${meio[0].toFixed(2)}% - var(--cx)) * ${ATE_O_TEXTO})`;
-      const ly = `calc(var(--cy) + (${meio[1].toFixed(2)}% - var(--cy)) * ${ATE_O_TEXTO})`;
-      return { s, meio, html: `
-        <div class="fatia">
-          <a class="divisoria" href="${paginaDaSecao(s)}" data-i="${i}" data-icone="${s.icone}"
-             style="--cor: ${s.cor}; --forma: ${forma}; --lx: ${lx}; --ly: ${ly}">
+      const forma = `polygon(50% 50%, ${pontos.map(pct).join(', ')})`;
+      // Onde fica o nome (e de onde a fatia cresce no hover)
+      const lx = `${(50 + (meio[0] - 50) * ATE_O_TEXTO).toFixed(2)}%`;
+      const ly = `${(50 + (meio[1] - 50) * ATE_O_TEXTO).toFixed(2)}%`;
+      return `
+        <div class="fatia" style="--cor: ${s.cor}; --forma: ${forma}; --lx: ${lx}; --ly: ${ly}">
+          <a class="divisoria" href="${paginaDaSecao(s)}" data-icone="${s.icone}" style="--cor: ${s.cor}">
             <span class="fatia-conteudo">
               <span class="icone">${s.icone}</span>
               <span class="titulo">${esc(s.nome)}</span>
               <small>${esc(s.descricao)}</small>
             </span>
           </a>
-        </div>` };
+        </div>`;
     });
 
-    const area = document.getElementById('divisorias');
-    area.innerHTML = fatias.map(f => f.html).join('');
-
-    // Hover: o centro se afasta da fatia, que cresce e empurra as outras
-    const EMPURRAO = 0.3;
-    area.querySelectorAll('.divisoria').forEach(a => a.addEventListener('mouseenter', () => {
-      const [mx, my] = fatias[a.dataset.i].meio;
-      area.style.setProperty('--cx', `${50 - (mx - 50) * EMPURRAO}%`);
-      area.style.setProperty('--cy', `${50 - (my - 50) * EMPURRAO}%`);
-    }));
-    area.addEventListener('mouseleave', () => {
-      area.style.removeProperty('--cx');
-      area.style.removeProperty('--cy');
-    });
+    document.getElementById('divisorias').innerHTML = fatias.join('');
   </script>
 </body>
 </html>
