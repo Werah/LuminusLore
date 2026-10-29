@@ -109,7 +109,7 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
 (o site ganhou colunas novas e o banco ainda não tem).
 
 - **Pontos:** cada texto pode ter um ponto no mapa. Clicar no ponto abre o texto ao lado.
-- **Criar um verbete num lugar:** botão direito no mapa (toque longo no celular) → *Novo verbete aqui*.
+- **Criar um ponto de interesse num lugar:** botão direito no mapa (toque longo no celular) → *Novo ponto de interesse aqui*.
 - **Pôr no mapa um texto que já existe:** abra o texto e clique em *📍 Marcar no mapa* (barra embaixo
   do mapa), depois clique no lugar. A mesma barra tem *Mover ponto* e *Tirar do mapa*.
   Textos do Panteão e das Organizações também podem ter ponto (um templo, uma sede).
@@ -129,7 +129,7 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
   quadro *Ponto no mapa*, com os ícones e a cor. O *🎨 Cor e ícone* do mapa continua funcionando.
 - **Lista do Mundo em pastas:** cada país vira uma pasta (na cor do país) com os textos que
   pertencem a ele; o que não tem país fica em *Outros*. Clicar na faixa abre/fecha a pasta
-  (o navegador lembra). O ⓘ ao lado do nome abre a **ficha do país** por cima do mapa: capa com a
+  (o navegador lembra). O globo antes do nome abre a **ficha do país** por cima do mapa: capa com a
   imagem do país, texto, os lugares dele, e dá para editar ali mesmo.
 - **Imagens no texto:** o botão *🖼 Imagem* do editor envia uma imagem e a coloca no ponto do texto
   onde está o cursor (vale para qualquer texto, e é o jeito de montar a ficha de um país com fotos).

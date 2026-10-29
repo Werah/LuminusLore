@@ -442,7 +442,7 @@ ajustarTamanho(); // primeira vista do mapa, já com o tamanho certo do lado del
 
 // ---------- Ficha do país (por cima do mapa) ----------
 
-// Aberta pelo ícone ⓘ das pastas de país na lista do Mundo. É a página do país (artigo.html)
+// Aberta pelo globo das pastas de país na lista do Mundo. É a página do país (artigo.html)
 // no modo de destaque; os links dela abrem no painel de texto.
 const sobreMapa = document.getElementById('sobre-mapa');
 const janelaFicha = () => sobreMapa.querySelector('iframe')?.contentWindow;

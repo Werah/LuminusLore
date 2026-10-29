@@ -4,7 +4,7 @@
 //   artigo.html?titulo=...              usado pelos links [[Título]]: abre o texto com esse título,
 //                                       ou oferece criar se ainda não existir
 //   artigo.html?secao=mundo&x=..&y=..   texto novo que já nasce com ponto no mapa (vem do mapa.html)
-//   artigo.html?id=...&modo=pais        ficha do país, aberta por cima do mapa (ícone ⓘ da lista do Mundo)
+//   artigo.html?id=...&modo=pais        ficha do país, aberta por cima do mapa (globo nas pastas da lista do Mundo)
 // Textos de seção com mapa (Mundo) abrem no painel do mapa.html.
 
 exigirLogin();

@@ -35,6 +35,7 @@ try {
 }
 lista.classList.toggle('grade', !comPastas && !SECAO.linhaDoTempo);
 lista.classList.toggle('pastas', comPastas);
+document.body.classList.toggle('com-pastas', comPastas);
 
 // Linha do tempo (História): ordenada pela era (na ordem das opções do campo "era") e pelo ano
 if (SECAO.linhaDoTempo) {
@@ -243,8 +244,10 @@ function desenharLinhaDoTempo(eventos) {
   lista.innerHTML = `<div class="linha-tempo" style="--cor: ${SECAO.cor}">${html}</div>`;
 }
 
-const ICONE_INFO ='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>'
-  + '<path d="M12 10.5v7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="7" r="1.5" fill="currentColor"/></svg>';
+// Globo (círculo, linha do equador e um meridiano): abre a ficha do país
+const ICONE_GLOBO = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">'
+  + '<circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19M4 7.5h16M4 16.5h16"/>'
+  + '<path d="M12 2.5c2.8 2.6 4.2 5.8 4.2 9.5s-1.4 6.9-4.2 9.5c-2.8-2.6-4.2-5.8-4.2-9.5S9.2 5.1 12 2.5z"/></svg>';
 
 // Pastas: uma por país (A–Z) e "Outros" no fim. Buscando ou filtrando, só aparecem as pastas com
 // resultado (ou o país cujo nome bate com a busca), já abertas.
@@ -272,16 +275,17 @@ function desenharPastas(itens, termo) {
     return `
       <section class="pasta${aberta ? ' aberta' : ''}${g.pais ? '' : ' outros'}" style="--cor: ${cor}">
         <div class="pasta-cabeca" data-pasta="${esc(g.id)}" role="button" tabindex="0" aria-expanded="${aberta}">
-          <span class="pasta-losango" aria-hidden="true"></span>
+          ${g.pais
+            ? `<button type="button" class="pasta-globo" data-info="${esc(g.id)}" title="Ficha de ${esc(g.pais.titulo)}" aria-label="Ficha de ${esc(g.pais.titulo)}">${ICONE_GLOBO}</button>`
+            : '<span class="pasta-globo vazio" aria-hidden="true"></span>'}
           <h2>${g.pais ? esc(g.pais.titulo) : 'Outros'}</h2>
-          ${g.pais ? `<button type="button" class="pasta-info" data-info="${esc(g.id)}" title="Ficha de ${esc(g.pais.titulo)}" aria-label="Ficha de ${esc(g.pais.titulo)}">${ICONE_INFO}</button>` : ''}
           <span class="pasta-qtd">${g.itens.length}</span>
           <span class="pasta-seta" aria-hidden="true">▾</span>
         </div>
         <div class="pasta-itens">
           ${g.itens.length
             ? `<div class="grade">${g.itens.map(a => card(a, cor)).join('')}</div>`
-            : `<p class="pasta-vazia">${g.pais ? 'Nenhum lugar neste país ainda. No editor de um verbete, escolha este país no campo “País”.' : 'Nada aqui.'}</p>`}
+            : `<p class="pasta-vazia">${g.pais ? 'Nenhum lugar neste país ainda. No editor de um ponto de interesse, escolha este país no campo “País”.' : 'Nada aqui.'}</p>`}
         </div>
       </section>
     `;
@@ -299,7 +303,7 @@ function alternarPasta(id) {
   desenhar();
 }
 
-// ⓘ abre a ficha do país por cima do mapa (fora do mapa, abre a página do país)
+// O globo abre a ficha do país por cima do mapa (fora do mapa, abre a página do país)
 function abrirFichaPais(id) {
   if (embutido) window.parent.postMessage({ tipo: 'abrir-pais', id }, location.origin);
   else location.href = `artigo.html?id=${encodeURIComponent(id)}`;

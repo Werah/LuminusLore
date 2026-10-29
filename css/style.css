@@ -842,29 +842,35 @@ a.wiki.inexistente { color: #e8807c; border-bottom: 1px dashed currentColor; }
 
 .pastas { display: flex; flex-direction: column; gap: 14px; }
 
+/* A faixa vai de uma parede à outra da tela: as margens negativas (50% - 50cqw) esticam até as
+   bordas, e o mesmo tanto de padding deixa o conteúdo alinhado com os cards embaixo.
+   cqw é medido no body (sem a barra de rolagem, ao contrário do vw). */
+.com-pastas { container-type: inline-size; overflow-x: hidden; }
+
 .pasta-cabeca {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin: 0 -16px;     /* navegador antigo, sem cqw: pelo menos encosta nas bordas do conteúdo */
   padding: 10px 16px;
-  border-radius: 8px;
+  margin: 0 calc(50% - 50cqw);
+  padding: 10px calc(50cqw - 50%);
   cursor: pointer;
   user-select: none;
   color: #fff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
-  /* Degradê a partir da cor do país, escurecendo para a direita, com um brilho por cima */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  /* Degradê a partir da cor do país, escurecendo para a direita, com um brilho leve por cima */
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 55%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 55%),
     linear-gradient(90deg,
-      var(--cor) 0%,
-      color-mix(in srgb, var(--cor) 70%, #120e1a) 45%,
-      color-mix(in srgb, var(--cor) 22%, #120e1a) 100%);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cor) 60%, transparent), 0 4px 14px rgba(0, 0, 0, 0.35);
+      color-mix(in srgb, var(--cor) 78%, #0c0912) 0%,
+      color-mix(in srgb, var(--cor) 42%, #0c0912) 45%,
+      color-mix(in srgb, var(--cor) 12%, #0c0912) 100%);
   transition: filter 0.15s;
 }
 
-.pasta-cabeca:hover { filter: brightness(1.12); }
-.pasta-cabeca:focus-visible { outline: 2px solid var(--ouro-2); outline-offset: 2px; }
+.pasta-cabeca:hover { filter: brightness(1.15); }
+.pasta-cabeca:focus-visible { outline: 2px solid var(--ouro-2); outline-offset: -2px; }
 
 .pasta-cabeca h2 {
   margin: 0;
@@ -876,33 +882,25 @@ a.wiki.inexistente { color: #e8807c; border-bottom: 1px dashed currentColor; }
   white-space: nowrap;
 }
 
-.pasta-losango {
+/* Globo antes do nome: abre a ficha do país (na pasta "Outros" fica só o espaço, para alinhar) */
+.pasta-globo {
   flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  margin: 0 4px;
-  background: #fff;
-  transform: rotate(45deg);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
-}
-
-.pasta.outros .pasta-losango { background: transparent; border: 2px solid #fff; }
-
-.pasta-info {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  padding: 3px;
+  width: 30px;
+  height: 30px;
+  padding: 4px;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.3);
   color: #fff;
   display: grid;
   place-items: center;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+  transition: background 0.15s, transform 0.15s;
 }
 
-.pasta-info svg { width: 100%; height: 100%; }
-.pasta-info:hover { background: rgba(255, 255, 255, 0.25); }
+.pasta-globo svg { width: 100%; height: 100%; }
+button.pasta-globo:hover { background: rgba(255, 255, 255, 0.22); border: none; transform: scale(1.1); }
+.pasta-globo.vazio { background: none; filter: none; }
 
 .pasta-qtd {
   margin-left: auto;
@@ -914,7 +912,7 @@ a.wiki.inexistente { color: #e8807c; border-bottom: 1px dashed currentColor; }
 
 .pasta-seta { transition: transform 0.2s; transform: rotate(-90deg); }
 .pasta.aberta .pasta-seta { transform: none; }
-.pasta-itens { display: none; padding: 12px 4px 4px; }
+.pasta-itens { display: none; padding: 12px 0 4px; }
 .pasta.aberta .pasta-itens { display: block; }
 .pasta-vazia { margin: 0; padding: 6px 4px; color: var(--texto-2); font-size: 0.9rem; font-style: italic; }
 

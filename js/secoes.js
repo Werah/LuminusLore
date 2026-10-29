@@ -23,7 +23,7 @@ const SECOES = {
     icone: '🗺',
     cor: '#5fb88a',
     descricao: 'Terras, povos, eras e lugares do cenário',
-    novo: 'Novo verbete',
+    novo: 'Novo ponto de interesse',
     subtitulo: { rotulo: 'Resumo em uma linha', dica: 'Ex.: O reino das mil pontes' },
     // O Mundo abre no mapa: metade mapa, metade texto. As imagens são geradas por
     // ferramentas/preparar_mapa.py; largura/altura são as da imagem original (o script mostra).
