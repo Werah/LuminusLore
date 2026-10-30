@@ -869,7 +869,8 @@ a.wiki.inexistente { color: #e8807c; border-bottom: 1px dashed currentColor; }
 .na-intro .ferramentas, .na-intro #filtros, .na-intro #lista, .na-intro .lixeira, .na-intro #btn-novo { display: none !important; }
 .introducao { display: none; }
 .na-intro .introducao { display: block; }
-.introducao .prosa { max-width: 75ch; margin: 0 auto; }
+/* O texto ocupa a largura toda, de uma borda à outra das abas */
+.introducao .prosa { max-width: none; margin: 8px 0 0; }
 .imagem-intro { display: block; width: 100%; aspect-ratio: 5 / 2; object-fit: cover; border-radius: var(--raio); margin-bottom: 24px; }
 
 .rodape-intro {
@@ -877,8 +878,7 @@ a.wiki.inexistente { color: #e8807c; border-bottom: 1px dashed currentColor; }
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  max-width: 75ch;
-  margin: 32px auto 0;
+  margin: 32px 0 0;
   padding-top: 14px;
   border-top: 1px solid var(--borda);
 }
@@ -1134,6 +1134,31 @@ button.pasta-globo:hover { background: rgba(255, 255, 255, 0.22); border: none; 
 .lugares-pais a:hover { border-color: var(--ouro); }
 .lugares-pais svg { width: 18px; height: 18px; color: var(--ouro-2); }
 .lugares-pais .gema { width: 10px; height: 10px; border-radius: 50%; background: var(--ouro-2); }
+
+/* ---------- Ajuda "Como formatar o texto" (editor) ---------- */
+
+.ajuda-formatacao {
+  margin-top: 10px;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background: var(--bg-2);
+  font-size: 0.88rem;
+}
+
+.ajuda-formatacao summary { padding: 8px 12px; cursor: pointer; color: var(--texto-2); }
+.ajuda-formatacao summary:hover, .ajuda-formatacao[open] summary { color: var(--ouro-2); }
+.ajuda-formatacao p { margin: 0 12px 10px; color: var(--texto-2); line-height: 1.5; }
+.ajuda-formatacao table { width: calc(100% - 24px); margin: 0 12px 12px; border-collapse: collapse; }
+.ajuda-formatacao th { text-align: left; padding: 4px 8px; color: var(--texto-2); font-weight: 500; border-bottom: 1px solid var(--borda); }
+.ajuda-formatacao td { padding: 5px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); vertical-align: middle; }
+.ajuda-formatacao td:first-child { white-space: nowrap; }
+.ajuda-formatacao small { color: var(--texto-2); }
+.ajuda-formatacao .ex-h1, .ajuda-formatacao .ex-h2, .ajuda-formatacao .ex-h3 { font-family: 'Cinzel', Georgia, serif; color: var(--ouro-2); }
+.ajuda-formatacao .ex-h1 { font-size: 1.3rem; }
+.ajuda-formatacao .ex-h2 { font-size: 1.1rem; }
+.ajuda-formatacao .ex-h3 { font-size: 0.95rem; }
+.ajuda-formatacao .ex-citacao { padding-left: 8px; border-left: 3px solid var(--ouro); color: var(--texto-2); font-style: italic; }
+.ajuda-formatacao .ex-linha { display: inline-block; width: 80px; border-top: 1px solid var(--texto-2); vertical-align: middle; }
 
 /* ---------- Popup de posicionar a imagem ---------- */
 

@@ -306,6 +306,33 @@ function desenharInexistente(titulo) {
 
 // ---------- Editar ----------
 
+// "Como formatar o texto": abre embaixo da caixa de texto do editor, com o que digitar e como fica
+const AJUDA_FORMATACAO = `
+  <details class="ajuda-formatacao">
+    <summary>❔ Como formatar o texto</summary>
+    <p>Os símbolos vão no texto mesmo; veja como fica na aba <strong>Pré-visualizar</strong>.
+       Títulos, listas e citações começam no <strong>começo da linha</strong>, com um espaço depois do símbolo.</p>
+    <table>
+      <thead><tr><th>Você digita</th><th>Aparece como</th></tr></thead>
+      <tbody>
+        <tr><td><code># Título</code></td><td><span class="ex-h1">Título</span></td></tr>
+        <tr><td><code>## Subtítulo</code></td><td><span class="ex-h2">Subtítulo</span></td></tr>
+        <tr><td><code>### Seção</code></td><td><span class="ex-h3">Seção</span></td></tr>
+        <tr><td><code>**negrito**</code></td><td><strong>negrito</strong></td></tr>
+        <tr><td><code>*itálico*</code></td><td><em>itálico</em></td></tr>
+        <tr><td><code>- item</code> <small>(um por linha)</small></td><td>• item</td></tr>
+        <tr><td><code>1. item</code></td><td>1. item</td></tr>
+        <tr><td><code>&gt; frase</code></td><td><span class="ex-citacao">frase</span></td></tr>
+        <tr><td><code>---</code> <small>(sozinho na linha)</small></td><td><span class="ex-linha"></span></td></tr>
+        <tr><td><code>[[Nome do texto]]</code></td><td><a class="wiki">Nome do texto</a> <small>(link para outro texto)</small></td></tr>
+        <tr><td><code>[[Nome do texto|outro nome]]</code></td><td><a class="wiki">outro nome</a></td></tr>
+        <tr><td><code>[[Azraq (país)]]</code></td><td><a class="wiki">Azraq</a> <small>(o país, quando ele tem o nome de outro texto)</small></td></tr>
+        <tr><td>Botão <strong>🖼 Imagem</strong></td><td>põe uma imagem onde está o cursor</td></tr>
+        <tr><td>Linha em branco</td><td>separa os parágrafos</td></tr>
+      </tbody>
+    </table>
+  </details>`;
+
 function editar(tituloInicial = '') {
   const s = SECOES[secao];
   const a = artigo || { titulo: tituloInicial, subtitulo: '', conteudo: '', detalhes: {}, imagem: '', paisId: null };
@@ -446,6 +473,7 @@ function editar(tituloInicial = '') {
           · Link para outro texto: digite <code>[[</code> e escolha, ou <code>[[Nome do texto|como aparece]]</code>
           · <kbd>Ctrl</kbd>+<kbd>S</kbd> salva
         </p>
+        ${AJUDA_FORMATACAO}
       </div>
 
       <p class="erro" id="erro"></p>

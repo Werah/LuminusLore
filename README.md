@@ -80,17 +80,22 @@ Para mudar o nome que aparece: `update public.membros set nome = 'Novo nome' whe
 
 Na tela de login, **Entrar como visitante** deixa qualquer pessoa ler o site sem conta: textos,
 mapa, histórico, fichas. Não aparece nenhum botão de criar, editar ou excluir, e o banco também
-não deixa (o visitante não tem acesso às tabelas; ele lê duas "vitrines", `artigos_publico` e
-`revisoes_publico`, que mostram o **nome** de quem escreveu, nunca o e-mail).
+não deixa: o visitante só tem permissão de **ler**, e só as colunas sem dados pessoais (os e-mails
+ficam de fora; no lugar ele vê o **nome** de quem escreveu, que o banco guarda junto com o texto).
+O site lê pelas "vitrines" `artigos_publico` e `revisoes_publico`.
+
+Se um membro mudar de nome (`update public.membros set nome = ...`), rode o `schema.sql` de novo para
+os textos antigos mostrarem o nome novo aos visitantes.
 
 Como a chave pública do Supabase fica no código do site, com isso qualquer pessoa que tiver o link
 consegue ler o conteúdo. Se um dia quiser o site fechado de novo, rode no SQL Editor:
 
 ```sql
-revoke select on public.artigos_publico, public.revisoes_publico from anon;
+drop policy visitantes on public.artigos;
+drop policy visitantes on public.revisoes;
 ```
 
-(e para reabrir, `grant select on public.artigos_publico, public.revisoes_publico to anon;`).
+(e para reabrir, rode o `schema.sql` de novo).
 
 ## Escrevendo
 

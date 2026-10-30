@@ -16,11 +16,23 @@ create table if not exists public.membros (
 );
 
 -- E-mail de quem está logado (em minúsculas)
+-- ("set search_path" em todas as funções: assim ninguém consegue trocar as tabelas que elas usam)
 create or replace function public.email_atual()
 returns text
 language sql stable
+set search_path = public
 as $$
   select lower(coalesce(auth.jwt() ->> 'email', ''))
+$$;
+
+-- Nome de um membro pelo e-mail ('' se não for membro). Usado para guardar o nome de quem
+-- escreveu junto com o texto (o visitante vê o nome, nunca o e-mail).
+create or replace function public.nome_de(email_procurado text)
+returns text
+language sql stable
+security definer set search_path = public
+as $$
+  select coalesce((select nome from public.membros where lower(email) = lower(email_procurado)), '')
 $$;
 
 -- "security definer" para conseguir olhar a tabela membros mesmo com as regras de segurança dela
@@ -116,6 +128,13 @@ alter table public.revisoes add column if not exists excluido_por text not null 
 alter table public.revisoes add column if not exists excluido_em  timestamptz;
 alter table public.revisoes add column if not exists linha        jsonb;
 
+-- Nome de quem escreveu/editou/excluiu, guardado junto com o e-mail (o banco preenche).
+-- É o que o visitante vê: ele não tem acesso às colunas de e-mail.
+alter table public.artigos  add column if not exists criado_por_nome   text not null default '';
+alter table public.artigos  add column if not exists editado_por_nome  text not null default '';
+alter table public.revisoes add column if not exists editado_por_nome  text not null default '';
+alter table public.revisoes add column if not exists excluido_por_nome text not null default '';
+
 create index if not exists revisoes_artigo on public.revisoes (artigo_id, editado_em desc);
 create index if not exists revisoes_excluidos on public.revisoes (excluido_em desc) where excluido;
 
@@ -124,26 +143,33 @@ create index if not exists revisoes_excluidos on public.revisoes (excluido_em de
 -- Quem criou / editou e quando: o banco preenche, o navegador não consegue mudar.
 -- Só conta como edição mudar o texto ou o país; mexer só na imagem ou no ponto do mapa não muda
 -- "atualizado_em" (assim marcar o mapa com o editor aberto não dá aviso de conflito).
+-- Os nomes (criado_por_nome, editado_por_nome) acompanham: são atualizados com o nome atual do membro
+-- (se ele não for mais membro, fica o nome que já estava).
 create or replace function public.carimbar_artigo()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   if tg_op = 'INSERT' then
     new.criado_por := public.email_atual();
     new.criado_em := now();
+    new.criado_por_nome := public.nome_de(new.criado_por);
   else
     new.criado_por := old.criado_por;
     new.criado_em := old.criado_em;
+    new.criado_por_nome := coalesce(nullif(public.nome_de(old.criado_por), ''), old.criado_por_nome);
     if (old.secao, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.pais_id)
        is not distinct from (new.secao, new.titulo, new.subtitulo, new.conteudo, new.detalhes, new.pais_id) then
       new.editado_por := old.editado_por;
       new.atualizado_em := old.atualizado_em;
+      new.editado_por_nome := coalesce(nullif(public.nome_de(old.editado_por), ''), old.editado_por_nome);
       return new;
     end if;
   end if;
   new.editado_por := public.email_atual();
   new.atualizado_em := now();
+  new.editado_por_nome := public.nome_de(new.editado_por);
   return new;
 end
 $$;
@@ -162,8 +188,10 @@ as $$
 begin
   if (old.titulo, old.subtitulo, old.conteudo, old.detalhes)
      is distinct from (new.titulo, new.subtitulo, new.conteudo, new.detalhes) then
-    insert into public.revisoes (artigo_id, titulo, subtitulo, conteudo, detalhes, editado_por, editado_em)
-    values (old.id, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.editado_por, old.atualizado_em);
+    insert into public.revisoes (artigo_id, titulo, subtitulo, conteudo, detalhes, editado_por, editado_em,
+                                 editado_por_nome)
+    values (old.id, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.editado_por, old.atualizado_em,
+            old.editado_por_nome);
   end if;
   return new;
 end
@@ -182,9 +210,9 @@ security definer set search_path = public
 as $$
 begin
   insert into public.revisoes (artigo_id, titulo, subtitulo, conteudo, detalhes, editado_por, editado_em,
-                               excluido, excluido_por, excluido_em, linha)
+                               excluido, excluido_por, excluido_em, linha, editado_por_nome, excluido_por_nome)
   values (old.id, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.editado_por, old.atualizado_em,
-          true, public.email_atual(), now(), to_jsonb(old));
+          true, public.email_atual(), now(), to_jsonb(old), old.editado_por_nome, public.nome_de(public.email_atual()));
   return old;
 end
 $$;
@@ -195,12 +223,18 @@ create trigger guardar_exclusao
   for each row execute function public.guardar_exclusao();
 
 -- O histórico não pode ser alterado nem apagado, por ninguém (nem pelo SQL Editor, a não ser
--- que alguém desligue esta regra de propósito)
+-- que alguém desligue esta regra de propósito). A única mudança aceita é atualizar o NOME de quem
+-- editou/excluiu (editado_por_nome, excluido_por_nome), feita por este arquivo; o conteúdo, nunca.
 create or replace function public.proteger_historico()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
+  if tg_op = 'UPDATE'
+     and to_jsonb(new) - 'editado_por_nome' - 'excluido_por_nome' = to_jsonb(old) - 'editado_por_nome' - 'excluido_por_nome' then
+    return new;
+  end if;
   raise exception 'O histórico não pode ser alterado nem apagado.';
 end
 $$;
@@ -220,6 +254,7 @@ create trigger proteger_historico_truncate
 create or replace function public.restaurar_texto(revisao bigint)
 returns text
 language plpgsql
+set search_path = public
 as $$
 declare
   l jsonb;
@@ -267,39 +302,71 @@ create policy membros on public.revisoes for select to authenticated using (publ
 grant select on public.membros, public.revisoes to authenticated;
 grant select, insert, update, delete on public.artigos to authenticated;
 revoke all on public.membros, public.artigos, public.revisoes from anon;
+revoke execute on function public.eh_membro() from anon, public;
 grant execute on function public.eh_membro() to authenticated;
 -- restaurar_texto roda com a permissão de quem chama: só membros conseguem (regras acima)
 grant execute on function public.restaurar_texto(bigint) to authenticated;
 revoke execute on function public.restaurar_texto(bigint) from anon, public;
+-- nome_de é usado pelas regras quando um membro salva; visitante não chama
+revoke execute on function public.nome_de(text) from anon, public;
+grant execute on function public.nome_de(text) to authenticated;
 
 -- ---------- Visitantes (só leitura, sem conta) ----------
 
--- O botão "Entrar como visitante" usa a chave pública, sem login. O visitante não tem acesso às
--- tabelas (nem para ler, nem para mudar nada); ele lê estas duas "vitrines", que mostram o NOME
--- de quem escreveu no lugar do e-mail (os e-mails dos membros não ficam expostos).
--- As colunas têm os mesmos nomes das tabelas, para o site ler igual.
-create or replace view public.artigos_publico as
+-- O botão "Entrar como visitante" usa a chave pública, sem login. O visitante:
+--   * só pode LER, e só as colunas abaixo (nada de e-mail: criado_por, editado_por, excluido_por
+--     e a cópia "linha" ficam de fora; no lugar ele vê os nomes, *_nome);
+--   * não pode criar, editar nem excluir nada (não tem essas permissões);
+--   * não vê a lista de membros.
+drop policy if exists visitantes on public.artigos;
+drop policy if exists visitantes on public.revisoes;
+create policy visitantes on public.artigos  for select to anon using (true);
+create policy visitantes on public.revisoes for select to anon using (true);
+
+grant select (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, criado_em, atualizado_em,
+              mapa_x, mapa_y, mapa_cor, mapa_icone, pais_id, lider_id, imagem_x, imagem_y,
+              criado_por_nome, editado_por_nome)
+  on public.artigos to anon;
+grant select (id, artigo_id, titulo, subtitulo, conteudo, detalhes, editado_em, excluido, excluido_em,
+              editado_por_nome, excluido_por_nome)
+  on public.revisoes to anon;
+
+-- "Vitrines" que o site usa para o visitante: as mesmas colunas das tabelas, com o nome no lugar
+-- do e-mail (assim o site lê igual). "security_invoker": rodam com as permissões de quem consulta
+-- (o visitante), então só enxergam o que ele já pode enxergar pelas regras acima.
+create or replace view public.artigos_publico with (security_invoker = true) as
 select
   a.id, a.secao, a.titulo, a.subtitulo, a.conteudo, a.detalhes, a.imagem,
-  coalesce((select m.nome from public.membros m where lower(m.email) = lower(a.criado_por)), '') as criado_por,
+  a.criado_por_nome as criado_por,
   a.criado_em,
-  coalesce((select m.nome from public.membros m where lower(m.email) = lower(a.editado_por)), '') as editado_por,
+  a.editado_por_nome as editado_por,
   a.atualizado_em, a.mapa_x, a.mapa_y, a.mapa_cor, a.mapa_icone, a.pais_id, a.lider_id,
   a.imagem_x, a.imagem_y
 from public.artigos a;
 
--- Histórico sem a cópia completa das exclusões ("linha" tem os e-mails)
-create or replace view public.revisoes_publico as
+create or replace view public.revisoes_publico with (security_invoker = true) as
 select
   r.id, r.artigo_id, r.titulo, r.subtitulo, r.conteudo, r.detalhes,
-  coalesce((select m.nome from public.membros m where lower(m.email) = lower(r.editado_por)), '') as editado_por,
+  r.editado_por_nome as editado_por,
   r.editado_em, r.excluido,
-  coalesce((select m.nome from public.membros m where lower(m.email) = lower(r.excluido_por)), '') as excluido_por,
+  r.excluido_por_nome as excluido_por,
   r.excluido_em
 from public.revisoes r;
 
 revoke all on public.artigos_publico, public.revisoes_publico from anon, authenticated;
 grant select on public.artigos_publico, public.revisoes_publico to anon, authenticated;
+
+-- Preenche (ou atualiza, se o membro mudou de nome) os nomes dos textos e do histórico que já
+-- existiam. Só mexe nas colunas de nome; não conta como edição nem cria versão no histórico.
+update public.artigos set titulo = titulo
+where (public.nome_de(criado_por) <> '' and criado_por_nome <> public.nome_de(criado_por))
+   or (public.nome_de(editado_por) <> '' and editado_por_nome <> public.nome_de(editado_por));
+
+update public.revisoes set editado_por_nome = public.nome_de(editado_por)
+where public.nome_de(editado_por) <> '' and editado_por_nome <> public.nome_de(editado_por);
+
+update public.revisoes set excluido_por_nome = public.nome_de(excluido_por)
+where public.nome_de(excluido_por) <> '' and excluido_por_nome <> public.nome_de(excluido_por);
 
 -- ---------- Imagens (Storage) ----------
 
@@ -326,6 +393,7 @@ create policy "membros apagam imagens" on storage.objects
 create or replace function public.ping()
 returns text
 language sql stable
+set search_path = public
 as $$ select 'pong'::text $$;
 
 grant execute on function public.ping() to anon;
