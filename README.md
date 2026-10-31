@@ -216,6 +216,10 @@ se o mapa novo for o mesmo desenho em outra resolução.
   mesmo pelo outro lado. Os dois são a mesma informação, então as duas páginas sempre batem.
   Quem tem cargo é definido em `cargoDeLider` (`js/secoes.js`).
 
+- **Paginação:** as listas em cards (Personagens, Organizações e Divindades) mostram 20 por página.
+  Buscar, filtrar ou mudar a ordem volta para a primeira página, e voltar de um texto cai na mesma
+  página em que você estava. O tamanho da página é `POR_PAGINA` em `js/secao.js`.
+
 ## Mudar categorias e campos
 
 Tudo fica em `js/secoes.js`: nome, cor e ícone de cada seção, as opções de categoria

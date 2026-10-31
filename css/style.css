@@ -551,6 +551,13 @@ a.card { text-decoration: none; color: inherit; }
 .card.clicavel:hover { transform: translateY(-3px); border-color: var(--cor, var(--ouro)); }
 .card .corpo-card { padding: 14px 18px 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
 
+/* Paginação das listas (20 por página) */
+.paginacao { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 6px; margin: 24px 0 8px; }
+.paginacao[hidden] { display: none; }
+.paginacao button { min-width: 36px; }
+.paginacao button.ativo { border-color: var(--cor-secao, var(--ouro)); color: var(--texto); background: color-mix(in srgb, var(--cor-secao, var(--ouro)) 20%, var(--card)); }
+.paginacao .reticencias { color: var(--texto-2); padding: 0 2px; }
+
 .linha-titulo { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 
 .selo {
@@ -940,7 +947,7 @@ a.wiki.inexistente { color: #e8807c; border-bottom: 1px dashed currentColor; }
 
 /* Abas da seção (texto de apresentação | lista). Na aba do texto, a lista e seus controles somem. */
 .abas-secao { margin-top: 0; }
-.na-intro .ferramentas, .na-intro #filtros, .na-intro #lista, .na-intro .lixeira, .na-intro #btn-novo { display: none !important; }
+.na-intro .ferramentas, .na-intro #filtros, .na-intro #lista, .na-intro #paginacao, .na-intro .lixeira, .na-intro #btn-novo { display: none !important; }
 .introducao { display: none; }
 .na-intro .introducao { display: block; }
 /* O texto ocupa a largura toda, de uma borda à outra das abas */

@@ -240,8 +240,59 @@ function desenhar() {
   }
 
   const visiveis = itens.filter(a => passaNaBusca(a, termo));
-  lista.innerHTML = visiveis.length ? visiveis.map(a => card(a, SECAO.cor)).join('') : '<p class="vazio">Nada encontrado.</p>';
+  // Mudou a busca, o filtro, o país ou a ordem: volta para a primeira página
+  const chaveFiltros = [termo, filtro, filtroPais, ordem.value].join('|');
+  if (ultimosFiltros !== null && chaveFiltros !== ultimosFiltros) pagina = 1;
+  ultimosFiltros = chaveFiltros;
+  const totalPaginas = Math.max(1, Math.ceil(visiveis.length / POR_PAGINA));
+  pagina = Math.min(Math.max(1, pagina), totalPaginas);
+  const daPagina = visiveis.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
+  lista.innerHTML = daPagina.length ? daPagina.map(a => card(a, SECAO.cor)).join('') : '<p class="vazio">Nada encontrado.</p>';
+  desenharPaginacao(totalPaginas);
 }
+
+// ---------- Paginação (listas em cards: Personagens, Organizações, Divindades) ----------
+
+const POR_PAGINA = 20;
+// A página fica no endereço (?pagina=2): voltar de um texto cai na mesma página
+let pagina = Number(new URLSearchParams(location.search).get('pagina')) || 1;
+let ultimosFiltros = null;
+const paginacao = document.createElement('nav');
+paginacao.className = 'paginacao';
+paginacao.id = 'paginacao';
+paginacao.setAttribute('aria-label', 'Páginas');
+lista.after(paginacao);
+
+// Números das páginas: a primeira, a última e as vizinhas da atual ("…" no meio)
+function numerosDasPaginas(total) {
+  const perto = new Set([1, total, pagina - 1, pagina, pagina + 1].filter(n => n >= 1 && n <= total));
+  const numeros = [...perto].sort((a, b) => a - b);
+  return numeros.flatMap((n, i) => (i && n - numeros[i - 1] > 1 ? ['…', n] : [n]));
+}
+
+function desenharPaginacao(total) {
+  const url = new URL(location.href);
+  if (pagina > 1) url.searchParams.set('pagina', pagina);
+  else url.searchParams.delete('pagina');
+  history.replaceState(null, '', url);
+  paginacao.hidden = total < 2;
+  if (total < 2) return;
+  const botao = (n, rotulo, titulo) => `<button type="button" class="pequeno" data-pagina="${n}" title="${titulo}"${
+    n < 1 || n > total ? ' disabled' : ''}>${rotulo}</button>`;
+  paginacao.innerHTML = botao(pagina - 1, '‹', 'Página anterior')
+    + numerosDasPaginas(total).map(n => (n === '…' ? '<span class="reticencias">…</span>'
+      : `<button type="button" class="pequeno${n === pagina ? ' ativo' : ''}" data-pagina="${n}"${
+        n === pagina ? ' aria-current="page"' : ''}>${n}</button>`)).join('')
+    + botao(pagina + 1, '›', 'Próxima página');
+}
+
+paginacao.addEventListener('click', e => {
+  const n = Number(e.target.closest('[data-pagina]')?.dataset.pagina);
+  if (!n || n === pagina) return;
+  pagina = n;
+  desenhar();
+  lista.scrollIntoView({ block: 'start', behavior: 'smooth' });
+});
 
 // "312", "312 – 340", "Data incerta"
 function dataDoEvento(a) {
