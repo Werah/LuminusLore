@@ -39,12 +39,20 @@ function moldurasDaImagem(a) {
 // Quem pode ter um líder (um personagem) e o nome do cargo; '' = não tem cargo.
 // O personagem mostra "Regente de" / "Líder de" com tudo o que aponta para ele.
 function cargoDeLider(a) {
-  const d = a.detalhes || {};
   if (a.secao === 'organizacoes') return 'Líder';
-  if (a.secao !== 'mundo') return '';
-  if (a.mapaIcone === 'estrela') return 'Regente'; // país
-  if (['Cidade', 'Vilarejo'].includes(d.categoria) || ['cidade', 'vila'].includes(a.mapaIcone)) return 'Regente';
+  if (ehPaisOuReino(a) || ehCidadeOuVila(a)) return 'Regente';
   return '';
+}
+
+// País: ponto com a estrela, ou categoria "País/Reino"
+function ehPaisOuReino(a) {
+  return a.secao === 'mundo' && (a.mapaIcone === 'estrela' || a.detalhes?.categoria === 'País/Reino');
+}
+
+// Cidade ou vilarejo (pela categoria ou pelo ícone): pode ser a capital de um país
+function ehCidadeOuVila(a) {
+  return a.secao === 'mundo'
+    && (['Cidade', 'Vilarejo'].includes(a.detalhes?.categoria) || ['cidade', 'vila'].includes(a.mapaIcone));
 }
 
 const SECOES = {

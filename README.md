@@ -151,6 +151,10 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
 - **Pertencer a um país:** no editor de qualquer texto, o campo *País* lista os países
   (ou *Nenhum* para regiões neutras). O ponto herda a cor do país, a menos que tenha cor própria;
   trocar de país volta a usar a cor do país novo.
+- **Capital:** quando o texto é um país (estrela no ponto ou categoria *País/Reino*), o editor
+  esconde o campo *País* e mostra *Capital*, com as cidades e vilarejos que pertencem a ele.
+  A ficha do país mostra o link para a capital, e a da cidade mostra *Capital de*. Se a cidade
+  mudar de país ou for excluída, o país fica sem capital.
 - **Ícone e cor no cadastro:** o editor de um texto que tem (ou vai ganhar) ponto no mapa mostra o
   quadro *Ponto no mapa*, com os ícones e a cor. O *🎨 Cor e ícone* do mapa continua funcionando.
 - **Lista do Mundo em pastas:** cada país vira uma pasta (na cor do país) com os textos que

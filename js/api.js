@@ -416,7 +416,19 @@ const ICONES_MAPA = {
   '': { rotulo: 'Ponto', svg: '' },
   cidade: { rotulo: 'Cidade', svg: '<path d="M2 22V12h4V8h3v14zm8 0V3h6v19zm7 0V10h5v12z"/>' },
   vila: { rotulo: 'Vila', svg: '<path d="M12 3 2 11h3v10h5v-6h4v6h5V11h3z"/>' },
-  castelo: { rotulo: 'Castelo', svg: '<path d="M3 21V7h3v2h2V7h3v2h2V7h3v2h2V7h3v14h-7v-5a2 2 0 0 0-4 0v5z"/>' },
+  castelo: {
+    rotulo: 'Castelo',
+    // Duas torres com ameias e janelas, a torre do meio mais alta (com bandeira e janela em arco),
+    // muralha com portão e o morro embaixo
+    svg: [
+      'M2 9.5V5.8h1.2V7H4V5.8h1.2V7H6V5.8h1.2v3.7h-.6v10h-4v-10zm2.1 2h.8v1.6h-.8zm0 3.5h.8v1.6h-.8z', // torre da esquerda
+      'M16.8 9.5V5.8H18V7h.8V5.8H20V7h.8V5.8H22v3.7h-.6v10h-4v-10zm2.2 2h.8v1.6H19zm0 3.5h.8v1.6H19z', // torre da direita
+      'M8.6 8.3V4.3h1.6v1.2h1V4.3h1.6v1.2h1V4.3h1.6v4h-.7v5.5h2.1v5.7H7.2v-5.7h2.1V8.3z'
+        + 'm2.7 3.7v-1.6a.7.7 0 0 1 1.4 0V12zm-.9 7.5v-2.6a1.6 1.6 0 0 1 3.2 0v2.6z', // torre do meio, muralha e portão
+      'M11.7 4.3V.8h.6v3.5z', 'M12.3.8H15l-.8.9.8.9h-2.7z', // bandeira
+      'M1 23c1.6-1.6 3.6-2.3 5.6-1.9 1.9.4 3.6.4 5.4 0s3.5-.4 5.4 0c2-.4 4 .3 5.6 1.9z', // morro
+    ].map(d => `<path fill-rule="evenodd" d="${d}"/>`).join(''),
+  },
   caveira: {
     rotulo: 'Caveira',
     svg: '<path fill-rule="evenodd" d="M12 2C7 2 3.5 5.6 3.5 10c0 2.6 1.2 4.6 3 5.8V19a1 1 0 0 0 1 1H9v-2h2v2h2v-2h2v2h1.5a1 1 0 0 0 1-1v-3.2c1.8-1.2 3-3.2 3-5.8C20.5 5.6 17 2 12 2zM8.5 13.5a2.2 2.2 0 1 1 0-4.4 2.2 2.2 0 0 1 0 4.4zm7 0a2.2 2.2 0 1 1 0-4.4 2.2 2.2 0 0 1 0 4.4zM12 13.5l-1.2 2.3h2.4z"/>',

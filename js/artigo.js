@@ -108,9 +108,14 @@ function desenharTexto() {
   // Regente (país, cidade, vila) / Líder (organização)
   const cargo = cargoDeLider(artigo);
   const lider = cargo && artigo.liderId && [...titulos.values()].find(t => t.id === artigo.liderId);
+  // País: a capital dele (uma das suas cidades ou vilarejos)
+  const capital = ehPaisOuReino(artigo) && artigo.capitalId && [...titulos.values()].find(t => t.id === artigo.capitalId);
   const preenchidos = s.campos.filter(c => artigo.detalhes[c.chave] && campoVisivel(c, artigo.detalhes));
   const ficha = (lider ? `<div><dt>${esc(cargo)}</dt><dd>${linkWiki(lider.link, lider.titulo, titulos)}</dd></div>` : '')
-    + (pais ? `<div><dt>${esc(s.rotuloPais || 'País')}</dt><dd>${linkWiki(pais.link, pais.titulo, titulos)}</dd></div>` : '')
+    + (capital ? `<div><dt>Capital</dt><dd>${linkWiki(capital.link, capital.titulo, titulos)}</dd></div>` : '')
+    + (pais && !ehPaisOuReino(artigo) ? `<div id="linha-pais"><dt>${esc(s.rotuloPais || 'País')}</dt><dd>${linkWiki(pais.link, pais.titulo, titulos)}</dd></div>` : '')
+    // Cidade: "Capital de" é preenchido depois (carregarCapitalDe), procurando o país que aponta para ela
+    + (ehCidadeOuVila(artigo) ? '<div id="capital-de" hidden></div>' : '')
     // Personagem: "Líder de" é preenchido depois (carregarLiderDe), procurando quem aponta para ele
     + (secao === 'personagens' ? '<div id="lider-de" hidden></div>' : '')
     + preenchidos
@@ -195,7 +200,39 @@ function desenharTexto() {
   carregarMencoes();
   if (modoPais) carregarLugares();
   if (secao === 'personagens') carregarLiderDe();
+  if (ehCidadeOuVila(artigo)) carregarCapitalDe();
   mostrarAvisoEdicao();
+}
+
+// Espaço da ficha que ficou vazio (ex.: "Líder de" de quem não lidera nada): se a ficha
+// só tinha ele e não tem imagem, a ficha some
+function tirarFichaVazia(el) {
+  const ficha = el.closest('.ficha');
+  if (ficha && !ficha.querySelector('img') && !ficha.querySelector('dl > div:not([hidden])')) {
+    ficha.remove();
+    document.querySelector('.corpo-artigo')?.classList.add('sem-ficha');
+  }
+}
+
+// Cidade ou vilarejo: o país de que é a capital
+async function carregarCapitalDe() {
+  const el = document.getElementById('capital-de');
+  let paises = [];
+  try {
+    paises = await banco.capitalDe(artigo.id);
+  } catch {
+    // Não é essencial: se falhar, só não mostra
+  }
+  if (!el) return;
+  if (!paises.length) return tirarFichaVazia(el);
+  const link = p => {
+    const t = [...titulos.values()].find(x => x.id === p.id);
+    return t ? linkWiki(t.link, t.titulo, titulos) : esc(p.titulo);
+  };
+  el.innerHTML = `<dt>Capital de</dt><dd>${paises.map(link).join(', ')}</dd>`;
+  // "Capital de Azraq" já diz o país: a linha "País: Azraq" sairia repetida
+  if (paises.some(p => p.id === artigo.paisId)) document.getElementById('linha-pais')?.remove();
+  el.hidden = false;
 }
 
 // Personagem: o que ele lidera (país, cidade, vila, organização). Se não lidera nada e a ficha
@@ -223,11 +260,7 @@ async function carregarLiderDe() {
     el.hidden = false;
     return;
   }
-  const ficha = el.closest('.ficha');
-  if (ficha && !ficha.querySelector('img') && !el.parentElement.querySelector(':scope > div:not(#lider-de)')) {
-    ficha.remove();
-    document.querySelector('.corpo-artigo')?.classList.add('sem-ficha');
-  }
+  tirarFichaVazia(el);
 }
 
 // Ficha do país: os textos que pertencem a ele, separados por seção (lugares, personagens, eventos...).
@@ -246,7 +279,7 @@ async function carregarLugares() {
         <ul>${itens.map(l => `
           <li><a href="artigo.html?id=${encodeURIComponent(l.id)}">
             ${ICONES_MAPA[l.mapaIcone]?.svg ? desenhoSvg(ICONES_MAPA[l.mapaIcone].svg) : `<span class="icone-lugar">${s.icone}</span>`}
-            ${esc(l.titulo)}
+            ${esc(l.titulo)}${l.id === artigo.capitalId ? ' <small class="tipo-liderado">(capital)</small>' : ''}
           </a></li>`).join('')}</ul>
       `).join('')
       : `<h2>Lugares de ${esc(artigo.titulo)}</h2>
@@ -407,7 +440,14 @@ function editar(tituloInicial = '') {
       </div>
 
       <div class="grade-campos"${ehIntroducao ? ' hidden' : ''}>
-        <label>${esc(s.rotuloPais || 'País')}
+        <label class="campo-capital" hidden>Capital
+          <select name="capital">
+            <option value="">Nenhuma</option>
+            ${a.capitalId ? `<option value="${esc(a.capitalId)}" selected>${esc(nomeDoTexto(a.capitalId) || 'Carregando…')}</option>` : ''}
+          </select>
+          <small class="dica-capital"></small>
+        </label>
+        <label class="campo-do-pais">${esc(s.rotuloPais || 'País')}
           <span class="campo-pais">
             <select name="pais">
               <option value="">Nenhum (região neutra)</option>
@@ -509,9 +549,10 @@ function editar(tituloInicial = '') {
   if (!artigo) form.titulo.focus();
 
   // Líder: o campo só aparece se este texto tem cargo (depende da categoria e do ícone, que mudam no editor)
-  const cargoAtual = () => cargoDeLider({
-    secao, detalhes: { categoria: form['d-categoria']?.value }, mapaIcone: estiloPonto.icone,
-  });
+  const comoEstaAgora = () => ({ secao, detalhes: { categoria: form['d-categoria']?.value }, mapaIcone: estiloPonto.icone });
+  const cargoAtual = () => cargoDeLider(comoEstaAgora());
+  // País (estrela ou categoria País/Reino) não pertence a outro país: no lugar escolhe a capital
+  const ehPaisAgora = () => ehPaisOuReino(comoEstaAgora());
   const campoLider = form.querySelector('.campo-lider');
   const inputLider = form['lider-busca'];
   function atualizarCargo() {
@@ -603,15 +644,16 @@ function editar(tituloInicial = '') {
 
   // Ícone e cor do ponto
   const caixaPonto = form.querySelector('.campo-ponto');
+  const paisEscolhido = () => (ehPaisAgora() ? '' : selPais.value);
   function desenharPonto() {
     if (!caixaPonto) return;
-    const herdada = selPais.selectedOptions[0]?.dataset.cor || s.cor;
+    const herdada = (paisEscolhido() && selPais.selectedOptions[0]?.dataset.cor) || s.cor;
     const cor = estiloPonto.cor || herdada;
     caixaPonto.querySelector('.icones-ponto').style.setProperty('--cor', cor);
     caixaPonto.querySelectorAll('[data-icone]').forEach(b => b.classList.toggle('ativo', b.dataset.icone === estiloPonto.icone));
     form['mapa-cor'].value = cor;
     const padrao = caixaPonto.querySelector('[data-acao="cor-padrao"]');
-    padrao.textContent = selPais.value ? 'Usar cor do país' : 'Usar cor da seção';
+    padrao.textContent = paisEscolhido() ? 'Usar cor do país' : 'Usar cor da seção';
     padrao.disabled = !estiloPonto.cor;
   }
   if (caixaPonto) {
@@ -643,6 +685,40 @@ function editar(tituloInicial = '') {
   }).catch(() => {
     // Sem a lista, fica só o país que já estava escolhido
   });
+
+  // Capital: uma das cidades ou vilarejos que pertencem a este país
+  const campoCapital = form.querySelector('.campo-capital');
+  const selCapital = form.capital;
+  const dicaCapital = form.querySelector('.dica-capital');
+  function atualizarCapital() {
+    const pais = ehPaisAgora();
+    campoCapital.hidden = !pais;
+    form.querySelector('.campo-do-pais').hidden = pais;
+    desenharPonto();
+  }
+  form.addEventListener('change', atualizarCapital);
+  form.addEventListener('click', atualizarCapital); // os ícones do ponto são botões
+  atualizarCapital();
+  if (!artigo) {
+    selCapital.disabled = true;
+    dicaCapital.textContent = 'Salve o país primeiro. Depois, no editor de uma cidade, escolha este país no campo “País”, e ela aparece aqui.';
+  } else {
+    banco.lugaresDoPais(artigo.id).then(lista => {
+      const escolhida = selCapital.value;
+      const cidades = lista.filter(ehCidadeOuVila);
+      // Capital que deixou de ser cidade/vilarejo (mudou a categoria) continua aparecendo
+      const antiga = escolhida && !cidades.some(c => c.id === escolhida)
+        ? `<option value="${esc(escolhida)}">${esc(nomeDoTexto(escolhida) || '(texto excluído)')}</option>`
+        : '';
+      selCapital.innerHTML = '<option value="">Nenhuma</option>' + antiga
+        + cidades.map(c => `<option value="${esc(c.id)}">${esc(c.titulo)}</option>`).join('');
+      selCapital.value = escolhida;
+      dicaCapital.textContent = cidades.length ? ''
+        : 'Nenhuma cidade ou vilarejo deste país ainda. No editor da cidade, escolha este país no campo “País”.';
+    }).catch(() => {
+      // Sem a lista, fica só a capital que já estava escolhida
+    });
+  }
 
   // Digitar [[ sugere os títulos (no texto e nos campos da ficha, que também aceitam links)
   ligarSugestaoDeLinks(textarea, titulos);
@@ -714,7 +790,8 @@ function editar(tituloInicial = '') {
     erro.textContent = '';
     const detalhes = {};
     for (const c of s.campos) detalhes[c.chave] = form[`d-${c.chave}`].value;
-    const paisId = form.pais.value || null;
+    const paisId = paisEscolhido() || null;
+    const capitalId = ehPaisAgora() ? form.capital.value || null : null;
     const dados = { secao, titulo: form.titulo.value, subtitulo: form.subtitulo.value, conteudo: textarea.value, detalhes, paisId };
 
     return semCliqueDuplo(form, async () => {
@@ -740,6 +817,7 @@ function editar(tituloInicial = '') {
         for (const l of lideraAgora.filter(x => !lideraAntes.some(y => y.id === x.id))) await banco.definirLider(l.id, artigo.id);
         for (const l of lideraAntes.filter(x => !lideraAgora.some(y => y.id === x.id))) await banco.definirLider(l.id, null);
         lideraAntes = [...lideraAgora];
+        if (capitalId !== (artigo.capitalId || null)) await banco.definirCapital(artigo.id, capitalId);
         await campoImagem.salvar(artigo.id);
         alterado = false;
         return true;

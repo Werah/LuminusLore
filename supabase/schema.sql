@@ -96,6 +96,13 @@ alter table public.artigos drop constraint if exists artigos_lider_nao_e_ele_mes
 alter table public.artigos add constraint artigos_lider_nao_e_ele_mesmo check (lider_id is null or lider_id <> id);
 create index if not exists artigos_lider on public.artigos (lider_id);
 
+-- Capital (uma cidade ou vilarejo do país): fica guardada no país, e a página da cidade mostra
+-- "Capital de" procurando quem aponta para ela. Excluir a cidade deixa o país sem capital.
+alter table public.artigos add column if not exists capital_id text references public.artigos(id) on delete set null;
+alter table public.artigos drop constraint if exists artigos_capital_nao_e_ele_mesmo;
+alter table public.artigos add constraint artigos_capital_nao_e_ele_mesmo check (capital_id is null or capital_id <> id);
+create index if not exists artigos_capital on public.artigos (capital_id);
+
 -- Seções que existem (as mesmas de js/secoes.js). Refeita aqui para quem já tinha rodado
 -- este arquivo antes de existirem História e Personagens.
 alter table public.artigos drop constraint if exists artigos_secao_check;
@@ -206,6 +213,25 @@ create trigger guardar_revisao
   after update on public.artigos
   for each row execute function public.guardar_revisao();
 
+-- Cidade que muda de país (ou fica sem país) deixa de ser a capital do país antigo
+create or replace function public.soltar_capital()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  update public.artigos set capital_id = null
+  where capital_id = new.id and id is distinct from new.pais_id;
+  return new;
+end
+$$;
+
+drop trigger if exists soltar_capital on public.artigos;
+create trigger soltar_capital
+  after update of pais_id on public.artigos
+  for each row when (old.pais_id is distinct from new.pais_id)
+  execute function public.soltar_capital();
+
 -- Ao excluir um texto, guarda uma cópia completa dele no histórico (dá para restaurar depois)
 create or replace function public.guardar_exclusao()
 returns trigger
@@ -270,7 +296,7 @@ begin
   if exists (select 1 from public.artigos where id = l->>'id') then
     raise exception 'Esse texto já foi restaurado.';
   end if;
-  insert into public.artigos (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, pais_id, lider_id,
+  insert into public.artigos (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, pais_id, lider_id, capital_id,
                               mapa_x, mapa_y, mapa_cor, mapa_icone, imagem_x, imagem_y, imagens_extras)
   values (
     l->>'id', l->>'secao', l->>'titulo',
@@ -278,6 +304,7 @@ begin
     coalesce(l->>'imagem', ''),
     (select id from public.artigos where id = l->>'pais_id'),
     (select id from public.artigos where id = l->>'lider_id'),
+    (select id from public.artigos where id = l->>'capital_id' and pais_id = l->>'id'),
     (l->>'mapa_x')::double precision, (l->>'mapa_y')::double precision,
     coalesce(l->>'mapa_cor', ''), coalesce(l->>'mapa_icone', ''),
     coalesce((l->>'imagem_x')::real, 50), coalesce((l->>'imagem_y')::real, 50),
@@ -329,7 +356,7 @@ create policy visitantes on public.artigos  for select to anon using (true);
 create policy visitantes on public.revisoes for select to anon using (true);
 
 grant select (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, criado_em, atualizado_em,
-              mapa_x, mapa_y, mapa_cor, mapa_icone, pais_id, lider_id, imagem_x, imagem_y, imagens_extras,
+              mapa_x, mapa_y, mapa_cor, mapa_icone, pais_id, lider_id, capital_id, imagem_x, imagem_y, imagens_extras,
               criado_por_nome, editado_por_nome)
   on public.artigos to anon;
 grant select (id, artigo_id, titulo, subtitulo, conteudo, detalhes, editado_em, excluido, excluido_em,
@@ -346,7 +373,7 @@ select
   a.criado_em,
   a.editado_por_nome as editado_por,
   a.atualizado_em, a.mapa_x, a.mapa_y, a.mapa_cor, a.mapa_icone, a.pais_id, a.lider_id,
-  a.imagem_x, a.imagem_y, a.imagens_extras
+  a.imagem_x, a.imagem_y, a.imagens_extras, a.capital_id
 from public.artigos a;
 
 create or replace view public.revisoes_publico with (security_invoker = true) as

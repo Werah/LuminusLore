@@ -317,8 +317,20 @@ const banco = (() => {
 
   // Textos que pertencem a um país (para a ficha do país)
   async function lugaresDoPais(paisId) {
-    const linhas = await rodar(de('artigos').select('id, titulo, secao, mapa_icone').eq('pais_id', paisId).order('titulo'));
+    const linhas = await rodar(de('artigos').select('id, titulo, secao, detalhes, mapa_icone').eq('pais_id', paisId).order('titulo'));
     return linhas.map(doBanco);
+  }
+
+  // ---------- Capital ----------
+
+  // Põe (ou, com null, tira) a capital de um país. Não conta como edição do texto.
+  async function definirCapital(paisId, capitalId) {
+    await rodar(de('artigos').update({ capital_id: capitalId || null }).eq('id', paisId));
+  }
+
+  // Países de que este texto é a capital (normalmente um só)
+  async function capitalDe(id) {
+    return (await rodar(de('artigos').select('id, titulo').eq('capital_id', id).order('titulo'))).map(doBanco);
   }
 
   // Coloca, move ou (com x/y null) tira o texto do mapa. x/y em fração da imagem (0 a 1).
@@ -404,7 +416,7 @@ const banco = (() => {
   return {
     titulos, listarArtigos, buscarArtigo, criarArtigo, salvarArtigo, excluirArtigo, excluidos, restaurarExcluido,
     revisoes, mencoes, pontosDoMapa, paises, lugaresDoPais, posicionar, estilizarPonto, nomes, urlImagem, salvarImagens,
-    enviarImagemDoTexto, buscarPersonagens, buscarLideraveis, liderados, definirLider,
+    enviarImagemDoTexto, buscarPersonagens, buscarLideraveis, liderados, definirLider, definirCapital, capitalDe,
     idIntroducao, criarIntroducao,
   };
 })();
