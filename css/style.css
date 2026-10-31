@@ -931,6 +931,13 @@ a.wiki.inexistente { color: #e8807c; border-bottom: 1px dashed currentColor; }
 
 .abas-filtro .qtd { margin-left: 4px; font-size: 0.8rem; opacity: 0.6; }
 
+/* Página da organização: abas Sobre | Membros */
+.abas-artigo { margin: 18px 0 22px; }
+.membros-org { display: none; }
+.na-aba-membros > :is(.corpo-artigo, .assinatura, .mencoes) { display: none; }
+.na-aba-membros .membros-org { display: block; }
+.membros-org .capa { aspect-ratio: 8 / 5; } /* o mesmo formato do card de personagem */
+
 /* Abas da seção (texto de apresentação | lista). Na aba do texto, a lista e seus controles somem. */
 .abas-secao { margin-top: 0; }
 .na-intro .ferramentas, .na-intro #filtros, .na-intro #lista, .na-intro .lixeira, .na-intro #btn-novo { display: none !important; }
@@ -1426,12 +1433,43 @@ body.pagina-mapa {
 #mapa.marcando { cursor: crosshair; }
 
 .lado-texto {
-  width: 100%;
-  height: 100%;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  border: none;
+  min-height: 0;
   background: var(--bg);
 }
+
+.lado-texto iframe { flex: 1; width: 100%; min-height: 0; border: none; background: var(--bg); }
+
+/* Submenu do painel: as seções, para abrir a lista de cada uma sem sair do mapa */
+.submenu-painel {
+  display: flex;
+  gap: 2px;
+  padding: 0 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--borda);
+}
+
+.submenu-painel button {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--texto-2);
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.submenu-painel button:hover { color: var(--texto); }
+.submenu-painel button.ativo { color: var(--texto); border-bottom-color: var(--cor); }
 
 /* Divisor: arrastar muda o tamanho, as setas escondem/mostram um lado */
 .divisor {

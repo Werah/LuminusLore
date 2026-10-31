@@ -176,6 +176,8 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
   onde está o cursor (vale para qualquer texto, e é o jeito de montar a ficha de um país com fotos).
 - **Links andam pelo mapa:** clicar num `[[link]]` dentro do texto abre o outro texto no painel
   e o mapa vai até o ponto dele.
+- **Submenu do painel:** no alto do painel de texto ficam as seções (Mundo, História, Personagens,
+  Panteão, Organizações). Clicar abre a lista daquela seção ali mesmo, sem sair do mapa.
 
 ### Trocar a imagem do mapa
 
@@ -203,7 +205,11 @@ se o mapa novo for o mesmo desenho em outra resolução.
 - **Personagens:** *Tipo* separa NPCs de personagens de jogadores (na lista, são as abas *NPCs* e
   *Personagens*; o botão do globo filtra pela nacionalidade). Todos têm nome, alcunha,
   descrição, história, imagem e nacionalidade (um país do mapa). Personagens de jogador também têm
-  *Jogador*, *Raça*, *Classe* e *Inventário* (um item por linha).
+  *Jogador*, *Raça*, *Classe* e *Inventário* (um item por linha). Sem tipo escolhido, o personagem
+  é NPC (vale também para os antigos). Um campo pode ter valor padrão com `padrao` em `js/secoes.js`.
+- **Organização do personagem:** o campo *Organização* (digite parte do nome e escolha) liga o
+  personagem a uma organização. A página da organização tem as abas *Sobre* (o texto) e *Membros*
+  (os personagens filiados, com o selo *Líder* em quem lidera a organização).
 - A ficha de um país mostra também os personagens com essa nacionalidade e os eventos ligados a ele.
 - **Regentes e líderes:** países, cidades e vilas têm o campo *Regente*, e organizações o campo *Líder*:
   digite parte do nome e escolha o personagem na lista. No personagem, o campo *Regente / Líder de* faz o

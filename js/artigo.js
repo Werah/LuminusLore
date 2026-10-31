@@ -110,22 +110,26 @@ function desenharTexto() {
   const lider = cargo && artigo.liderId && [...titulos.values()].find(t => t.id === artigo.liderId);
   // País: a capital dele (uma das suas cidades ou vilarejos)
   const capital = ehPaisOuReino(artigo) && artigo.capitalId && [...titulos.values()].find(t => t.id === artigo.capitalId);
-  const preenchidos = s.campos.filter(c => artigo.detalhes[c.chave] && campoVisivel(c, artigo.detalhes, artigo));
+  // Personagem: a organização de que é membro
+  const organizacao = secao === 'personagens' && artigo.organizacaoId && [...titulos.values()].find(t => t.id === artigo.organizacaoId);
+  const det = detalhesComPadrao(secao, artigo.detalhes); // ex.: personagem sem tipo aparece como NPC
+  const preenchidos = s.campos.filter(c => det[c.chave] && campoVisivel(c, det, artigo));
   const ficha = (lider ? `<div><dt>${esc(cargo)}</dt><dd>${linkWiki(lider.link, lider.titulo, titulos)}</dd></div>` : '')
     + (capital ? `<div><dt>Capital</dt><dd>${linkWiki(capital.link, capital.titulo, titulos)}</dd></div>` : '')
     + (pais && !ehPaisOuReino(artigo) ? `<div id="linha-pais"><dt>${esc(s.rotuloPais || 'País')}</dt><dd>${linkWiki(pais.link, pais.titulo, titulos)}</dd></div>` : '')
+    + (organizacao ? `<div><dt>Organização</dt><dd>${linkWiki(organizacao.link, organizacao.titulo, titulos)}</dd></div>` : '')
     // Cidade: "Capital de" é preenchido depois (carregarCapitalDe), procurando o país que aponta para ela
     + (ehCidadeOuVila(artigo) ? '<div id="capital-de" hidden></div>' : '')
     // Personagem: "Líder de" é preenchido depois (carregarLiderDe), procurando quem aponta para ele
     + (secao === 'personagens' ? '<div id="lider-de" hidden></div>' : '')
     + preenchidos
       .filter(c => !c.longo)
-      .map(c => `<div><dt>${esc(c.rotulo)}</dt><dd>${linhaComLinks(artigo.detalhes[c.chave], titulos)}</dd></div>`)
+      .map(c => `<div><dt>${esc(c.rotulo)}</dt><dd>${linhaComLinks(det[c.chave], titulos)}</dd></div>`)
       .join('');
   // Campos longos (Descrição, Inventário...) viram blocos antes ou depois do texto principal
   const blocos = depois => preenchidos
     .filter(c => c.longo && !!c.depois === depois)
-    .map(c => `<section class="bloco-campo"><h2>${esc(c.rotulo)}</h2>${renderizarTexto(artigo.detalhes[c.chave], titulos)}</section>`)
+    .map(c => `<section class="bloco-campo"><h2>${esc(c.rotulo)}</h2>${renderizarTexto(det[c.chave], titulos)}</section>`)
     .join('');
   const temAlgumTexto = artigo.conteudo || preenchidos.some(c => c.longo);
   // Na ficha do país a imagem vira a capa, em vez de ficar na ficha ao lado do texto
@@ -161,6 +165,11 @@ function desenharTexto() {
     <article class="artigo" data-secao="${secao}" style="--cor: ${s.cor}">
       ${cabeca}
       <p class="aviso-edicao" id="aviso-edicao" hidden></p>
+      ${secao === 'organizacoes' ? `
+        <div class="filtros abas-filtro abas-artigo" role="tablist" style="--cor-secao: ${s.cor}">
+          <button type="button" class="ativo" data-aba="sobre" role="tab">Sobre</button>
+          <button type="button" data-aba="membros" role="tab">Membros <span class="qtd" id="qtd-membros"></span></button>
+        </div>` : ''}
 
       <div class="corpo-artigo${temFicha ? '' : ' sem-ficha'}">
         ${temFicha ? `
@@ -183,6 +192,7 @@ function desenharTexto() {
       </footer>
       ${modoPais ? '<section class="lugares-pais" id="lugares" hidden></section>' : ''}
       <section class="mencoes" id="mencoes" hidden></section>
+      ${secao === 'organizacoes' ? '<section class="membros-org" id="membros"><p class="vazio">Carregando…</p></section>' : ''}
     </article>
   `;
 
@@ -198,6 +208,7 @@ function desenharTexto() {
   document.getElementById('btn-historico').addEventListener('click', desenharHistorico);
   document.getElementById('btn-excluir').addEventListener('click', excluir);
   carregarMencoes();
+  if (secao === 'organizacoes') carregarMembros();
   if (modoPais) carregarLugares();
   if (secao === 'personagens') carregarLiderDe();
   if (ehCidadeOuVila(artigo)) carregarCapitalDe();
@@ -212,6 +223,42 @@ function tirarFichaVazia(el) {
     ficha.remove();
     document.querySelector('.corpo-artigo')?.classList.add('sem-ficha');
   }
+}
+
+// Organização: abas "Sobre" (o texto) e "Membros" (os personagens filiados a ela)
+async function carregarMembros() {
+  const el = document.getElementById('membros');
+  const abas = document.querySelector('.abas-artigo');
+  abas.addEventListener('click', e => {
+    const aba = e.target.closest('[data-aba]')?.dataset.aba;
+    if (!aba) return;
+    abas.querySelectorAll('button').forEach(b => b.classList.toggle('ativo', b.dataset.aba === aba));
+    document.querySelector('.artigo').classList.toggle('na-aba-membros', aba === 'membros');
+  });
+  let membros;
+  try {
+    membros = await banco.membrosDe(artigo.id);
+  } catch (e) {
+    el.innerHTML = `<p class="erro">${esc(e.message)}</p>`;
+    return;
+  }
+  document.getElementById('qtd-membros').textContent = membros.length;
+  const cor = SECOES.personagens.cor;
+  el.innerHTML = membros.length ? `
+    <div class="grade">${membros.map(m => `
+      <a class="card clicavel artigo-card" href="artigo.html?id=${encodeURIComponent(m.id)}" style="--cor: ${cor}">
+        ${capaArtigo(m)}
+        <div class="corpo-card">
+          <div class="linha-titulo">
+            <h3>${esc(m.titulo)}</h3>
+            ${m.id === artigo.liderId ? '<span class="selo">Líder</span>' : ''}
+          </div>
+          ${m.subtitulo ? `<p class="subtitulo">${esc(m.subtitulo)}</p>` : ''}
+          <p class="info">${esc(detalhesComPadrao('personagens', m.detalhes).tipo || '')}</p>
+        </div>
+      </a>`).join('')}
+    </div>`
+    : `<p class="sem-texto">Nenhum membro ainda. No editor de um personagem, escolha esta organização no campo “Organização”.</p>`;
 }
 
 // Cidade ou vilarejo: o país de que é a capital
@@ -390,6 +437,8 @@ function editar(tituloInicial = '') {
   const nomeDoTexto = id => [...titulos.values()].find(t => t.id === id)?.titulo || '';
   let lider = a.liderId ? { id: a.liderId, titulo: nomeDoTexto(a.liderId) } : null;
   const liderInicial = a.liderId || null;
+  // Organização (personagem): escolhida buscando pelo nome
+  let organizacao = a.organizacaoId ? { id: a.organizacaoId, titulo: nomeDoTexto(a.organizacaoId) } : null;
   // "Líder de" (personagem): o que ele lidera; carregado do banco ao abrir o editor
   let lideraAgora = [];
   let lideraAntes = [];
@@ -397,7 +446,7 @@ function editar(tituloInicial = '') {
   // Campos curtos vão na grade; os longos (várias linhas) ficam embaixo, largos.
   // data-campo: para esconder os que só valem com certo valor de outro campo (soSe)
   const campoHtml = c => {
-    const valor = a.detalhes[c.chave] || '';
+    const valor = a.detalhes[c.chave] || c.padrao || '';
     if (c.longo) {
       return `
         <label class="campo-longo" data-campo="${c.chave}">${esc(c.rotulo)}
@@ -410,7 +459,7 @@ function editar(tituloInicial = '') {
       return `
         <label data-campo="${c.chave}">${esc(c.rotulo)}
           <select name="d-${c.chave}">
-            <option value="">—</option>
+            ${c.padrao ? '' : '<option value="">—</option>'}
             ${opcoes.map(o => `<option${o === valor ? ' selected' : ''}>${esc(o)}</option>`).join('')}
           </select>
         </label>`;
@@ -462,6 +511,13 @@ function editar(tituloInicial = '') {
             <button type="button" class="pequeno limpar-busca" title="Deixar sem líder">✕</button>
           </span>
         </label>
+        ${secao === 'personagens' ? `
+          <label class="campo-organizacao">Organização
+            <span class="campo-busca">
+              <input type="text" name="organizacao-busca" value="${esc(organizacao?.titulo || '')}" placeholder="Digite o nome da organização…">
+              <button type="button" class="pequeno limpar-busca" title="Sem organização">✕</button>
+            </span>
+          </label>` : ''}
         ${campos}
       </div>
       <div${ehIntroducao ? ' hidden' : ''}>${camposLongos}</div>
@@ -589,6 +645,34 @@ function editar(tituloInicial = '') {
     inputLider.value = '';
     alterado = true;
   });
+
+  // Organização (só personagens): mesma busca do líder, só que nas organizações
+  const campoOrganizacao = form.querySelector('.campo-organizacao');
+  if (campoOrganizacao) {
+    const inputOrganizacao = form['organizacao-busca'];
+    ligarBusca(inputOrganizacao, {
+      buscar: termo => banco.buscarOrganizacoes(termo),
+      mostrar: o => `${SECOES.organizacoes.icone} ${esc(o.titulo)}${o.subtitulo ? ` <small>${esc(o.subtitulo)}</small>` : ''}`,
+      escolher: o => {
+        organizacao = { id: o.id, titulo: o.titulo };
+        inputOrganizacao.value = o.titulo;
+        alterado = true;
+      },
+    });
+    inputOrganizacao.addEventListener('blur', () => setTimeout(() => {
+      if (!inputOrganizacao.value.trim()) {
+        if (organizacao) alterado = true;
+        organizacao = null;
+      } else {
+        inputOrganizacao.value = organizacao?.titulo || '';
+      }
+    }, 200));
+    campoOrganizacao.querySelector('.limpar-busca').addEventListener('click', () => {
+      organizacao = null;
+      inputOrganizacao.value = '';
+      alterado = true;
+    });
+  }
 
   // Líder de (só personagens): etiquetas com ✕, e a busca acrescenta
   const chipsLiderDe = document.getElementById('chips-lider-de');
@@ -795,7 +879,9 @@ function editar(tituloInicial = '') {
     for (const c of s.campos) detalhes[c.chave] = form[`d-${c.chave}`].value;
     const paisId = paisEscolhido() || null;
     const capitalId = ehPaisAgora() ? form.capital.value || null : null;
-    const dados = { secao, titulo: form.titulo.value, subtitulo: form.subtitulo.value, conteudo: textarea.value, detalhes, paisId };
+    // Só o personagem tem organização (nos outros, o campo nem vai para o banco)
+    const extra = secao === 'personagens' ? { organizacaoId: organizacao?.id || null } : {};
+    const dados = { secao, titulo: form.titulo.value, subtitulo: form.subtitulo.value, conteudo: textarea.value, detalhes, paisId, ...extra };
 
     return semCliqueDuplo(form, async () => {
       try {

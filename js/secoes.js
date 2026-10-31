@@ -8,6 +8,7 @@
 //   numero: só aceita número
 //   soSe:   só aparece quando outro campo tem certo valor, ex.: { tipo: 'Personagem de jogador' }
 //   soPais: só aparece em país (estrela no ponto ou categoria País/Reino)
+//   padrao: valor quando ninguém escolheu (vale também para os textos antigos, sem o campo)
 // Nos campos da ficha também dá para usar [[links]] para outros textos.
 // Opcionais da seção: rotuloPais (nome do campo de país), rotuloTexto (título do texto principal)
 // e linhaDoTempo (a lista vira uma linha do tempo, ordenada pelos campos era e ano),
@@ -21,6 +22,13 @@
 function campoVisivel(campo, detalhes, a) {
   if (campo.soPais && a && !ehPaisOuReino({ ...a, detalhes })) return false;
   return !campo.soSe || Object.entries(campo.soSe).every(([chave, valor]) => (detalhes[chave] || '') === valor);
+}
+
+// Os detalhes de um texto com os valores padrão nos campos vazios
+function detalhesComPadrao(secao, detalhes) {
+  const d = { ...detalhes };
+  for (const c of SECOES[secao]?.campos || []) if (!d[c.chave] && c.padrao) d[c.chave] = c.padrao;
+  return d;
 }
 
 // Os formatos (largura / altura) em que a imagem de um texto aparece no site. O popup de escolher a
@@ -80,7 +88,7 @@ const SECOES = {
     campos: [
       // Texto livre: as formas de governo variam demais para uma lista
       { chave: 'governo', rotulo: 'Forma de Governo', dica: 'Ex.: Monarquia, Teocracia, Conselho de Magos', soPais: true },
-      { chave: 'categoria', rotulo: 'Categoria', opcoes: ['País/Reino', 'Cidade', 'Vilarejo', 'Floresta', 'Perigo', 'Montanha', 'Corpo de Água', 'Outro'] },
+      { chave: 'categoria', rotulo: 'Categoria', opcoes: ['País/Reino', 'Cidade', 'Vilarejo', 'Forte', 'Floresta', 'Perigo', 'Montanha', 'Corpo de Água', 'Outro'] },
       { chave: 'localizacao', rotulo: 'Fica em', dica: 'Ex.: [[Solarium]]' },
     ],
   },
@@ -115,7 +123,7 @@ const SECOES = {
     filtroPais: true, // botão para filtrar pela nacionalidade
     campos: [
       // "abas": na lista, o filtro vira abas (uma sempre escolhida) com estes nomes
-      { chave: 'tipo', rotulo: 'Tipo', opcoes: ['NPC', 'Personagem de jogador'], abas: { 'NPC': 'NPCs', 'Personagem de jogador': 'Personagens' } },
+      { chave: 'tipo', rotulo: 'Tipo', opcoes: ['NPC', 'Personagem de jogador'], padrao: 'NPC', abas: { 'NPC': 'NPCs', 'Personagem de jogador': 'Personagens' } },
       { chave: 'jogador', rotulo: 'Jogador', dica: 'Quem joga com ele', soSe: { tipo: 'Personagem de jogador' } },
       { chave: 'raca', rotulo: 'Raça', soSe: { tipo: 'Personagem de jogador' } },
       { chave: 'classe', rotulo: 'Classe', soSe: { tipo: 'Personagem de jogador' } },

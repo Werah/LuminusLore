@@ -29,9 +29,13 @@
       <span class="pegador" aria-hidden="true"></span>
       <button type="button" data-passo="1" title="Diminuir o texto"><span>›</span></button>
     </div>
-    <!-- As páginas de texto (lista do Mundo, pontos de interesse, editor) abrem aqui dentro -->
-    <!-- name="painel": os links da ficha do país abrem aqui -->
-    <iframe class="lado-texto" id="painel" name="painel" title="Texto"></iframe>
+    <section class="lado-texto">
+      <!-- Submenu: abre a lista de outra seção no painel, sem sair do mapa -->
+      <nav class="submenu-painel" id="submenu-painel" aria-label="Seções"></nav>
+      <!-- As páginas de texto (lista do Mundo, pontos de interesse, editor) abrem aqui dentro -->
+      <!-- name="painel": os links da ficha do país abrem aqui -->
+      <iframe id="painel" name="painel" title="Texto"></iframe>
+    </section>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>

@@ -531,6 +531,7 @@ window.addEventListener('message', async e => {
   if (e.origin !== location.origin || e.source !== painel.contentWindow || e.data?.tipo !== 'artigo') return;
   atual = e.data.artigo;
   marcando = false;
+  if (atual) marcarSubmenu(atual.secao);
 
   // O marcador provisório só fica enquanto o painel está no editor do texto novo
   const urlPainel = new URL(painel.contentWindow.location.href);
@@ -551,6 +552,34 @@ window.addEventListener('message', async e => {
   }
   if (atual && pontos.has(atual.id)) centralizar(atual.id);
   desenharBarra();
+});
+
+// ---------- Submenu do painel ----------
+
+// As seções no alto do painel: abrem a lista de cada uma ali mesmo, sem sair do mapa.
+// Se o painel estiver no editor, grava antes (como ao clicar num ponto).
+const submenu = document.getElementById('submenu-painel');
+submenu.innerHTML = Object.entries(SECOES)
+  .map(([chave, s]) => `<button type="button" data-secao="${chave}" style="--cor: ${s.cor}">${s.icone} ${esc(s.nome)}</button>`)
+  .join('');
+function marcarSubmenu(secao) {
+  submenu.querySelectorAll('button').forEach(b => b.classList.toggle('ativo', b.dataset.secao === secao));
+}
+submenu.addEventListener('click', async e => {
+  const chave = e.target.closest('[data-secao]')?.dataset.secao;
+  if (!chave || !(await salvarPainel())) return;
+  painel.src = SECOES[chave].pagina;
+});
+// Página nova no painel: as listas dizem a seção no <body>; um texto avisa pela mensagem "artigo"
+// (que pode chegar antes ou depois deste "load": aí não apaga a marca que ela pôs)
+painel.addEventListener('load', () => {
+  try {
+    const doc = painel.contentDocument;
+    const secao = doc.body.dataset.secao || new URL(doc.location.href).searchParams.get('secao');
+    if (secao) marcarSubmenu(secao);
+  } catch {
+    // Página de fora (não deveria acontecer): só não marca
+  }
 });
 
 const idInicial = new URLSearchParams(location.search).get('id');

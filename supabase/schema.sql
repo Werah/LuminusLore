@@ -103,6 +103,13 @@ alter table public.artigos drop constraint if exists artigos_capital_nao_e_ele_m
 alter table public.artigos add constraint artigos_capital_nao_e_ele_mesmo check (capital_id is null or capital_id <> id);
 create index if not exists artigos_capital on public.artigos (capital_id);
 
+-- Organização de que um personagem é membro: fica guardada no personagem, e a aba "Membros" da
+-- organização procura quem aponta para ela. Excluir a organização só deixa o personagem sem.
+alter table public.artigos add column if not exists organizacao_id text references public.artigos(id) on delete set null;
+alter table public.artigos drop constraint if exists artigos_organizacao_nao_e_ele_mesmo;
+alter table public.artigos add constraint artigos_organizacao_nao_e_ele_mesmo check (organizacao_id is null or organizacao_id <> id);
+create index if not exists artigos_organizacao on public.artigos (organizacao_id);
+
 -- Seções que existem (as mesmas de js/secoes.js). Refeita aqui para quem já tinha rodado
 -- este arquivo antes de existirem História e Personagens.
 alter table public.artigos drop constraint if exists artigos_secao_check;
@@ -170,8 +177,8 @@ begin
     new.criado_por := old.criado_por;
     new.criado_em := old.criado_em;
     new.criado_por_nome := coalesce(nullif(public.nome_de(old.criado_por), ''), old.criado_por_nome);
-    if (old.secao, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.pais_id)
-       is not distinct from (new.secao, new.titulo, new.subtitulo, new.conteudo, new.detalhes, new.pais_id) then
+    if (old.secao, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.pais_id, old.organizacao_id)
+       is not distinct from (new.secao, new.titulo, new.subtitulo, new.conteudo, new.detalhes, new.pais_id, new.organizacao_id) then
       new.editado_por := old.editado_por;
       new.atualizado_em := old.atualizado_em;
       new.editado_por_nome := coalesce(nullif(public.nome_de(old.editado_por), ''), old.editado_por_nome);
@@ -296,7 +303,7 @@ begin
   if exists (select 1 from public.artigos where id = l->>'id') then
     raise exception 'Esse texto já foi restaurado.';
   end if;
-  insert into public.artigos (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, pais_id, lider_id, capital_id,
+  insert into public.artigos (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, pais_id, lider_id, capital_id, organizacao_id,
                               mapa_x, mapa_y, mapa_cor, mapa_icone, imagem_x, imagem_y, imagens_extras)
   values (
     l->>'id', l->>'secao', l->>'titulo',
@@ -305,6 +312,7 @@ begin
     (select id from public.artigos where id = l->>'pais_id'),
     (select id from public.artigos where id = l->>'lider_id'),
     (select id from public.artigos where id = l->>'capital_id' and pais_id = l->>'id'),
+    (select id from public.artigos where id = l->>'organizacao_id'),
     (l->>'mapa_x')::double precision, (l->>'mapa_y')::double precision,
     coalesce(l->>'mapa_cor', ''), coalesce(l->>'mapa_icone', ''),
     coalesce((l->>'imagem_x')::real, 50), coalesce((l->>'imagem_y')::real, 50),
@@ -356,7 +364,7 @@ create policy visitantes on public.artigos  for select to anon using (true);
 create policy visitantes on public.revisoes for select to anon using (true);
 
 grant select (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, criado_em, atualizado_em,
-              mapa_x, mapa_y, mapa_cor, mapa_icone, pais_id, lider_id, capital_id, imagem_x, imagem_y, imagens_extras,
+              mapa_x, mapa_y, mapa_cor, mapa_icone, pais_id, lider_id, capital_id, organizacao_id, imagem_x, imagem_y, imagens_extras,
               criado_por_nome, editado_por_nome)
   on public.artigos to anon;
 grant select (id, artigo_id, titulo, subtitulo, conteudo, detalhes, editado_em, excluido, excluido_em,
@@ -373,7 +381,7 @@ select
   a.criado_em,
   a.editado_por_nome as editado_por,
   a.atualizado_em, a.mapa_x, a.mapa_y, a.mapa_cor, a.mapa_icone, a.pais_id, a.lider_id,
-  a.imagem_x, a.imagem_y, a.imagens_extras, a.capital_id
+  a.imagem_x, a.imagem_y, a.imagens_extras, a.capital_id, a.organizacao_id
 from public.artigos a;
 
 create or replace view public.revisoes_publico with (security_invoker = true) as

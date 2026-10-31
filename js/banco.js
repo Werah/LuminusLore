@@ -145,7 +145,7 @@ const banco = (() => {
     if (!secao) throw new Error('Seção inválida');
     const detalhes = {};
     for (const campo of SECOES[secao].campos) {
-      const valor = texto(b.detalhes?.[campo.chave]);
+      const valor = texto(b.detalhes?.[campo.chave]) || campo.padrao || '';
       if (!valor) continue;
       if (campo.numero && !Number.isFinite(Number(valor.replace(',', '.')))) throw new Error(`${campo.rotulo} precisa ser um número`);
       detalhes[campo.chave] = campo.numero ? String(Number(valor.replace(',', '.'))) : valor;
@@ -163,6 +163,8 @@ const banco = (() => {
       pais_id: b.paisId ? String(b.paisId) : null, // texto do país a que pertence (null = região neutra)
       // "imagem" e o ponto no mapa ficam de fora: são trocados pelas funções deles
     };
+    // Organização de que o personagem é membro (só vai quando o editor manda)
+    if (b.organizacaoId !== undefined) dados.organizacao_id = b.organizacaoId ? String(b.organizacaoId) : null;
     if (!dados.titulo) throw new Error('Título é obrigatório');
     if (/[[\]|]/.test(dados.titulo)) throw new Error('O título não pode ter [ ] ou |');
     return dados;
@@ -321,6 +323,22 @@ const banco = (() => {
     return linhas.map(doBanco);
   }
 
+  // ---------- Organizações ----------
+
+  // Organizações cujo nome tem o termo (para o campo "Organização" do personagem)
+  async function buscarOrganizacoes(termo) {
+    const linhas = await rodar(de('artigos').select('id, titulo, subtitulo')
+      .eq('secao', 'organizacoes').ilike('titulo', padraoBusca(termo)).order('titulo').limit(8));
+    return linhas.map(doBanco);
+  }
+
+  // Personagens filiados a uma organização (aba "Membros")
+  async function membrosDe(organizacaoId) {
+    const linhas = await rodar(de('artigos').select('id, titulo, subtitulo, secao, detalhes, imagem, imagem_x, imagem_y, imagens_extras')
+      .eq('organizacao_id', organizacaoId).order('titulo'));
+    return linhas.map(doBanco);
+  }
+
   // ---------- Capital ----------
 
   // Põe (ou, com null, tira) a capital de um país. Não conta como edição do texto.
@@ -417,6 +435,7 @@ const banco = (() => {
     titulos, listarArtigos, buscarArtigo, criarArtigo, salvarArtigo, excluirArtigo, excluidos, restaurarExcluido,
     revisoes, mencoes, pontosDoMapa, paises, lugaresDoPais, posicionar, estilizarPonto, nomes, urlImagem, salvarImagens,
     enviarImagemDoTexto, buscarPersonagens, buscarLideraveis, liderados, definirLider, definirCapital, capitalDe,
+    buscarOrganizacoes, membrosDe,
     idIntroducao, criarIntroducao,
   };
 })();
