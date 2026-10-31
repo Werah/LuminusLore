@@ -7,6 +7,7 @@
 //   depois: campo longo que aparece depois do texto principal (senão, antes)
 //   numero: só aceita número
 //   soSe:   só aparece quando outro campo tem certo valor, ex.: { tipo: 'Personagem de jogador' }
+//   soPais: só aparece em país (estrela no ponto ou categoria País/Reino)
 // Nos campos da ficha também dá para usar [[links]] para outros textos.
 // Opcionais da seção: rotuloPais (nome do campo de país), rotuloTexto (título do texto principal)
 // e linhaDoTempo (a lista vira uma linha do tempo, ordenada pelos campos era e ano),
@@ -14,8 +15,11 @@
 // introducao (abas: um texto de apresentação da seção | a lista).
 // No campo de filtro, "abas" troca os botões de filtro por abas: { valor: 'Nome da aba' }.
 
-// Campo com "soSe" só aparece (e só é guardado) quando os outros campos têm os valores pedidos
-function campoVisivel(campo, detalhes) {
+// Campo com "soSe" só aparece (e só é guardado) quando os outros campos têm os valores pedidos.
+// Campo com "soPais" só aparece se o texto for um país ("a" traz secao e mapaIcone; sem "a", não confere
+// isso: o valor fica guardado, só escondido, se o texto deixar de ser país).
+function campoVisivel(campo, detalhes, a) {
+  if (campo.soPais && a && !ehPaisOuReino({ ...a, detalhes })) return false;
   return !campo.soSe || Object.entries(campo.soSe).every(([chave, valor]) => (detalhes[chave] || '') === valor);
 }
 
@@ -74,6 +78,8 @@ const SECOES = {
       altura: 5635,
     },
     campos: [
+      // Texto livre: as formas de governo variam demais para uma lista
+      { chave: 'governo', rotulo: 'Forma de Governo', dica: 'Ex.: Monarquia, Teocracia, Conselho de Magos', soPais: true },
       { chave: 'categoria', rotulo: 'Categoria', opcoes: ['País/Reino', 'Cidade', 'Vilarejo', 'Floresta', 'Perigo', 'Montanha', 'Corpo de Água', 'Outro'] },
       { chave: 'localizacao', rotulo: 'Fica em', dica: 'Ex.: [[Solarium]]' },
     ],

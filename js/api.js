@@ -422,15 +422,14 @@ const ICONES_MAPA = {
   fortaleza: {
     rotulo: 'Castelo',
     // Duas torres com ameias e janelas, a torre do meio mais alta (com bandeira e janela em arco),
-    // muralha com portão e o morro embaixo
-    svg: [
+    // muralha com portão. Desenhado entre y 0.8 e 19.5; o "g" aumenta e centraliza no quadro.
+    svg: '<g transform="translate(12 12) scale(1.1) translate(-12 -10.15)">' + [
       'M2 9.5V5.8h1.2V7H4V5.8h1.2V7H6V5.8h1.2v3.7h-.6v10h-4v-10zm2.1 2h.8v1.6h-.8zm0 3.5h.8v1.6h-.8z', // torre da esquerda
       'M16.8 9.5V5.8H18V7h.8V5.8H20V7h.8V5.8H22v3.7h-.6v10h-4v-10zm2.2 2h.8v1.6H19zm0 3.5h.8v1.6H19z', // torre da direita
       'M8.6 8.3V4.3h1.6v1.2h1V4.3h1.6v1.2h1V4.3h1.6v4h-.7v5.5h2.1v5.7H7.2v-5.7h2.1V8.3z'
         + 'm2.7 3.7v-1.6a.7.7 0 0 1 1.4 0V12zm-.9 7.5v-2.6a1.6 1.6 0 0 1 3.2 0v2.6z', // torre do meio, muralha e portão
       'M11.7 4.3V.8h.6v3.5z', 'M12.3.8H15l-.8.9.8.9h-2.7z', // bandeira
-      'M1 23c1.6-1.6 3.6-2.3 5.6-1.9 1.9.4 3.6.4 5.4 0s3.5-.4 5.4 0c2-.4 4 .3 5.6 1.9z', // morro
-    ].map(d => `<path fill-rule="evenodd" d="${d}"/>`).join(''),
+    ].map(d => `<path fill-rule="evenodd" d="${d}"/>`).join('') + '</g>',
   },
   caveira: {
     rotulo: 'Caveira',
@@ -456,6 +455,16 @@ const ICONES_MAPA = {
   porto: {
     rotulo: 'Porto',
     svg: '<g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="4.5" r="2"/><path d="M12 6.5V21M8 10h8M4 13a8 8 0 0 0 16 0"/></g>',
+  },
+  navio: {
+    rotulo: 'Navio',
+    // Casco, mastro com bandeira e duas velas
+    svg: [
+      'M1.5 16h21l-2.6 4.3a1.6 1.6 0 0 1-1.4.8h-13a1.6 1.6 0 0 1-1.4-.8z', // casco
+      'M11.6 16V1.5h.8V16z', 'M12.4 1.5h3l-.8.9.8.9h-3z', // mastro e bandeira
+      'M11 4v10.5H4.2C6.6 11 8.9 7.6 11 4z', // vela grande
+      'M13 5.5v9h6.3c-1-3.4-3.1-6.4-6.3-9z', // vela pequena
+    ].map(d => `<path d="${d}"/>`).join(''),
   },
   estrela: { rotulo: 'País (estrela)', svg:'<path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3l-6.2 3.6 1.6-7L2 9.2l7.1-.6z"/>' },
 };

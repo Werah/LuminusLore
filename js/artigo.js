@@ -110,7 +110,7 @@ function desenharTexto() {
   const lider = cargo && artigo.liderId && [...titulos.values()].find(t => t.id === artigo.liderId);
   // País: a capital dele (uma das suas cidades ou vilarejos)
   const capital = ehPaisOuReino(artigo) && artigo.capitalId && [...titulos.values()].find(t => t.id === artigo.capitalId);
-  const preenchidos = s.campos.filter(c => artigo.detalhes[c.chave] && campoVisivel(c, artigo.detalhes));
+  const preenchidos = s.campos.filter(c => artigo.detalhes[c.chave] && campoVisivel(c, artigo.detalhes, artigo));
   const ficha = (lider ? `<div><dt>${esc(cargo)}</dt><dd>${linkWiki(lider.link, lider.titulo, titulos)}</dd></div>` : '')
     + (capital ? `<div><dt>Capital</dt><dd>${linkWiki(capital.link, capital.titulo, titulos)}</dd></div>` : '')
     + (pais && !ehPaisOuReino(artigo) ? `<div id="linha-pais"><dt>${esc(s.rotuloPais || 'País')}</dt><dd>${linkWiki(pais.link, pais.titulo, titulos)}</dd></div>` : '')
@@ -542,9 +542,12 @@ function editar(tituloInicial = '') {
   function mostrarCamposVisiveis() {
     const valores = {};
     for (const c of s.campos) valores[c.chave] = form[`d-${c.chave}`].value;
-    for (const c of s.campos) form.querySelector(`[data-campo="${c.chave}"]`).hidden = !campoVisivel(c, valores);
+    for (const c of s.campos) {
+      form.querySelector(`[data-campo="${c.chave}"]`).hidden = !campoVisivel(c, valores, { secao, mapaIcone: estiloPonto.icone });
+    }
   }
   form.addEventListener('change', mostrarCamposVisiveis);
+  form.addEventListener('click', mostrarCamposVisiveis); // os ícones do ponto são botões (a estrela faz virar país)
   mostrarCamposVisiveis();
   if (!artigo) form.titulo.focus();
 
