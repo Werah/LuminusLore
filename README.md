@@ -138,7 +138,7 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
   do mapa), depois clique no lugar. A mesma barra tem *Mover ponto* e *Tirar do mapa*.
   Textos do Panteão e das Organizações também podem ter ponto (um templo, uma sede).
 - **Cor e ícone do ponto:** botão *🎨 Cor e ícone* na barra (abre sozinho quando o texto ganha
-  o primeiro ponto). Ícones: cidade, vila, castelo, caveira, floresta, espadas cruzadas, montanha,
+  o primeiro ponto). Ícones: cidade, vila, torre, castelo, caveira, floresta, espadas cruzadas, montanha,
   templo, porto, corpo de água e estrela (país). Sem cor escolhida, o ponto usa a cor do país ou, sem país, da seção. Para criar ícones novos,
   veja `ICONES_MAPA` em `js/mapa.js`.
 - **Esconder os pontos:** o olho no canto de cima do mapa esconde todos os pontos para ver só o

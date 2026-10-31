@@ -416,7 +416,10 @@ const ICONES_MAPA = {
   '': { rotulo: 'Ponto', svg: '' },
   cidade: { rotulo: 'Cidade', svg: '<path d="M2 22V12h4V8h3v14zm8 0V3h6v19zm7 0V10h5v12z"/>' },
   vila: { rotulo: 'Vila', svg: '<path d="M12 3 2 11h3v10h5v-6h4v6h5V11h3z"/>' },
-  castelo: {
+  // A chave "castelo" é a da torre antiga (os pontos que já usavam ela continuam iguais);
+  // o castelo de verdade ficou com a chave "fortaleza"
+  castelo: { rotulo: 'Torre', svg: '<path d="M3 21V7h3v2h2V7h3v2h2V7h3v2h2V7h3v14h-7v-5a2 2 0 0 0-4 0v5z"/>' },
+  fortaleza: {
     rotulo: 'Castelo',
     // Duas torres com ameias e janelas, a torre do meio mais alta (com bandeira e janela em arco),
     // muralha com portão e o morro embaixo
