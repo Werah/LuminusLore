@@ -207,15 +207,10 @@ se o mapa novo for o mesmo desenho em outra resolução.
   descrição, história, imagem e nacionalidade (um país do mapa). Personagens de jogador também têm
   *Jogador*, *Raça*, *Classe* e *Inventário* (um item por linha). Sem tipo escolhido, o personagem
   é NPC (vale também para os antigos). Um campo pode ter valor padrão com `padrao` em `js/secoes.js`.
-- **Organização do personagem:** o campo *Organização* (digite parte do nome e escolha) liga o
-  personagem a uma organização. A página da organização tem as abas *Sobre* (o texto) e *Membros*
-  (os personagens filiados, com o selo *Líder* em quem lidera a organização).
-- A ficha de um país mostra também os personagens com essa nacionalidade e os eventos ligados a ele.
-- **Regentes e líderes:** países, cidades e vilas têm o campo *Regente*, e organizações o campo *Líder*:
-  digite parte do nome e escolha o personagem na lista. No personagem, o campo *Regente / Líder de* faz o
-  mesmo pelo outro lado. Os dois são a mesma informação, então as duas páginas sempre batem.
-  Quem tem cargo é definido em `cargoDeLider` (`js/secoes.js`).
-
+- **Organizações do personagem:** no campo *Organizações* (digite parte do nome e escolha) dá para
+  pôr o personagem em quantas organizações quiser; cada uma vira uma etiqueta com ✕. A página da
+  organização tem as abas *Sobre* (o texto) e *Membros* (os personagens filiados, com o selo *Líder*
+  em quem lidera a organização).
 - **Paginação:** as listas em cards (Personagens, Organizações e Divindades) mostram 20 por página.
   Buscar, filtrar ou mudar a ordem volta para a primeira página, e voltar de um texto cai na mesma
   página em que você estava. O tamanho da página é `POR_PAGINA` em `js/secao.js`.

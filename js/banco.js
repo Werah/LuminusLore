@@ -163,8 +163,8 @@ const banco = (() => {
       pais_id: b.paisId ? String(b.paisId) : null, // texto do país a que pertence (null = região neutra)
       // "imagem" e o ponto no mapa ficam de fora: são trocados pelas funções deles
     };
-    // Organização de que o personagem é membro (só vai quando o editor manda)
-    if (b.organizacaoId !== undefined) dados.organizacao_id = b.organizacaoId ? String(b.organizacaoId) : null;
+    // Organizações de que o personagem é membro (só vai quando o editor manda)
+    if (b.organizacoes !== undefined) dados.organizacoes = [...new Set((b.organizacoes || []).map(String))];
     if (!dados.titulo) throw new Error('Título é obrigatório');
     if (/[[\]|]/.test(dados.titulo)) throw new Error('O título não pode ter [ ] ou |');
     return dados;
@@ -325,7 +325,7 @@ const banco = (() => {
 
   // ---------- Organizações ----------
 
-  // Organizações cujo nome tem o termo (para o campo "Organização" do personagem)
+  // Organizações cujo nome tem o termo (para o campo "Organizações" do personagem)
   async function buscarOrganizacoes(termo) {
     const linhas = await rodar(de('artigos').select('id, titulo, subtitulo')
       .eq('secao', 'organizacoes').ilike('titulo', padraoBusca(termo)).order('titulo').limit(8));
@@ -335,7 +335,7 @@ const banco = (() => {
   // Personagens filiados a uma organização (aba "Membros")
   async function membrosDe(organizacaoId) {
     const linhas = await rodar(de('artigos').select('id, titulo, subtitulo, secao, detalhes, imagem, imagem_x, imagem_y, imagens_extras')
-      .eq('organizacao_id', organizacaoId).order('titulo'));
+      .contains('organizacoes', [organizacaoId]).order('titulo'));
     return linhas.map(doBanco);
   }
 

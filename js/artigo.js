@@ -110,14 +110,17 @@ function desenharTexto() {
   const lider = cargo && artigo.liderId && [...titulos.values()].find(t => t.id === artigo.liderId);
   // País: a capital dele (uma das suas cidades ou vilarejos)
   const capital = ehPaisOuReino(artigo) && artigo.capitalId && [...titulos.values()].find(t => t.id === artigo.capitalId);
-  // Personagem: a organização de que é membro
-  const organizacao = secao === 'personagens' && artigo.organizacaoId && [...titulos.values()].find(t => t.id === artigo.organizacaoId);
+  // Personagem: as organizações de que é membro (as que ainda existem)
+  const organizacoes = secao === 'personagens'
+    ? (artigo.organizacoes || []).map(id => [...titulos.values()].find(t => t.id === id)).filter(Boolean)
+    : [];
   const det = detalhesComPadrao(secao, artigo.detalhes); // ex.: personagem sem tipo aparece como NPC
   const preenchidos = s.campos.filter(c => det[c.chave] && campoVisivel(c, det, artigo));
   const ficha = (lider ? `<div><dt>${esc(cargo)}</dt><dd>${linkWiki(lider.link, lider.titulo, titulos)}</dd></div>` : '')
     + (capital ? `<div><dt>Capital</dt><dd>${linkWiki(capital.link, capital.titulo, titulos)}</dd></div>` : '')
     + (pais && !ehPaisOuReino(artigo) ? `<div id="linha-pais"><dt>${esc(s.rotuloPais || 'País')}</dt><dd>${linkWiki(pais.link, pais.titulo, titulos)}</dd></div>` : '')
-    + (organizacao ? `<div><dt>Organização</dt><dd>${linkWiki(organizacao.link, organizacao.titulo, titulos)}</dd></div>` : '')
+    + (organizacoes.length ? `<div><dt>${organizacoes.length > 1 ? 'Organizações' : 'Organização'}</dt><dd>${
+      organizacoes.map(o => linkWiki(o.link, o.titulo, titulos)).join('<br>')}</dd></div>` : '')
     // Cidade: "Capital de" é preenchido depois (carregarCapitalDe), procurando o país que aponta para ela
     + (ehCidadeOuVila(artigo) ? '<div id="capital-de" hidden></div>' : '')
     // Personagem: "Líder de" é preenchido depois (carregarLiderDe), procurando quem aponta para ele
@@ -258,7 +261,7 @@ async function carregarMembros() {
         </div>
       </a>`).join('')}
     </div>`
-    : `<p class="sem-texto">Nenhum membro ainda. No editor de um personagem, escolha esta organização no campo “Organização”.</p>`;
+    : `<p class="sem-texto">Nenhum membro ainda. No editor de um personagem, acrescente esta organização no campo “Organizações”.</p>`;
 }
 
 // Cidade ou vilarejo: o país de que é a capital
@@ -437,8 +440,8 @@ function editar(tituloInicial = '') {
   const nomeDoTexto = id => [...titulos.values()].find(t => t.id === id)?.titulo || '';
   let lider = a.liderId ? { id: a.liderId, titulo: nomeDoTexto(a.liderId) } : null;
   const liderInicial = a.liderId || null;
-  // Organização (personagem): escolhida buscando pelo nome
-  let organizacao = a.organizacaoId ? { id: a.organizacaoId, titulo: nomeDoTexto(a.organizacaoId) } : null;
+  // Organizações (personagem): etiquetas, acrescentadas buscando pelo nome (as excluídas já não aparecem)
+  let organizacoesAgora = (a.organizacoes || []).map(id => ({ id, titulo: nomeDoTexto(id) })).filter(o => o.titulo);
   // "Líder de" (personagem): o que ele lidera; carregado do banco ao abrir o editor
   let lideraAgora = [];
   let lideraAntes = [];
@@ -511,16 +514,17 @@ function editar(tituloInicial = '') {
             <button type="button" class="pequeno limpar-busca" title="Deixar sem líder">✕</button>
           </span>
         </label>
-        ${secao === 'personagens' ? `
-          <label class="campo-organizacao">Organização
-            <span class="campo-busca">
-              <input type="text" name="organizacao-busca" value="${esc(organizacao?.titulo || '')}" placeholder="Digite o nome da organização…">
-              <button type="button" class="pequeno limpar-busca" title="Sem organização">✕</button>
-            </span>
-          </label>` : ''}
         ${campos}
       </div>
       <div${ehIntroducao ? ' hidden' : ''}>${camposLongos}</div>
+      ${secao === 'personagens' ? `
+        <div class="campo campo-lider-de">Organizações
+          <div class="chips" id="chips-organizacoes"></div>
+          <span class="campo-busca">
+            <input type="text" name="organizacao-busca" placeholder="Digite o nome da organização…">
+          </span>
+          <p class="dica">Opcional. O personagem aparece na aba “Membros” de cada organização daqui.</p>
+        </div>` : ''}
       ${secao === 'personagens' ? `
         <div class="campo campo-lider-de">Regente / Líder de
           <div class="chips" id="chips-lider-de"></div>
@@ -646,31 +650,35 @@ function editar(tituloInicial = '') {
     alterado = true;
   });
 
-  // Organização (só personagens): mesma busca do líder, só que nas organizações
-  const campoOrganizacao = form.querySelector('.campo-organizacao');
-  if (campoOrganizacao) {
+  // Organizações (só personagens): etiquetas com ✕, e a busca acrescenta
+  const chipsOrganizacoes = document.getElementById('chips-organizacoes');
+  function desenharOrganizacoes() {
+    chipsOrganizacoes.innerHTML = organizacoesAgora.length
+      ? organizacoesAgora.map((o, i) => `
+          <span class="chip">${SECOES.organizacoes.icone} ${esc(o.titulo)}
+            <button type="button" data-tirar="${i}" title="Tirar de ${esc(o.titulo)}">✕</button>
+          </span>`).join('')
+      : '<span class="sem-texto">Nenhuma</span>';
+  }
+  if (chipsOrganizacoes) {
+    desenharOrganizacoes();
+    chipsOrganizacoes.addEventListener('click', e => {
+      const botao = e.target.closest('[data-tirar]');
+      if (!botao) return;
+      organizacoesAgora.splice(Number(botao.dataset.tirar), 1);
+      alterado = true;
+      desenharOrganizacoes();
+    });
     const inputOrganizacao = form['organizacao-busca'];
     ligarBusca(inputOrganizacao, {
       buscar: termo => banco.buscarOrganizacoes(termo),
       mostrar: o => `${SECOES.organizacoes.icone} ${esc(o.titulo)}${o.subtitulo ? ` <small>${esc(o.subtitulo)}</small>` : ''}`,
       escolher: o => {
-        organizacao = { id: o.id, titulo: o.titulo };
-        inputOrganizacao.value = o.titulo;
+        if (!organizacoesAgora.some(x => x.id === o.id)) organizacoesAgora.push({ id: o.id, titulo: o.titulo });
+        inputOrganizacao.value = '';
         alterado = true;
+        desenharOrganizacoes();
       },
-    });
-    inputOrganizacao.addEventListener('blur', () => setTimeout(() => {
-      if (!inputOrganizacao.value.trim()) {
-        if (organizacao) alterado = true;
-        organizacao = null;
-      } else {
-        inputOrganizacao.value = organizacao?.titulo || '';
-      }
-    }, 200));
-    campoOrganizacao.querySelector('.limpar-busca').addEventListener('click', () => {
-      organizacao = null;
-      inputOrganizacao.value = '';
-      alterado = true;
     });
   }
 
@@ -879,8 +887,8 @@ function editar(tituloInicial = '') {
     for (const c of s.campos) detalhes[c.chave] = form[`d-${c.chave}`].value;
     const paisId = paisEscolhido() || null;
     const capitalId = ehPaisAgora() ? form.capital.value || null : null;
-    // Só o personagem tem organização (nos outros, o campo nem vai para o banco)
-    const extra = secao === 'personagens' ? { organizacaoId: organizacao?.id || null } : {};
+    // Só o personagem tem organizações (nos outros, o campo nem vai para o banco)
+    const extra = secao === 'personagens' ? { organizacoes: organizacoesAgora.map(o => o.id) } : {};
     const dados = { secao, titulo: form.titulo.value, subtitulo: form.subtitulo.value, conteudo: textarea.value, detalhes, paisId, ...extra };
 
     return semCliqueDuplo(form, async () => {
