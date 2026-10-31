@@ -83,6 +83,10 @@ create index if not exists artigos_pais on public.artigos (pais_id);
 -- 50/50 = centro. Escolhida arrastando a imagem no popup ao escolher a imagem.
 alter table public.artigos add column if not exists imagem_x real not null default 50 check (imagem_x between 0 and 100);
 alter table public.artigos add column if not exists imagem_y real not null default 50 check (imagem_y between 0 and 100);
+-- Imagens além da principal (a principal é "imagem"): lista de { "arquivo", "x", "y" }.
+-- Com mais de uma, os cards e a página mostram um carrossel.
+alter table public.artigos add column if not exists imagens_extras jsonb not null default '[]'::jsonb
+  check (jsonb_typeof(imagens_extras) = 'array');
 
 -- Líder (personagem) de um país, cidade, vila ou organização: o cargo fica guardado no lugar,
 -- e a ficha do personagem mostra "Líder de" procurando quem aponta para ele.
@@ -267,7 +271,7 @@ begin
     raise exception 'Esse texto já foi restaurado.';
   end if;
   insert into public.artigos (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, pais_id, lider_id,
-                              mapa_x, mapa_y, mapa_cor, mapa_icone, imagem_x, imagem_y)
+                              mapa_x, mapa_y, mapa_cor, mapa_icone, imagem_x, imagem_y, imagens_extras)
   values (
     l->>'id', l->>'secao', l->>'titulo',
     coalesce(l->>'subtitulo', ''), coalesce(l->>'conteudo', ''), coalesce(l->'detalhes', '{}'::jsonb),
@@ -276,7 +280,8 @@ begin
     (select id from public.artigos where id = l->>'lider_id'),
     (l->>'mapa_x')::double precision, (l->>'mapa_y')::double precision,
     coalesce(l->>'mapa_cor', ''), coalesce(l->>'mapa_icone', ''),
-    coalesce((l->>'imagem_x')::real, 50), coalesce((l->>'imagem_y')::real, 50)
+    coalesce((l->>'imagem_x')::real, 50), coalesce((l->>'imagem_y')::real, 50),
+    coalesce(l->'imagens_extras', '[]'::jsonb)
   );
   return l->>'id';
 end
@@ -324,7 +329,7 @@ create policy visitantes on public.artigos  for select to anon using (true);
 create policy visitantes on public.revisoes for select to anon using (true);
 
 grant select (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, criado_em, atualizado_em,
-              mapa_x, mapa_y, mapa_cor, mapa_icone, pais_id, lider_id, imagem_x, imagem_y,
+              mapa_x, mapa_y, mapa_cor, mapa_icone, pais_id, lider_id, imagem_x, imagem_y, imagens_extras,
               criado_por_nome, editado_por_nome)
   on public.artigos to anon;
 grant select (id, artigo_id, titulo, subtitulo, conteudo, detalhes, editado_em, excluido, excluido_em,
@@ -341,7 +346,7 @@ select
   a.criado_em,
   a.editado_por_nome as editado_por,
   a.atualizado_em, a.mapa_x, a.mapa_y, a.mapa_cor, a.mapa_icone, a.pais_id, a.lider_id,
-  a.imagem_x, a.imagem_y
+  a.imagem_x, a.imagem_y, a.imagens_extras
 from public.artigos a;
 
 create or replace view public.revisoes_publico with (security_invoker = true) as

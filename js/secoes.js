@@ -66,7 +66,7 @@ const SECOES = {
       altura: 5635,
     },
     campos: [
-      { chave: 'categoria', rotulo: 'Categoria', opcoes: ['País/Reino', 'Cidade', 'Vilarejo', 'Floresta', 'Perigo', 'Montanha', 'Outro'] },
+      { chave: 'categoria', rotulo: 'Categoria', opcoes: ['País/Reino', 'Cidade', 'Vilarejo', 'Floresta', 'Perigo', 'Montanha', 'Corpo de Água', 'Outro'] },
       { chave: 'localizacao', rotulo: 'Fica em', dica: 'Ex.: [[Solarium]]' },
     ],
   },

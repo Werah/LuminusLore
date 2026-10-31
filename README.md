@@ -139,7 +139,7 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
   Textos do Panteão e das Organizações também podem ter ponto (um templo, uma sede).
 - **Cor e ícone do ponto:** botão *🎨 Cor e ícone* na barra (abre sozinho quando o texto ganha
   o primeiro ponto). Ícones: cidade, vila, castelo, caveira, floresta, espadas cruzadas, montanha,
-  templo, porto e estrela (país). Sem cor escolhida, o ponto usa a cor do país ou, sem país, da seção. Para criar ícones novos,
+  templo, porto, corpo de água e estrela (país). Sem cor escolhida, o ponto usa a cor do país ou, sem país, da seção. Para criar ícones novos,
   veja `ICONES_MAPA` em `js/mapa.js`.
 - **Esconder os pontos:** o olho no canto de cima do mapa esconde todos os pontos para ver só o
   desenho. Vale só para quem clicou (fica guardado no navegador dele).
@@ -157,6 +157,10 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
   pertencem a ele; o que não tem país fica em *Outros*. Clicar na faixa abre/fecha a pasta
   (o navegador lembra). O globo antes do nome abre a **ficha do país** por cima do mapa: capa com a
   imagem do país, texto, os lugares dele, e dá para editar ali mesmo.
+- **Várias imagens:** no editor, *+ Adicionar imagem* (dá para escolher várias de uma vez). Cada
+  miniatura tem ◀ ▶ (mudar a ordem), ⤢ (ajustar a posição) e ✕ (tirar); a primeira é a principal
+  (é a que aparece na capa do país, na linha do tempo etc.). Com mais de uma, o card e a página
+  viram um carrossel: clicar na borda esquerda/direita troca a imagem, e ela troca sozinha a cada 10 s.
 - **Posição da imagem:** ao escolher a imagem de um texto, abre um popup com um quadro para cada
   formato em que ela aparece no site (ex.: personagem = retrato em pé + card da lista; país = capa
   larga + página). Arraste a imagem em qualquer quadro para escolher a parte que fica à vista; o botão

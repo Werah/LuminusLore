@@ -567,6 +567,72 @@ a.card { text-decoration: none; color: inherit; }
 .capa { aspect-ratio: 2 / 1; overflow: hidden; }
 .capa img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
+/* ---------- Carrossel de imagens (cards e página) ----------
+   As imagens ficam empilhadas; a "ativa" aparece com fade. Com mais de uma, as bordas são clicáveis. */
+.carrossel { position: relative; width: 100%; height: 100%; overflow: hidden; }
+
+.carrossel > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+
+.carrossel > img.ativa { opacity: 1; }
+
+/* Bordas: um terço de cada lado; com o mouse em cima, escurece e mostra a seta */
+.carrossel-seta {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 28%;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.carrossel-seta.anterior { left: 0; justify-content: flex-start; padding-left: 10px; background: linear-gradient(90deg, rgba(0, 0, 0, 0.45), transparent); }
+.carrossel-seta.proxima { right: 0; justify-content: flex-end; padding-right: 10px; background: linear-gradient(270deg, rgba(0, 0, 0, 0.45), transparent); }
+.carrossel-seta::before { color: #fff; font-size: 1.6rem; text-shadow: 0 1px 4px #000; }
+.carrossel-seta.anterior::before { content: '‹'; }
+.carrossel-seta.proxima::before { content: '›'; }
+.carrossel:hover .carrossel-seta { opacity: 0.6; }
+.carrossel .carrossel-seta:hover { opacity: 1; }
+
+.carrossel-pontos {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 8px;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.carrossel-pontos span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+  transition: background 0.3s, transform 0.3s;
+}
+
+.carrossel-pontos span.ativo { background: #fff; transform: scale(1.25); }
+
+/* No celular não tem "mouse em cima": as bordas ficam sempre um pouco visíveis */
+@media (hover: none) {
+  .carrossel .carrossel-seta { opacity: 0.45; }
+}
+
 /* Sem imagem: emblema da seção na cor dela */
 .sem-imagem {
   display: grid;
@@ -688,8 +754,9 @@ dialog h2 { margin-top: 0; }
   overflow: hidden;
 }
 
-.ficha img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
-.artigo[data-secao="personagens"] .ficha img { aspect-ratio: 3 / 4; }
+/* A imagem da página (um carrossel, se tiver mais de uma) */
+.ficha .carrossel { aspect-ratio: 4 / 3; }
+.artigo[data-secao="personagens"] .ficha .carrossel { aspect-ratio: 3 / 4; }
 .ficha dl { margin: 0; padding: 14px 16px; display: grid; gap: 12px; }
 .ficha dt { color: var(--texto-2); font-size: 0.74rem; letter-spacing: 1px; text-transform: uppercase; }
 .ficha dd { margin: 2px 0 0; }
@@ -1134,6 +1201,53 @@ button.pasta-globo:hover { background: rgba(255, 255, 255, 0.22); border: none; 
 .lugares-pais a:hover { border-color: var(--ouro); }
 .lugares-pais svg { width: 18px; height: 18px; color: var(--ouro-2); }
 .lugares-pais .gema { width: 10px; height: 10px; border-radius: 50%; background: var(--ouro-2); }
+
+/* ---------- Imagens no editor (várias, com ordem) ---------- */
+
+.dica-imagens { display: block; margin: 2px 0 6px; color: var(--texto-2); font-size: 0.8rem; }
+.campo-imagens { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; }
+.lista-imagens { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.miniatura {
+  position: relative;
+  width: 150px;
+  aspect-ratio: 3 / 2;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--borda);
+  background: var(--bg-2);
+}
+
+.miniatura.principal { border-color: var(--ouro); }
+.miniatura img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.miniatura.vazia .emblema { font-size: 2.2rem; }
+
+.selo-principal {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--ouro);
+  color: #1b1408;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.acoes-miniatura {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 3px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
+}
+
+.acoes-miniatura button { padding: 0 6px; font-size: 0.8rem; background: rgba(20, 16, 28, 0.85); line-height: 1.6; }
+.acoes-miniatura button:disabled { visibility: hidden; }
+.adicionar-imagem { margin: 0; align-self: center; color: var(--texto); font-size: 0.9rem; }
 
 /* ---------- Ajuda "Como formatar o texto" (editor) ---------- */
 

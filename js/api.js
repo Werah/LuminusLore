@@ -344,11 +344,69 @@ function emblemaSecao(secao) {
 // Qual parte da imagem fica à vista (escolhida no popup de posicionar a imagem)
 const posicaoDaImagem = a => `object-position: ${a.imagemX ?? 50}% ${a.imagemY ?? 50}%`;
 
-// Capa do card: a imagem do texto ou o emblema da seção
+// Capa do card: as imagens do texto (carrossel, se tiver mais de uma) ou o emblema da seção
 function capaArtigo(a) {
-  if (a.imagem) return `<div class="capa"><img src="${banco.urlImagem(a.imagem)}" alt="" loading="lazy" style="${posicaoDaImagem(a)}"></div>`;
+  if (a.imagem) return `<div class="capa">${carrossel(a)}</div>`;
   return `<div class="capa">${emblemaSecao(a.secao)}</div>`;
 }
+
+// ---------- Carrossel de imagens ----------
+
+// Todas as imagens de um texto, na ordem (a principal primeiro), cada uma com a sua posição
+function imagensDe(a) {
+  return [
+    ...(a.imagem ? [{ arquivo: a.imagem, x: a.imagemX ?? 50, y: a.imagemY ?? 50 }] : []),
+    ...(a.imagensExtras || []),
+  ];
+}
+
+// Com uma imagem, só a imagem. Com mais: bordas clicáveis (esquerda volta, direita avança),
+// bolinhas embaixo, e troca sozinha a cada 10 s com fade (ver o fim desta seção).
+function carrossel(a, classe = '') {
+  const imgs = imagensDe(a);
+  if (!imgs.length) return '';
+  const tags = imgs.map((img, i) => `
+    <img src="${banco.urlImagem(img.arquivo)}" alt="" loading="lazy"${i === 0 ? ' class="ativa"' : ''}
+         style="object-position: ${img.x ?? 50}% ${img.y ?? 50}%">`).join('');
+  if (imgs.length === 1) return `<div class="carrossel ${classe}">${tags}</div>`;
+  return `
+    <div class="carrossel ${classe}" data-carrossel>
+      ${tags}
+      <span class="carrossel-seta anterior" role="button" aria-label="Imagem anterior" data-passo="-1"></span>
+      <span class="carrossel-seta proxima" role="button" aria-label="Próxima imagem" data-passo="1"></span>
+      <span class="carrossel-pontos">${imgs.map((_, i) => `<span${i === 0 ? ' class="ativo"' : ''}></span>`).join('')}</span>
+    </div>`;
+}
+
+const TROCA_CARROSSEL = 10000; // ms entre uma imagem e outra
+
+function mostrarImagem(c, passo) {
+  const imgs = [...c.querySelectorAll(':scope > img')];
+  const proxima = (imgs.findIndex(i => i.classList.contains('ativa')) + passo + imgs.length) % imgs.length;
+  imgs.forEach((img, i) => img.classList.toggle('ativa', i === proxima));
+  c.querySelectorAll('.carrossel-pontos span').forEach((p, i) => p.classList.toggle('ativo', i === proxima));
+  c.dataset.trocou = Date.now();
+}
+
+// Clique nas bordas. Em "captura" e com preventDefault: o card é um link, e clicar na borda só
+// troca a imagem, não abre o texto.
+document.addEventListener('click', e => {
+  const seta = e.target.closest('.carrossel-seta');
+  if (!seta) return;
+  e.preventDefault();
+  e.stopPropagation();
+  mostrarImagem(seta.closest('[data-carrossel]'), Number(seta.dataset.passo));
+}, true);
+
+// Troca sozinha. Cada carrossel começa num momento diferente, para os cards não trocarem todos juntos;
+// depois de um clique, conta os 10 s de novo a partir dele.
+setInterval(() => {
+  const agora = Date.now();
+  document.querySelectorAll('[data-carrossel]').forEach(c => {
+    if (!c.dataset.trocou) c.dataset.trocou = agora - Math.random() * 5000;
+    if (agora - Number(c.dataset.trocou) >= TROCA_CARROSSEL) mostrarImagem(c, 1);
+  });
+}, 1000);
 
 // ---------- Pontos do mapa: ícones ----------
 
@@ -372,6 +430,13 @@ const ICONES_MAPA = {
       + '<rect x="11" y="17" width="2" height="4"/><circle cx="12" cy="22" r="1.4"/></g>').join(''),
   },
   montanha: { rotulo: 'Montanha', svg: '<path d="M1 20 9 6l4.5 7 2.5-3.5L23 20z"/>' },
+  agua: {
+    rotulo: 'Corpo de Água',
+    // Três ondas
+    svg: '<g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">'
+      + ['6.5', '12', '17.5'].map(y => `<path d="M2 ${y}c1.7-1.6 3.3-1.6 5 0s3.3 1.6 5 0 3.3-1.6 5 0 3.3 1.6 5 0"/>`).join('')
+      + '</g>',
+  },
   templo: { rotulo: 'Templo', svg: '<path d="M12 2 2 7v2h20V7zM4 10h3v8H4zm6.5 0h3v8h-3zM17 10h3v8h-3zM2 19h20v3H2z"/>' },
   porto: {
     rotulo: 'Porto',
@@ -510,83 +575,97 @@ function escolherPosicaoImagem(src, molduras, inicio = { x: 50, y: 50 }) {
   });
 }
 
-/**
- * Liga um bloco de escolher imagem dentro de um formulário:
- *   <div class="campo-imagem">
- *     <div class="preview-imagem"></div>
- *     <label class="botao">Escolher imagem <input type="file" accept="image/*" hidden></label>
- *     <button type="button" class="pequeno btn-ajustar-imagem">Ajustar posição</button>
- *     <button type="button" class="pequeno perigo btn-remover-imagem">Remover</button>
- *   </div>
- * "semImagem" devolve o HTML mostrado quando não tem imagem; "molduras" devolve os formatos em que
- * a imagem aparece (para o popup de escolher a posição; é uma função porque o tipo do texto pode
- * mudar no editor, ex.: virar país).
- */
-function ligarCampoImagem(raiz, semImagem, molduras) {
-  const preview = raiz.querySelector('.preview-imagem');
-  const input = raiz.querySelector('input[type="file"]');
-  const btnRemover = raiz.querySelector('.btn-remover-imagem');
-  const btnAjustar = raiz.querySelector('.btn-ajustar-imagem');
-  let atual = '';              // arquivo que o texto já tinha
-  let nova;                    // undefined = não mexeu, string = nova imagem, null = remover
-  let pos = { x: 50, y: 50 };  // parte à vista
-  let posInicial = { ...pos };
+// Até quantas imagens um texto pode ter (a primeira é a principal; com mais de uma, vira carrossel)
+const MAX_IMAGENS = 10;
 
-  const srcAtual = () => (typeof nova === 'string' ? nova : nova === undefined && atual ? banco.urlImagem(atual) : '');
+/**
+ * Liga o bloco de imagens de um formulário:
+ *   <div class="campo-imagens">
+ *     <div class="lista-imagens"></div>
+ *     <label class="botao">+ Adicionar imagem <input type="file" accept="image/*" multiple hidden></label>
+ *   </div>
+ * Cada imagem aparece como miniatura com ◀ ▶ (mudar a ordem), ⤢ (ajustar a posição) e ✕ (tirar).
+ * A primeira é a principal. "semImagem" devolve o HTML mostrado quando não tem nenhuma; "molduras"
+ * devolve os formatos em que a imagem aparece (para o popup de posição; é uma função porque o tipo
+ * do texto pode mudar no editor, ex.: virar país).
+ */
+function ligarCampoImagens(raiz, semImagem, molduras) {
+  const lista = raiz.querySelector('.lista-imagens');
+  const input = raiz.querySelector('input[type="file"]');
+  const botaoAdicionar = input.closest('label');
+  // Cada item: { arquivo } (já guardada) ou { dataUrl } (nova), mais a posição { x, y }
+  let imagens = [];
+  let inicial = '[]';
+
+  const srcDe = img => img.dataUrl || banco.urlImagem(img.arquivo);
+  const estado = () => JSON.stringify(imagens.map(i => [i.arquivo || i.dataUrl.length, i.x, i.y]));
 
   function desenhar() {
-    const src = srcAtual();
-    preview.innerHTML = src ? `<img src="${src}" alt="" style="object-position: ${pos.x}% ${pos.y}%">` : semImagem();
-    btnRemover.style.display = src ? '' : 'none';
-    if (btnAjustar) btnAjustar.style.display = src ? '' : 'none';
+    lista.innerHTML = imagens.length
+      ? imagens.map((img, i) => `
+          <div class="miniatura${i === 0 ? ' principal' : ''}">
+            <img src="${srcDe(img)}" alt="" style="object-position: ${img.x}% ${img.y}%">
+            ${i === 0 ? '<span class="selo-principal">Principal</span>' : ''}
+            <div class="acoes-miniatura">
+              <button type="button" data-acao="antes" data-i="${i}" title="Mover para a esquerda"${i === 0 ? ' disabled' : ''}>◀</button>
+              <button type="button" data-acao="ajustar" data-i="${i}" title="Ajustar a parte que aparece">⤢</button>
+              <button type="button" data-acao="depois" data-i="${i}" title="Mover para a direita"${i === imagens.length - 1 ? ' disabled' : ''}>▶</button>
+              <button type="button" data-acao="tirar" data-i="${i}" title="Tirar esta imagem" class="perigo">✕</button>
+            </div>
+          </div>`).join('')
+      : `<div class="miniatura vazia">${semImagem()}</div>`;
+    botaoAdicionar.hidden = imagens.length >= MAX_IMAGENS;
   }
 
+  // Escolher arquivos (pode ser vários): para cada um abre o popup de posição; cancelar pula aquele
   input.addEventListener('change', async () => {
-    const arquivo = input.files[0];
+    const arquivos = [...input.files].slice(0, MAX_IMAGENS - imagens.length);
     input.value = ''; // deixa escolher o mesmo arquivo de novo depois
-    if (!arquivo) return;
-    try {
-      const dataUrl = await redimensionarImagem(arquivo);
-      const escolha = await escolherPosicaoImagem(dataUrl, molduras(), { x: 50, y: 50 });
-      if (!escolha) return; // cancelou: fica como estava
-      nova = dataUrl;
-      pos = escolha;
-      desenhar();
-    } catch (e) {
-      alert(e.message);
+    for (const arquivo of arquivos) {
+      try {
+        const dataUrl = await redimensionarImagem(arquivo);
+        const escolha = await escolherPosicaoImagem(dataUrl, molduras(), { x: 50, y: 50 });
+        if (!escolha) continue;
+        imagens.push({ dataUrl, ...escolha });
+        desenhar();
+      } catch (e) {
+        alert(e.message);
+      }
     }
   });
 
-  btnAjustar?.addEventListener('click', async () => {
-    const src = srcAtual();
-    if (!src) return;
-    const escolha = await escolherPosicaoImagem(src, molduras(), pos);
-    if (!escolha) return;
-    pos = escolha;
+  lista.addEventListener('click', async e => {
+    const botao = e.target.closest('button[data-acao]');
+    if (!botao) return;
+    const i = Number(botao.dataset.i);
+    const acao = botao.dataset.acao;
+    if (acao === 'tirar') imagens.splice(i, 1);
+    if (acao === 'antes' && i > 0) [imagens[i - 1], imagens[i]] = [imagens[i], imagens[i - 1]];
+    if (acao === 'depois' && i < imagens.length - 1) [imagens[i + 1], imagens[i]] = [imagens[i], imagens[i + 1]];
+    if (acao === 'ajustar') {
+      // A principal usa os formatos de todos os lugares; as outras só aparecem nos carrosséis
+      const escolha = await escolherPosicaoImagem(srcDe(imagens[i]), molduras(), imagens[i]);
+      if (escolha) Object.assign(imagens[i], escolha);
+    }
     desenhar();
   });
-
-  btnRemover.addEventListener('click', () => {
-    nova = null;
-    desenhar();
-  });
-
-  const posMudou = () => pos.x !== posInicial.x || pos.y !== posInicial.y;
 
   return {
-    iniciar(arquivoAtual, x = 50, y = 50) {
-      atual = arquivoAtual || '';
-      nova = undefined;
-      pos = { x, y };
-      posInicial = { ...pos };
+    // a: o texto (imagem, imagemX, imagemY, imagensExtras)
+    iniciar(a) {
+      imagens = [
+        ...(a.imagem ? [{ arquivo: a.imagem, x: a.imagemX ?? 50, y: a.imagemY ?? 50 }] : []),
+        ...(a.imagensExtras || []).map(i => ({ arquivo: i.arquivo, x: i.x ?? 50, y: i.y ?? 50 })),
+      ];
+      inicial = estado();
       desenhar();
     },
-    mudou: () => nova !== undefined || posMudou(),
-    // Envia a troca (ou remoção) da imagem e a posição depois que o texto foi salvo
+    mudou: () => estado() !== inicial,
+    // Grava as imagens depois que o texto foi salvo (só se mudou alguma coisa)
     async salvar(id) {
-      if (typeof nova === 'string') await banco.trocarImagem(id, nova);
-      else if (nova === null && atual) await banco.removerImagem(id);
-      if (srcAtual() && (typeof nova === 'string' || posMudou())) await banco.posicionarImagem(id, pos.x, pos.y);
+      if (estado() === inicial) return;
+      await banco.salvarImagens(id, imagens);
+      inicial = estado();
     },
   };
 }

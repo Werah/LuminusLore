@@ -361,45 +361,51 @@ const banco = (() => {
     if (lista.length) await sb.storage.from('imagens').remove(lista); // se falhar, só sobra um arquivo solto
   }
 
-  // Recebe a imagem já redimensionada no navegador (data URL)
-  async function trocarImagem(id, dataUrl) {
-    const item = await buscarArtigo(id);
+  // Envia uma imagem (data URL, já reduzida no navegador) e devolve o nome do arquivo.
+  // O nome muda a cada envio, então o navegador nunca mostra uma imagem antiga do cache.
+  async function enviarArquivo(prefixo, dataUrl) {
     const blob = await (await fetch(dataUrl)).blob();
     const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
-    // Nome muda a cada envio, então o navegador nunca mostra a imagem antiga do cache
-    const arquivo = `${id}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+    const arquivo = `${prefixo}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
     await rodar(sb.storage.from('imagens').upload(arquivo, blob, { contentType: blob.type, cacheControl: '31536000' }));
-    await rodar(de('artigos').update({ imagem: arquivo }).eq('id', id));
-    await apagarArquivos([item.imagem]);
+    return arquivo;
+  }
+
+  // Grava as imagens de um texto, na ordem: a primeira é a principal (imagem, imagem_x, imagem_y),
+  // as outras vão para imagens_extras. Cada item é { arquivo } (já enviada) ou { dataUrl } (nova),
+  // com a posição { x, y } em %. Arquivos que saíram da lista são apagados do Storage.
+  // Não conta como edição do texto.
+  async function salvarImagens(id, lista) {
+    const antes = await buscarArtigo(id);
+    const arquivosAntes = [antes.imagem, ...(antes.imagensExtras || []).map(i => i.arquivo)].filter(Boolean);
+    const pct = v => Math.round(Math.min(100, Math.max(0, Number(v) || 0)) * 10) / 10;
+    const final = [];
+    for (const item of lista) {
+      const arquivo = item.arquivo || await enviarArquivo(id, item.dataUrl);
+      final.push({ arquivo, x: pct(item.x ?? 50), y: pct(item.y ?? 50) });
+    }
+    const [principal, ...extras] = final;
+    await rodar(de('artigos').update({
+      imagem: principal?.arquivo || '',
+      imagem_x: principal?.x ?? 50,
+      imagem_y: principal?.y ?? 50,
+      imagens_extras: extras,
+    }).eq('id', id));
+    await apagarArquivos(arquivosAntes.filter(a => !final.some(f => f.arquivo === a)));
   }
 
   // Imagem posta no meio do texto (![](endereço)): só envia e devolve o endereço público.
   // Se a imagem sair do texto depois, o arquivo fica no Storage (não atrapalha nada).
   async function enviarImagemDoTexto(dataUrl) {
     if (!sb) throw new Error('Supabase não configurado (js/config.js)');
-    const blob = await (await fetch(dataUrl)).blob();
-    const arquivo = `texto-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.jpg`;
-    await rodar(sb.storage.from('imagens').upload(arquivo, blob, { contentType: blob.type, cacheControl: '31536000' }));
-    return urlImagem(arquivo);
-  }
-
-  // Qual parte da imagem fica à vista (x, y em %, 50/50 = centro). Não conta como edição do texto.
-  async function posicionarImagem(id, x, y) {
-    const pct = v => Math.round(Math.min(100, Math.max(0, Number(v) || 0)) * 10) / 10;
-    await rodar(de('artigos').update({ imagem_x: pct(x), imagem_y: pct(y) }).eq('id', id));
-  }
-
-  async function removerImagem(id) {
-    const item = await buscarArtigo(id);
-    await rodar(de('artigos').update({ imagem: '' }).eq('id', id));
-    await apagarArquivos([item.imagem]);
+    return urlImagem(await enviarArquivo('texto', dataUrl));
   }
 
   return {
     titulos, listarArtigos, buscarArtigo, criarArtigo, salvarArtigo, excluirArtigo, excluidos, restaurarExcluido,
-    revisoes, mencoes, pontosDoMapa, paises, lugaresDoPais, posicionar, estilizarPonto, nomes, urlImagem, trocarImagem, removerImagem,
+    revisoes, mencoes, pontosDoMapa, paises, lugaresDoPais, posicionar, estilizarPonto, nomes, urlImagem, salvarImagens,
     enviarImagemDoTexto, buscarPersonagens, buscarLideraveis, liderados, definirLider,
-    idIntroducao, criarIntroducao, posicionarImagem,
+    idIntroducao, criarIntroducao,
   };
 })();
 

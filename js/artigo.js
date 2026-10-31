@@ -160,7 +160,7 @@ function desenharTexto() {
       <div class="corpo-artigo${temFicha ? '' : ' sem-ficha'}">
         ${temFicha ? `
           <aside class="ficha">
-            ${imagemNaFicha ? `<img src="${banco.urlImagem(artigo.imagem)}" alt="" style="${posicaoDaImagem(artigo)}">` : ''}
+            ${imagemNaFicha ? carrossel(artigo, 'carrossel-ficha') : ''}
             ${ficha ? `<dl>${ficha}</dl>` : ''}
           </aside>` : ''}
         <div class="prosa">
@@ -445,14 +445,11 @@ function editar(tituloInicial = '') {
           <p class="dica">A estrela marca um <strong>país</strong>: aparece só com o mapa afastado, e os outros textos podem pertencer a ele (e herdam a cor).</p>
         </fieldset>` : ''}
 
-      <div class="campo">Imagem
-        <div class="campo-imagem">
-          <div class="preview-imagem"></div>
-          <div class="botoes-imagem">
-            <label class="botao">Escolher imagem <input type="file" accept="image/*" hidden></label>
-            <button type="button" class="pequeno btn-ajustar-imagem" title="Escolher qual parte da imagem aparece">Ajustar posição</button>
-            <button type="button" class="pequeno perigo btn-remover-imagem">Remover</button>
-          </div>
+      <div class="campo">Imagens
+        <small class="dica-imagens">A primeira é a principal. Com mais de uma, o card e a página mostram um carrossel.</small>
+        <div class="campo-imagens">
+          <div class="lista-imagens"></div>
+          <label class="botao adicionar-imagem">+ Adicionar imagem <input type="file" accept="image/*" multiple hidden></label>
         </div>
       </div>
 
@@ -489,9 +486,9 @@ function editar(tituloInicial = '') {
   const previa = form.querySelector('.previa');
   const erro = document.getElementById('erro');
   // Os formatos do popup de posicionar a imagem dependem do tipo do texto (que pode virar país aqui)
-  const campoImagem = ligarCampoImagem(form.querySelector('.campo-imagem'), () => emblemaSecao(secao),
+  const campoImagem = ligarCampoImagens(form.querySelector('.campo-imagens'), () => emblemaSecao(secao),
     () => moldurasDaImagem({ id: artigo?.id, secao, mapaIcone: estiloPonto.icone }));
-  campoImagem.iniciar(a.imagem, a.imagemX ?? 50, a.imagemY ?? 50);
+  campoImagem.iniciar(a);
 
   // Avisa os outros que este texto está sendo editado (texto novo ainda não tem id: não avisa)
   edicao.marcar(artigo?.id || null);
