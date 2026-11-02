@@ -197,11 +197,14 @@ se o mapa novo for o mesmo desenho em outra resolução.
 - **Panteão:** abre em duas abas: *Como os Deuses e a Fé são?* (um texto de apresentação, com
   editor, links e histórico como qualquer outro) e *Divindades* (a lista). Outras seções podem ganhar
   o mesmo com `introducao` em `js/secoes.js` (a página da seção precisa carregar o marked e o DOMPurify,
-  como `panteao.html`).
+  como `panteao.html`). Cada divindade tem *Hierarquia* (deus maior ou menor) e *Domínios*, sem
+  epíteto e sem país; na página dela a imagem aparece maior, em pé (4:5).
 
 - **História do Mundo:** cada evento tem *Era*, *Ano* (e *Até o ano*, se durou mais) e aparece numa
-  linha do tempo. A ordem das eras é a da lista de opções do campo *Era* em `js/secoes.js`;
-  troque pelos nomes das eras do seu mundo.
+  linha do tempo. As eras são Era Antiga, Era dos Dragões e Era Moderna, nessa ordem (a ordem é a
+  da lista de opções do campo *Era* em `js/secoes.js`). Eventos não têm país.
+- **Seções sem país ou sem resumo:** `semPais: true` tira o campo de país da seção, e `subtitulo: null`
+  tira o resumo/epíteto (o que já estava escrito fica guardado, só não aparece).
 - **Personagens:** *Tipo* separa NPCs de personagens de jogadores (na lista, são as abas *NPCs* e
   *Personagens*; o botão do globo filtra pela nacionalidade). Todos têm nome, alcunha,
   descrição, história, imagem e nacionalidade (um país do mapa). Personagens de jogador também têm

@@ -764,6 +764,11 @@ dialog h2 { margin-top: 0; }
 /* A imagem da página (um carrossel, se tiver mais de uma) */
 .ficha .carrossel { aspect-ratio: 4 / 3; }
 .artigo[data-secao="personagens"] .ficha .carrossel { aspect-ratio: 3 / 4; }
+/* Divindade: ficha mais larga e imagem em pé, maior (com a tela estreita, vale o layout empilhado) */
+.artigo[data-secao="panteao"] .ficha .carrossel { aspect-ratio: 4 / 5; }
+@media (min-width: 801px) {
+  .artigo[data-secao="panteao"] .corpo-artigo:not(.sem-ficha) { grid-template-columns: minmax(0, 1fr) 380px; }
+}
 .ficha dl { margin: 0; padding: 14px 16px; display: grid; gap: 12px; }
 .ficha dt { color: var(--texto-2); font-size: 0.74rem; letter-spacing: 1px; text-transform: uppercase; }
 .ficha dd { margin: 2px 0 0; }

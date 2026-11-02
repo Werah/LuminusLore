@@ -207,7 +207,7 @@ function card(a, cor) {
           <h3>${esc(a.titulo)}</h3>
           ${valorFiltro(a) && !abas ? `<span class="selo">${esc(valorFiltro(a))}</span>` : ''}
         </div>
-        ${a.subtitulo ? `<p class="subtitulo">${esc(a.subtitulo)}</p>` : ''}
+        ${SECAO.subtitulo && a.subtitulo ? `<p class="subtitulo">${esc(a.subtitulo)}</p>` : ''}
         ${resumo ? `<p class="descricao">${esc(resumoTexto(resumo))}</p>` : ''}
         <p class="info rodape-card">✎ ${esc(nomeDe(a.editadoPor, nomes))} · ${formatarData(a.atualizadoEm)}</p>
         ${editores.length ? `<p class="editando-agora">✎ ${esc(nomesEditando(editores, nomes, meuEmail))} editando agora</p>` : ''}

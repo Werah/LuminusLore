@@ -12,7 +12,7 @@
 // Nos campos da ficha também dá para usar [[links]] para outros textos.
 // Opcionais da seção: rotuloPais (nome do campo de país), rotuloTexto (título do texto principal)
 // e linhaDoTempo (a lista vira uma linha do tempo, ordenada pelos campos era e ano),
-// filtroPais (botão para filtrar a lista pelo país / nacionalidade),
+// filtroPais (botão para filtrar a lista pelo país / nacionalidade), semPais (sem o campo de país),
 // introducao (abas: um texto de apresentação da seção | a lista).
 // No campo de filtro, "abas" troca os botões de filtro por abas: { valor: 'Nome da aba' }.
 
@@ -38,6 +38,9 @@ function moldurasDaImagem(a) {
   if (a.id?.startsWith('intro-')) return [{ nome: 'Topo da página', proporcao: 5 / 2 }];
   if (a.secao === 'personagens') {
     return [{ nome: 'Retrato (página do personagem)', proporcao: 3 / 4 }, { nome: 'Card da lista', proporcao: 8 / 5 }];
+  }
+  if (a.secao === 'panteao') {
+    return [{ nome: 'Retrato (página da divindade)', proporcao: 4 / 5 }, { nome: 'Card da lista', proporcao: 2 }];
   }
   if (a.secao === 'historia') {
     return [{ nome: 'Página do evento', proporcao: 4 / 3 }, { nome: 'Linha do tempo', proporcao: 1 }];
@@ -100,14 +103,13 @@ const SECOES = {
     descricao: 'Os grandes eventos do mundo, em linha do tempo',
     novo: 'Novo evento',
     subtitulo: { rotulo: 'Resumo em uma linha', dica: 'Ex.: A queda da capital e o fim do império' },
-    rotuloPais: 'País envolvido',
+    semPais: true,
     linhaDoTempo: true,
     campos: [
       // A ordem das eras aqui é a ordem na linha do tempo
-      { chave: 'era', rotulo: 'Era', opcoes: ['Era Antiga', 'Primeira Era', 'Segunda Era', 'Era Atual'] },
+      { chave: 'era', rotulo: 'Era', opcoes: ['Era Antiga', 'Era dos Dragões', 'Era Moderna'] },
       { chave: 'ano', rotulo: 'Ano', numero: true, dica: 'Ex.: 312 (negativo = antes do marco zero)' },
       { chave: 'fim', rotulo: 'Até o ano', numero: true, dica: 'Se durou mais de um ano' },
-      { chave: 'local', rotulo: 'Onde', dica: 'Ex.: [[Solarium]]' },
     ],
   },
   personagens: {
@@ -141,15 +143,14 @@ const SECOES = {
     cor: '#e0ac4a',
     descricao: 'Deuses, primordiais e aquilo que regem',
     novo: 'Nova divindade',
-    subtitulo: { rotulo: 'Epíteto', dica: 'Ex.: A Senhora das Marés' },
+    subtitulo: null, // sem epíteto (o que já estava escrito fica guardado, só não aparece)
+    semPais: true,
     // A página abre em abas: um texto de apresentação e a lista. O texto é um texto normal do site
     // (com editor, links e histórico), guardado com o endereço fixo "intro-panteao".
     introducao: { titulo: 'Como os Deuses e a Fé são?', lista: 'Divindades' },
     campos: [
-      { chave: 'hierarquia', rotulo: 'Hierarquia', opcoes: ['Deus maior', 'Deus menor', 'Aspecto', 'Outro'] },
+      { chave: 'hierarquia', rotulo: 'Hierarquia', opcoes: ['Deus maior', 'Deus menor'] },
       { chave: 'dominios', rotulo: 'Domínios', dica: 'Ex.: mar, tempestades, viagens' },
-      { chave: 'simbolo', rotulo: 'Símbolo sagrado' },
-      { chave: 'seguidores', rotulo: 'Seguidores' },
     ],
   },
   organizacoes: {

@@ -118,7 +118,7 @@ function desenharTexto() {
   const preenchidos = s.campos.filter(c => det[c.chave] && campoVisivel(c, det, artigo));
   const ficha = (lider ? `<div><dt>${esc(cargo)}</dt><dd>${linkWiki(lider.link, lider.titulo, titulos)}</dd></div>` : '')
     + (capital ? `<div><dt>Capital</dt><dd>${linkWiki(capital.link, capital.titulo, titulos)}</dd></div>` : '')
-    + (pais && !ehPaisOuReino(artigo) ? `<div id="linha-pais"><dt>${esc(s.rotuloPais || 'País')}</dt><dd>${linkWiki(pais.link, pais.titulo, titulos)}</dd></div>` : '')
+    + (pais && !ehPaisOuReino(artigo) && !s.semPais ? `<div id="linha-pais"><dt>${esc(s.rotuloPais || 'País')}</dt><dd>${linkWiki(pais.link, pais.titulo, titulos)}</dd></div>` : '')
     + (organizacoes.length ? `<div><dt>${organizacoes.length > 1 ? 'Organizações' : 'Organização'}</dt><dd>${
       organizacoes.map(o => linkWiki(o.link, o.titulo, titulos)).join('<br>')}</dd></div>` : '')
     // Cidade: "Capital de" é preenchido depois (carregarCapitalDe), procurando o país que aponta para ela
@@ -150,7 +150,7 @@ function desenharTexto() {
         <div class="capa-conteudo">
           <p class="secao-artigo">${desenhoSvg(ICONES_MAPA[ICONE_PAIS].svg)} País</p>
           <h1>${esc(artigo.titulo)}</h1>
-          ${artigo.subtitulo ? `<p class="subtitulo">${esc(artigo.subtitulo)}</p>` : ''}
+          ${s.subtitulo && artigo.subtitulo ? `<p class="subtitulo">${esc(artigo.subtitulo)}</p>` : ''}
         </div>
       </header>
       ${acoes}` : `
@@ -158,7 +158,7 @@ function desenharTexto() {
         <div>
           <p class="secao-artigo">${s.icone} ${esc(s.nome)}</p>
           <h1>${esc(artigo.titulo)}</h1>
-          ${artigo.subtitulo ? `<p class="subtitulo">${esc(artigo.subtitulo)}</p>` : ''}
+          ${s.subtitulo && artigo.subtitulo ? `<p class="subtitulo">${esc(artigo.subtitulo)}</p>` : ''}
         </div>
         ${acoes}
       </header>`;
@@ -317,7 +317,8 @@ async function carregarLiderDe() {
 // Abrem no painel de texto do mapa.
 async function carregarLugares() {
   try {
-    const lista = await banco.lugaresDoPais(artigo.id);
+    // Seções sem país (ex.: Panteão) ficam de fora, mesmo que um texto antigo ainda aponte para cá
+    const lista = (await banco.lugaresDoPais(artigo.id)).filter(l => !SECOES[l.secao]?.semPais);
     const el = document.getElementById('lugares');
     if (!el) return;
     const grupos = Object.entries(SECOES)
@@ -486,9 +487,10 @@ function editar(tituloInicial = '') {
         <label>Título*
           <input type="text" name="titulo" required maxlength="120" value="${esc(a.titulo)}">
         </label>
-        <label>${esc(s.subtitulo.rotulo)}
-          <input type="text" name="subtitulo" maxlength="200" value="${esc(a.subtitulo)}" placeholder="${esc(s.subtitulo.dica)}">
-        </label>
+        ${s.subtitulo ? `
+          <label>${esc(s.subtitulo.rotulo)}
+            <input type="text" name="subtitulo" maxlength="200" value="${esc(a.subtitulo)}" placeholder="${esc(s.subtitulo.dica)}">
+          </label>` : `<input type="hidden" name="subtitulo" value="${esc(a.subtitulo)}">`}
       </div>
 
       <div class="grade-campos"${ehIntroducao ? ' hidden' : ''}>
@@ -739,7 +741,7 @@ function editar(tituloInicial = '') {
 
   // Ícone e cor do ponto
   const caixaPonto = form.querySelector('.campo-ponto');
-  const paisEscolhido = () => (ehPaisAgora() ? '' : selPais.value);
+  const paisEscolhido = () => (ehPaisAgora() || s.semPais ? '' : selPais.value);
   function desenharPonto() {
     if (!caixaPonto) return;
     const herdada = (paisEscolhido() && selPais.selectedOptions[0]?.dataset.cor) || s.cor;
@@ -788,7 +790,7 @@ function editar(tituloInicial = '') {
   function atualizarCapital() {
     const pais = ehPaisAgora();
     campoCapital.hidden = !pais;
-    form.querySelector('.campo-do-pais').hidden = pais;
+    form.querySelector('.campo-do-pais').hidden = pais || !!s.semPais;
     desenharPonto();
   }
   form.addEventListener('change', atualizarCapital);
