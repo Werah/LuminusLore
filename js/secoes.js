@@ -9,6 +9,7 @@
 //   soSe:   só aparece quando outro campo tem certo valor, ex.: { tipo: 'Personagem de jogador' }
 //   soPais: só aparece em país (estrela no ponto ou categoria País/Reino)
 //   padrao: valor quando ninguém escolheu (vale também para os textos antigos, sem o campo)
+//   resumo: o card da lista mostra este campo embaixo do nome (e não o começo do texto principal)
 // Nos campos da ficha também dá para usar [[links]] para outros textos.
 // Opcionais da seção: rotuloPais (nome do campo de país), rotuloTexto (título do texto principal)
 // e linhaDoTempo (a lista vira uma linha do tempo, ordenada pelos campos era e ano),
@@ -151,6 +152,7 @@ const SECOES = {
     campos: [
       { chave: 'hierarquia', rotulo: 'Hierarquia', opcoes: ['Deus maior', 'Deus menor'] },
       { chave: 'dominios', rotulo: 'Domínios', dica: 'Ex.: mar, tempestades, viagens' },
+      { chave: 'descricao', rotulo: 'Descrição', longo: true, resumo: true, dica: 'Quem é, em poucas linhas. É o que aparece no card, embaixo do nome.' },
     ],
   },
   organizacoes: {

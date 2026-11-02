@@ -186,8 +186,11 @@ function desenharFiltros() {
     `).join('');
 }
 
-// Resumo do card: o texto principal ou, sem ele, o primeiro campo longo preenchido (ex.: Descrição)
-const resumoDe = a => a.conteudo || SECAO.campos.filter(c => c.longo).map(c => a.detalhes[c.chave]).find(Boolean) || '';
+// Resumo do card: o campo marcado com "resumo" (se a seção tiver um, só ele) ou o texto principal
+// e, sem ele, o primeiro campo longo preenchido (ex.: Descrição)
+const campoResumo = SECAO.campos.find(c => c.resumo);
+const resumoDe = a => campoResumo ? a.detalhes[campoResumo.chave] || ''
+  : a.conteudo || SECAO.campos.filter(c => c.longo).map(c => a.detalhes[c.chave]).find(Boolean) || '';
 
 // Selo "✎ Ana editando" nos cards dos textos que alguém está editando agora
 let meuEmail = '';
@@ -208,7 +211,7 @@ function card(a, cor) {
           ${valorFiltro(a) && !abas ? `<span class="selo">${esc(valorFiltro(a))}</span>` : ''}
         </div>
         ${SECAO.subtitulo && a.subtitulo ? `<p class="subtitulo">${esc(a.subtitulo)}</p>` : ''}
-        ${resumo ? `<p class="descricao">${esc(resumoTexto(resumo))}</p>` : ''}
+        ${resumo ? `<p class="descricao${campoResumo ? ' em-linhas' : ''}">${esc(resumoTexto(resumo, 180, !!campoResumo))}</p>` : ''}
         <p class="info rodape-card">✎ ${esc(nomeDe(a.editadoPor, nomes))} · ${formatarData(a.atualizadoEm)}</p>
         ${editores.length ? `<p class="editando-agora">✎ ${esc(nomesEditando(editores, nomes, meuEmail))} editando agora</p>` : ''}
       </div>

@@ -322,15 +322,17 @@ function tipoDoLiderado(a) {
   return 'cidade';
 }
 
-// Começo do texto sem a marcação, para mostrar nos cards
-function resumoTexto(texto, tamanho = 180) {
+// Começo do texto sem a marcação, para mostrar nos cards.
+// linhas: mantém as quebras de linha (linhas em branco viram uma quebra só); senão, tudo numa linha.
+function resumoTexto(texto, tamanho = 180, linhas = false) {
   const limpo = String(texto || '')
     .replace(LINK_WIKI, (_, alvo, rotulo) => rotulo || alvo.replace(/\s*\(país\)\s*$/i, ''))
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')       // imagens
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')    // links
     .replace(/^\s*([-*+]|\d+\.)\s+/gm, '')      // marcadores de lista
     .replace(/[#>*_`~]+/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(linhas ? /[^\S\n]+/g : /\s+/g, ' ')
+    .replace(/\s*\n\s*/g, '\n')
     .trim();
   return limpo.length > tamanho ? limpo.slice(0, tamanho).replace(/\s+\S*$/, '') + '…' : limpo;
 }
@@ -385,7 +387,6 @@ function mostrarImagem(c, passo) {
   const proxima = (imgs.findIndex(i => i.classList.contains('ativa')) + passo + imgs.length) % imgs.length;
   imgs.forEach((img, i) => img.classList.toggle('ativa', i === proxima));
   c.querySelectorAll('.carrossel-pontos span').forEach((p, i) => p.classList.toggle('ativo', i === proxima));
-  c.dataset.trocou = Date.now();
 }
 
 // Clique nas bordas. Em "captura" e com preventDefault: o card é um link, e clicar na borda só
@@ -398,15 +399,11 @@ document.addEventListener('click', e => {
   mostrarImagem(seta.closest('[data-carrossel]'), Number(seta.dataset.passo));
 }, true);
 
-// Troca sozinha. Cada carrossel começa num momento diferente, para os cards não trocarem todos juntos;
-// depois de um clique, conta os 10 s de novo a partir dele.
+// Troca sozinha: todos os carrosséis da página trocam juntos, no mesmo relógio (os que aparecem
+// depois, ex.: na próxima página da lista, entram no mesmo ritmo). Um clique só adianta aquele.
 setInterval(() => {
-  const agora = Date.now();
-  document.querySelectorAll('[data-carrossel]').forEach(c => {
-    if (!c.dataset.trocou) c.dataset.trocou = agora - Math.random() * 5000;
-    if (agora - Number(c.dataset.trocou) >= TROCA_CARROSSEL) mostrarImagem(c, 1);
-  });
-}, 1000);
+  document.querySelectorAll('[data-carrossel]').forEach(c => mostrarImagem(c, 1));
+}, TROCA_CARROSSEL);
 
 // ---------- Pontos do mapa: ícones ----------
 

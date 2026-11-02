@@ -166,7 +166,8 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
 - **Várias imagens:** no editor, *+ Adicionar imagem* (dá para escolher várias de uma vez). Cada
   miniatura tem ◀ ▶ (mudar a ordem), ⤢ (ajustar a posição) e ✕ (tirar); a primeira é a principal
   (é a que aparece na capa do país, na linha do tempo etc.). Com mais de uma, o card e a página
-  viram um carrossel: clicar na borda esquerda/direita troca a imagem, e ela troca sozinha a cada 10 s.
+  viram um carrossel: clicar na borda esquerda/direita troca a imagem, e ela troca sozinha a cada 10 s (todos os
+  carrosséis da página trocam juntos).
 - **Posição da imagem:** ao escolher a imagem de um texto, abre um popup com um quadro para cada
   formato em que ela aparece no site (ex.: personagem = retrato em pé + card da lista; país = capa
   larga + página). Arraste a imagem em qualquer quadro para escolher a parte que fica à vista; o botão
@@ -197,7 +198,8 @@ se o mapa novo for o mesmo desenho em outra resolução.
 - **Panteão:** abre em duas abas: *Como os Deuses e a Fé são?* (um texto de apresentação, com
   editor, links e histórico como qualquer outro) e *Divindades* (a lista). Outras seções podem ganhar
   o mesmo com `introducao` em `js/secoes.js` (a página da seção precisa carregar o marked e o DOMPurify,
-  como `panteao.html`). Cada divindade tem *Hierarquia* (deus maior ou menor) e *Domínios*, sem
+  como `panteao.html`). Cada divindade tem *Hierarquia* (deus maior ou menor), *Domínios* e
+  *Descrição* (o que aparece no card, embaixo do nome; um campo com `resumo: true` faz isso), sem
   epíteto e sem país; na página dela a imagem aparece maior, em pé (4:5).
 
 - **História do Mundo:** cada evento tem *Era*, *Ano* (e *Até o ano*, se durou mais) e aparece numa
