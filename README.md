@@ -203,8 +203,11 @@ se o mapa novo for o mesmo desenho em outra resolução.
   epíteto e sem país; na página dela a imagem aparece maior, em pé (4:5).
 
 - **História do Mundo:** cada evento tem *Era*, *Ano* (e *Até o ano*, se durou mais) e aparece numa
-  linha do tempo. As eras são Era Antiga, Era dos Dragões e Era Moderna, nessa ordem (a ordem é a
-  da lista de opções do campo *Era* em `js/secoes.js`). Eventos não têm país.
+  linha do tempo. As eras são Era Antiga, Era dos Dragões e Era Moderna (que aparece como
+  *Era Moderna // Era de Darion*), nessa ordem (a ordem é a da lista de opções do campo *Era* em
+  `js/secoes.js`; o nome mostrado vem de `nomes`). Os anos contam a partir de Darion: positivo (ou
+  zero) aparece como `500 d.D`, negativo como `500 a.D`, e com *Até o ano* fica `500 d.D // 800 d.D`.
+  Eventos não têm país.
 - **Seções sem país ou sem resumo:** `semPais: true` tira o campo de país da seção, e `subtitulo: null`
   tira o resumo/epíteto (o que já estava escrito fica guardado, só não aparece).
 - **Personagens:** *Tipo* separa NPCs de personagens de jogadores (na lista, são as abas *NPCs* e

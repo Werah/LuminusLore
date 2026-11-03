@@ -10,6 +10,8 @@
 //   soPais: só aparece em país (estrela no ponto ou categoria País/Reino)
 //   padrao: valor quando ninguém escolheu (vale também para os textos antigos, sem o campo)
 //   resumo: o card da lista mostra este campo embaixo do nome (e não o começo do texto principal)
+//   nomes:  nome que aparece no site para uma opção, ex.: { 'Era Moderna': 'Era Moderna // Era de Darion' }
+//           (o valor guardado continua o da lista de opções)
 // Nos campos da ficha também dá para usar [[links]] para outros textos.
 // Opcionais da seção: rotuloPais (nome do campo de país), rotuloTexto (título do texto principal)
 // e linhaDoTempo (a lista vira uma linha do tempo, ordenada pelos campos era e ano),
@@ -30,6 +32,19 @@ function detalhesComPadrao(secao, detalhes) {
   const d = { ...detalhes };
   for (const c of SECOES[secao]?.campos || []) if (!d[c.chave] && c.padrao) d[c.chave] = c.padrao;
   return d;
+}
+
+// Nome de uma opção como aparece no site (ver "nomes" acima)
+const nomeDaOpcao = (campo, valor) => campo?.nomes?.[valor] || valor;
+
+// Ano da História: positivo (ou zero) = depois de Darion, negativo = antes. Ex.: 500 → "500 d.D", -312 → "312 a.D"
+const anoDarion = ano => (Number(ano) < 0 ? `${-Number(ano)} a.D` : `${Number(ano)} d.D`);
+
+// Data de um evento: "312 d.D", "500 d.D // 800 d.D" (com "Até o ano") ou "Data incerta"
+function dataDoEvento(detalhes) {
+  const { ano, fim } = detalhes;
+  if (!ano) return 'Data incerta';
+  return fim && fim !== ano ? `${anoDarion(ano)} // ${anoDarion(fim)}` : anoDarion(ano);
 }
 
 // Os formatos (largura / altura) em que a imagem de um texto aparece no site. O popup de escolher a
@@ -108,8 +123,9 @@ const SECOES = {
     linhaDoTempo: true,
     campos: [
       // A ordem das eras aqui é a ordem na linha do tempo
-      { chave: 'era', rotulo: 'Era', opcoes: ['Era Antiga', 'Era dos Dragões', 'Era Moderna'] },
-      { chave: 'ano', rotulo: 'Ano', numero: true, dica: 'Ex.: 312 (negativo = antes do marco zero)' },
+      { chave: 'era', rotulo: 'Era', opcoes: ['Era Antiga', 'Era dos Dragões', 'Era Moderna'], nomes: { 'Era Moderna': 'Era Moderna // Era de Darion' } },
+      // Os anos aparecem como "500 d.D" (depois de Darion) ou, negativos, "500 a.D" (antes de Darion)
+      { chave: 'ano', rotulo: 'Ano', numero: true, dica: 'Ex.: 312 = 312 d.D; -312 = 312 a.D (antes de Darion)' },
       { chave: 'fim', rotulo: 'Até o ano', numero: true, dica: 'Se durou mais de um ano' },
     ],
   },

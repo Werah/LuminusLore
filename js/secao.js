@@ -180,7 +180,7 @@ function desenharFiltros() {
     filtros.innerHTML = '';
     return;
   }
-  filtros.innerHTML = [['', 'Todos', itens.length], ...valores.map(v => [v, v, contagem.get(v)])]
+  filtros.innerHTML = [['', 'Todos', itens.length], ...valores.map(v => [v, nomeDaOpcao(campoFiltro, v), contagem.get(v)])]
     .map(([v, rotulo, n]) => `
       <button class="${v === filtro ? 'ativo' : ''}" data-valor="${esc(v)}">${esc(rotulo)} <span class="qtd">${n}</span></button>
     `).join('');
@@ -208,7 +208,7 @@ function card(a, cor) {
       <div class="corpo-card">
         <div class="linha-titulo">
           <h3>${esc(a.titulo)}</h3>
-          ${valorFiltro(a) && !abas ? `<span class="selo">${esc(valorFiltro(a))}</span>` : ''}
+          ${valorFiltro(a) && !abas ? `<span class="selo">${esc(nomeDaOpcao(campoFiltro, valorFiltro(a)))}</span>` : ''}
         </div>
         ${SECAO.subtitulo && a.subtitulo ? `<p class="subtitulo">${esc(a.subtitulo)}</p>` : ''}
         ${resumo ? `<p class="descricao${campoResumo ? ' em-linhas' : ''}">${esc(resumoTexto(resumo, 180, !!campoResumo))}</p>` : ''}
@@ -297,13 +297,6 @@ paginacao.addEventListener('click', e => {
   lista.scrollIntoView({ block: 'start', behavior: 'smooth' });
 });
 
-// "312", "312 – 340", "Data incerta"
-function dataDoEvento(a) {
-  const { ano, fim } = a.detalhes;
-  if (!ano) return 'Data incerta';
-  return fim && fim !== ano ? `${ano} – ${fim}` : ano;
-}
-
 // Eventos dos dois lados de uma linha vertical, com um marco a cada era nova
 // (em "Editados por último" a ordem não é do tempo, então não tem marcos de era)
 function desenharLinhaDoTempo(eventos) {
@@ -321,12 +314,12 @@ function desenharLinhaDoTempo(eventos) {
     let marco = '';
     if (porEra && (a.detalhes.era || '') !== eraAtual) {
       eraAtual = a.detalhes.era || '';
-      marco = `<h2 class="marco-era"><span>${esc(eraAtual || 'Sem era definida')}</span></h2>`;
+      marco = `<h2 class="marco-era"><span>${esc(nomeDaOpcao(campoEra, eraAtual) || 'Sem era definida')}</span></h2>`;
     }
     const resumo = resumoDe(a);
     return `${marco}
       <a class="evento ${lado++ % 2 ? 'direita' : 'esquerda'}" href="artigo.html?id=${encodeURIComponent(a.id)}">
-        <span class="evento-data">${esc(dataDoEvento(a))}</span>
+        <span class="evento-data">${esc(dataDoEvento(a.detalhes))}</span>
         <span class="evento-cartao">
           ${a.imagem ? `<img src="${banco.urlImagem(a.imagem)}" alt="" loading="lazy" style="${posicaoDaImagem(a)}">` : ''}
           <span class="evento-texto">

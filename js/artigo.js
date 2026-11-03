@@ -126,9 +126,11 @@ function desenharTexto() {
     // Personagem: "Líder de" é preenchido depois (carregarLiderDe), procurando quem aponta para ele
     + (secao === 'personagens' ? '<div id="lider-de" hidden></div>' : '')
     + preenchidos
-      .filter(c => !c.longo)
-      .map(c => `<div><dt>${esc(c.rotulo)}</dt><dd>${linhaComLinks(det[c.chave], titulos)}</dd></div>`)
-      .join('');
+      .filter(c => !c.longo && !(s.linhaDoTempo && ['ano', 'fim'].includes(c.chave)))
+      .map(c => `<div><dt>${esc(c.rotulo)}</dt><dd>${linhaComLinks(nomeDaOpcao(c, det[c.chave]), titulos)}</dd></div>`)
+      .join('')
+    // Evento da História: Ano e Até o ano numa linha só, ex.: "500 d.D // 800 d.D"
+    + (s.linhaDoTempo && det.ano ? `<div><dt>Data</dt><dd>${esc(dataDoEvento(det))}</dd></div>` : '');
   // Campos longos (Descrição, Inventário...) viram blocos antes ou depois do texto principal
   const blocos = depois => preenchidos
     .filter(c => c.longo && !!c.depois === depois)
@@ -464,7 +466,7 @@ function editar(tituloInicial = '') {
         <label data-campo="${c.chave}">${esc(c.rotulo)}
           <select name="d-${c.chave}">
             ${c.padrao ? '' : '<option value="">—</option>'}
-            ${opcoes.map(o => `<option${o === valor ? ' selected' : ''}>${esc(o)}</option>`).join('')}
+            ${opcoes.map(o => `<option value="${esc(o)}"${o === valor ? ' selected' : ''}>${esc(nomeDaOpcao(c, o))}</option>`).join('')}
           </select>
         </label>`;
     }
