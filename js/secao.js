@@ -92,11 +92,54 @@ async function carregar() {
     }
     desenharFiltroPais();
     desenharFiltros();
+    const volta = lerVolta();
+    if (volta?.pagina && !new URLSearchParams(location.search).has('pagina')) pagina = volta.pagina;
     desenhar();
+    rolarDeVolta(volta);
     carregarExcluidos();
   } catch (e) {
     lista.innerHTML = `<p class="vazio">${esc(e.message)}</p>`;
   }
+}
+
+// ---------- Voltar para o mesmo lugar da lista ----------
+
+// Ao abrir um texto da lista, guarda qual foi, a altura dele na tela e a página da lista. Quando a
+// lista abre de novo (voltar do navegador ou "← Mundo"), rola até o mesmo texto, em vez do topo.
+// Vale uma vez só: a lista seguinte que abrir já começa do topo.
+const CHAVE_VOLTA = `luminus-volta-${chave}`;
+
+lista.addEventListener('click', e => {
+  const link = e.target.closest('a[href^="artigo.html?id="]');
+  if (!link) return;
+  try {
+    sessionStorage.setItem(CHAVE_VOLTA, JSON.stringify({
+      href: link.getAttribute('href'), topo: link.getBoundingClientRect().top, y: scrollY, pagina,
+    }));
+  } catch {
+    // Sem armazenamento: volta para o topo, como antes
+  }
+});
+
+function lerVolta() {
+  try {
+    const volta = JSON.parse(sessionStorage.getItem(CHAVE_VOLTA));
+    sessionStorage.removeItem(CHAVE_VOLTA);
+    return volta;
+  } catch {
+    return null;
+  }
+}
+
+// Voltou pelo navegador com a página guardada inteira (já na rolagem certa): só descarta o guardado
+addEventListener('pageshow', e => { if (e.persisted) lerVolta(); });
+
+function rolarDeVolta(volta) {
+  if (!volta) return;
+  const link = [...lista.querySelectorAll('a[href]')].find(a => a.getAttribute('href') === volta.href);
+  // O texto na mesma altura da tela em que estava; se ele sumiu da lista (ex.: excluído), a mesma rolagem
+  const y = link?.offsetParent ? scrollY + link.getBoundingClientRect().top - volta.topo : volta.y;
+  scrollTo({ top: Math.max(0, y), behavior: 'instant' });
 }
 
 // ---------- Textos excluídos ----------
