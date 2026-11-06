@@ -352,6 +352,14 @@ function capaArtigo(a) {
   return `<div class="capa">${emblemaSecao(a.secao)}</div>`;
 }
 
+// Selos dos campos marcados com "noCard" (ex.: Vivo / Morto); data-valor deixa o CSS dar uma cor a cada valor
+function selosDoCard(secao, detalhes) {
+  const det = detalhesComPadrao(secao, detalhes);
+  return (SECOES[secao]?.campos || []).filter(c => c.noCard && det[c.chave] && campoVisivel(c, det))
+    .map(c => `<span class="selo selo-campo" data-valor="${esc(det[c.chave])}">${esc(nomeDaOpcao(c, det[c.chave]))}</span>`)
+    .join('');
+}
+
 // ---------- Carrossel de imagens ----------
 
 // Todas as imagens de um texto, na ordem (a principal primeiro), cada uma com a sua posição

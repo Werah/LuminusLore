@@ -256,7 +256,7 @@ async function carregarMembros() {
         <div class="corpo-card">
           <div class="linha-titulo">
             <h3>${esc(m.titulo)}</h3>
-            ${m.id === artigo.liderId ? '<span class="selo">Líder</span>' : ''}
+            <span class="selos">${m.id === artigo.liderId ? '<span class="selo">Líder</span>' : ''}${selosDoCard('personagens', m.detalhes)}</span>
           </div>
           ${m.subtitulo ? `<p class="subtitulo">${esc(m.subtitulo)}</p>` : ''}
           <p class="info">${esc(detalhesComPadrao('personagens', m.detalhes).tipo || '')}</p>

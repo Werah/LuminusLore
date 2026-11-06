@@ -251,7 +251,7 @@ function card(a, cor) {
       <div class="corpo-card">
         <div class="linha-titulo">
           <h3>${esc(a.titulo)}</h3>
-          ${valorFiltro(a) && !abas ? `<span class="selo">${esc(nomeDaOpcao(campoFiltro, valorFiltro(a)))}</span>` : ''}
+          <span class="selos">${valorFiltro(a) && !abas ? `<span class="selo">${esc(nomeDaOpcao(campoFiltro, valorFiltro(a)))}</span>` : ''}${selosDoCard(chave, a.detalhes)}</span>
         </div>
         ${SECAO.subtitulo && a.subtitulo ? `<p class="subtitulo">${esc(a.subtitulo)}</p>` : ''}
         ${resumo ? `<p class="descricao${campoResumo ? ' em-linhas' : ''}">${esc(resumoTexto(resumo, 180, !!campoResumo))}</p>` : ''}
@@ -263,7 +263,7 @@ function card(a, cor) {
 }
 
 const passaNaBusca = (a, termo) => !termo
-  || normalizar(`${a.titulo} ${a.subtitulo} ${Object.values(a.detalhes).join(' ')} ${a.conteudo}`).includes(termo);
+  || normalizar(`${a.titulo} ${a.subtitulo} ${Object.values(detalhesComPadrao(chave, a.detalhes)).join(' ')} ${a.conteudo}`).includes(termo);
 
 function desenhar() {
   const termo = normalizar(busca.value.trim());

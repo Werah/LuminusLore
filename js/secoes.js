@@ -10,6 +10,7 @@
 //   soPais: só aparece em país (estrela no ponto ou categoria País/Reino)
 //   padrao: valor quando ninguém escolheu (vale também para os textos antigos, sem o campo)
 //   resumo: o card da lista mostra este campo embaixo do nome (e não o começo do texto principal)
+//   noCard: o valor aparece também como selo no card da lista (ex.: Vivo / Morto)
 //   nomes:  nome que aparece no site para uma opção, ex.: { 'Era Moderna': 'Era Moderna // Era de Darion' }
 //           (o valor guardado continua o da lista de opções)
 // Nos campos da ficha também dá para usar [[links]] para outros textos.
@@ -143,6 +144,7 @@ const SECOES = {
     campos: [
       // "abas": na lista, o filtro vira abas (uma sempre escolhida) com estes nomes
       { chave: 'tipo', rotulo: 'Tipo', opcoes: ['NPC', 'Personagem de jogador'], padrao: 'NPC', abas: { 'NPC': 'NPCs', 'Personagem de jogador': 'Personagens' } },
+      { chave: 'situacao', rotulo: 'Situação', opcoes: ['Vivo', 'Morto'], padrao: 'Vivo', noCard: true },
       { chave: 'jogador', rotulo: 'Jogador', dica: 'Quem joga com ele', soSe: { tipo: 'Personagem de jogador' } },
       { chave: 'raca', rotulo: 'Raça', soSe: { tipo: 'Personagem de jogador' } },
       { chave: 'classe', rotulo: 'Classe', soSe: { tipo: 'Personagem de jogador' } },

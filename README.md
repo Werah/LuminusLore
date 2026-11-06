@@ -215,6 +215,8 @@ se o mapa novo for o mesmo desenho em outra resolução.
   descrição, história, imagem e nacionalidade (um país do mapa). Personagens de jogador também têm
   *Jogador*, *Raça*, *Classe* e *Inventário* (um item por linha). Sem tipo escolhido, o personagem
   é NPC (vale também para os antigos). Um campo pode ter valor padrão com `padrao` em `js/secoes.js`.
+  *Situação* (Vivo / Morto) vem como Vivo, inclusive nos personagens antigos, e aparece como selo
+  no card (campo com `noCard: true`), também na aba *Membros* das organizações.
 - **Organizações do personagem:** no campo *Organizações* (digite parte do nome e escolha) dá para
   pôr o personagem em quantas organizações quiser; cada uma vira uma etiqueta com ✕. A página da
   organização tem as abas *Sobre* (o texto) e *Membros* (os personagens filiados, com o selo *Líder*
