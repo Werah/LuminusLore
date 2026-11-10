@@ -20,12 +20,13 @@
   <script src="js/api.js"></script>
   <script>
     exigirLogin();
-    montarTopo('');
+    montarTopo('', { engrenagem: true });
 
     // Uma fatia por seção, saindo do centro da tela, todas com a mesma área.
-    // Ordem das fatias no sentido horário, começando em cima à esquerda (seções novas entram no fim)
-    const ORDEM = ['mundo', 'personagens', 'organizacoes', 'panteao', 'historia'];
-    const chaves = [...ORDEM.filter(k => SECOES[k]), ...Object.keys(SECOES).filter(k => !ORDEM.includes(k))];
+    // Ordem das fatias no sentido horário, começando em cima à esquerda (seções novas entram no fim).
+    // As seções escondidas na engrenagem não entram, e as outras dividem a tela entre si.
+    const ORDEM = ['mundo', 'personagens', 'organizacoes', 'panteao', 'historia', 'sistema'];
+    const todas = [...ORDEM.filter(k => SECOES[k]), ...Object.keys(SECOES).filter(k => !ORDEM.includes(k))];
 
     // A borda da tela é percorrida de 0 a 4 (um lado por unidade, no sentido horário a partir do
     // canto de cima à esquerda). Do centro, cada lado "vale" exatamente 1/4 da área da tela,
@@ -36,36 +37,49 @@
       const f = (u - lado) * 100;
       return [[f, 0], [100, f], [100 - f, 100], [0, 100 - f]][lado];
     }
-    const INICIO = -0.3;                 // onde começa a primeira fatia (deixa uma fatia bem embaixo)
-    const TRECHO = 4 / chaves.length;
     const ATE_O_TEXTO = 0.55;            // o nome fica a 55% do caminho entre o centro e a borda
     const pct = ([x, y]) => `${x.toFixed(2)}% ${y.toFixed(2)}%`;
 
-    const fatias = chaves.map((chave, i) => {
-      const s = SECOES[chave];
-      const t0 = INICIO + i * TRECHO;
-      const t1 = t0 + TRECHO;
-      const pontos = [pontoNaBorda(t0)];
-      for (let canto = Math.floor(t0) + 1; canto < t1; canto++) pontos.push(pontoNaBorda(canto));
-      pontos.push(pontoNaBorda(t1));
-      const meio = pontoNaBorda(t0 + TRECHO / 2);
-      const forma = `polygon(50% 50%, ${pontos.map(pct).join(', ')})`;
-      // Onde fica o nome (e de onde a fatia cresce no hover)
-      const lx = `${(50 + (meio[0] - 50) * ATE_O_TEXTO).toFixed(2)}%`;
-      const ly = `${(50 + (meio[1] - 50) * ATE_O_TEXTO).toFixed(2)}%`;
-      return `
-        <div class="fatia" style="--cor: ${s.cor}; --forma: ${forma}; --lx: ${lx}; --ly: ${ly}">
-          <a class="divisoria" href="${paginaDaSecao(s)}" data-icone="${s.icone}" style="--cor: ${s.cor}">
-            <span class="fatia-conteudo">
-              <span class="icone">${s.icone}</span>
-              <span class="titulo">${esc(s.nome)}</span>
-              <small>${esc(s.descricao)}</small>
-            </span>
-          </a>
-        </div>`;
-    });
+    function desenharHome() {
+      const visiveis = todas.filter(secaoVisivel);
+      const chaves = visiveis.length ? visiveis : todas; // nunca fica vazia
+      const n = chaves.length;
+      const TRECHO = 4 / n;
+      // Onde começa a primeira fatia, para a divisão ficar simétrica (espelhada na vertical):
+      //   número par: no meio do lado esquerdo (uma linha de um lado ao outro; com 6, 3 em cima e 3 embaixo);
+      //   número ímpar: de modo que uma fatia fique bem embaixo, no meio.
+      const INICIO = n % 2 ? 2.5 - ((n + 1) / 2 + 0.5) * TRECHO : -0.5;
 
-    document.getElementById('divisorias').innerHTML = fatias.join('');
+      const fatias = chaves.map((chave, i) => {
+        const s = SECOES[chave];
+        const t0 = INICIO + i * TRECHO;
+        const t1 = t0 + TRECHO;
+        const pontos = [pontoNaBorda(t0)];
+        for (let canto = Math.floor(t0) + 1; canto < t1; canto++) pontos.push(pontoNaBorda(canto));
+        pontos.push(pontoNaBorda(t1));
+        const meio = pontoNaBorda(t0 + TRECHO / 2);
+        const forma = `polygon(50% 50%, ${pontos.map(pct).join(', ')})`;
+        // Onde fica o nome (e de onde a fatia cresce no hover); uma seção só fica no centro
+        const ate = n > 1 ? ATE_O_TEXTO : 0;
+        const lx = `${(50 + (meio[0] - 50) * ate).toFixed(2)}%`;
+        const ly = `${(50 + (meio[1] - 50) * ate).toFixed(2)}%`;
+        return `
+          <div class="fatia" style="--cor: ${s.cor}; --forma: ${forma}; --lx: ${lx}; --ly: ${ly}">
+            <a class="divisoria" href="${paginaDaSecao(s)}" data-icone="${s.icone}" style="--cor: ${s.cor}">
+              <span class="fatia-conteudo">
+                <span class="icone">${s.icone}</span>
+                <span class="titulo">${esc(s.nome)}</span>
+                <small>${esc(s.descricao)}</small>
+              </span>
+            </a>
+          </div>`;
+      });
+
+      document.getElementById('divisorias').innerHTML = fatias.join('');
+    }
+
+    desenharHome();
+    aoMudarSecoesOcultas(desenharHome);
   </script>
 </body>
 </html>

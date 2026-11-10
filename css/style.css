@@ -50,7 +50,7 @@ a { color: var(--ouro-2); }
 .visitante .lixeira,
 .visitante .so-membro,
 .visitante .estilo-ponto,
-.visitante .barra-mapa [data-acao]:not([data-acao="centralizar"]) { display: none !important; }
+.visitante .barra-mapa [data-acao]:not([data-acao="centralizar"]):not([data-acao="mapa-cidade"]) { display: none !important; }
 
 .topo nav .selo-visitante {
   padding: 6px 12px;
@@ -323,7 +323,7 @@ body.pagina-home {
 .divisoria:hover .icone { transform: scale(1.25); }
 .divisoria:hover small { opacity: 1; transform: none; }
 
-/* Fatias (home com 5 seções): cada seção é um polígono saindo do centro (--forma, montado no
+/* Fatias (home, uma por seção): cada seção é um polígono saindo do centro (--forma, montado no
    home.html); --lx/--ly é onde fica o nome. */
 .divisorias.fatias { position: relative; overflow: hidden; }
 
@@ -409,6 +409,71 @@ body.pagina-home {
 }
 
 .prosa .bloco-campo h2 { margin: 0.6em 0 0.4em; font-size: 1.05rem; border: none; padding: 0; }
+
+/* Regras (seção Sistema): separadas da lore, depois do texto. Para o visitante, só o aviso 🔒 */
+.bloco-regras { margin-top: 1.8em; background: color-mix(in srgb, var(--cor, var(--ouro)) 6%, transparent); }
+.bloco-regras.trancado { border-style: dashed; border-left-style: solid; color: var(--texto-2); }
+.bloco-regras.trancado p { margin: 0 0 0.6em; }
+/* Mapa da cidade, no editor: prévia pequena e os botões ao lado */
+.mapa-local { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+.previa-mapa-local {
+  width: 160px;
+  height: 110px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--borda);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+}
+.previa-mapa-local img { width: 100%; height: 100%; object-fit: cover; }
+.acoes-mapa-local { display: flex; gap: 8px; flex-wrap: wrap; }
+.acoes-mapa-local .botao { margin: 0; }
+
+.campo-regras { margin-top: 14px; }
+.texto-regras { margin-top: 12px; }
+.texto-regras textarea { min-height: 160px; }
+
+/* Partes das regras: habilidades "gêmeas" lado a lado; subclasses com as cartas numa linha só
+   (uma coluna por carta). Sem espaço (medido no próprio bloco: o texto fica estreito ao lado da
+   ficha), viram uma embaixo da outra. */
+.bloco-regras, .campo-regras { container: regras / inline-size; }
+.regras-gemeas { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 12px; margin: 0.8em 0; }
+.cartas-subclasse { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 10px; }
+@container regras (max-width: 420px) { .regras-gemeas { grid-auto-flow: row; } }
+@container regras (max-width: 560px) { .cartas-subclasse { grid-auto-flow: row; } }
+.carta-regra {
+  padding: 10px 12px;
+  border: 1px solid var(--borda);
+  border-top: 2px solid var(--cor, var(--ouro));
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.prosa .carta-regra h3, .prosa .carta-regra h4 { margin: 0 0 6px; font-size: 0.95rem; color: var(--cor, var(--ouro)); border: none; padding: 0; }
+.carta-regra > :last-child { margin-bottom: 0; }
+.prosa .subclasse > h3 { margin: 1.2em 0 0.5em; font-size: 1.05rem; border: none; padding: 0; }
+.subclasse.editavel { margin: 10px 0; padding: 10px; border: 1px dashed var(--borda); border-radius: 8px; }
+.cabeca-subclasse { display: flex; gap: 8px; margin-bottom: 8px; }
+.cabeca-subclasse input { flex: 1; }
+.carta-regra.editavel { display: flex; flex-direction: column; gap: 6px; color: var(--texto-2); font-size: 0.9rem; }
+.carta-regra.editavel input, .carta-regra.editavel textarea { width: 100%; }
+.partes-regras { margin-top: 12px; }
+.rotulo-parte { display: block; margin-bottom: 4px; color: var(--texto-2); font-size: 0.9rem; }
+.carta-regra .titulo-carta { color: var(--cor, var(--ouro)); font-weight: 700; }
+.prosa .carta-regra h3 + h4 { color: var(--texto); font-style: italic; }
+
+/* Valores das regras (Evasão, Pontos de Vida, Domínios...): curtos lado a lado, os largos na linha toda */
+.valores-regras-editor { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0 12px; }
+.valores-regras-editor .valor-largo { grid-column: 1 / -1; }
+.valores-regras-editor .valor-largo input + input { margin-top: 6px; }
+.valor-escolha { grid-column: span 2; }
+.valor-escolha .escolhas { display: flex; gap: 8px; }
+.valores-regras { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 16px; margin: 0.4em 0 1em; }
+.valores-regras dt { color: var(--texto-2); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.valores-regras dd { margin: 2px 0 0; font-weight: 600; }
+.valores-regras .valor-largo { grid-column: 1 / -1; }
+.valores-regras .valor-largo dd { font-weight: normal; }
+.valores-regras ul { margin: 2px 0 0; padding-left: 1.2em; }
 .campo-longo textarea { min-height: 90px; }
 .rotulo-texto { display: block; margin-bottom: 2px; color: var(--texto-2); font-size: 0.9rem; }
 .lugares-pais h2 { margin-top: 18px; }
@@ -689,6 +754,26 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 dialog h2 { margin-top: 0; }
 .info-conta { color: var(--texto-2); margin: -4px 0 18px; line-height: 1.5; }
 .info-conta strong { color: var(--texto); }
+
+/* Engrenagem da home e o popup de escolher as seções */
+.topo nav a.btn-engrenagem { margin-left: 12px; font-size: 1.15rem; line-height: 1; padding: 5px 10px; }
+.topo nav a.btn-engrenagem + .conta { margin-left: 0; }
+.dica-secoes { color: var(--texto-2); margin: -4px 0 14px; font-size: 0.9rem; line-height: 1.5; }
+.lista-secoes-home { display: grid; gap: 6px; margin-bottom: 8px; }
+.opcao-secao {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  color: var(--texto);
+  cursor: pointer;
+}
+.opcao-secao:has(input:checked) { border-color: var(--cor); }
+.opcao-secao input { width: auto; margin: 0; accent-color: var(--cor); }
+.opcao-secao .icone { width: 1.4em; text-align: center; color: var(--cor); }
 
 .botoes-modal {
   display: flex;
@@ -1170,6 +1255,22 @@ button.pasta-globo:hover { background: rgba(255, 255, 255, 0.22); border: none; 
 }
 
 @keyframes surgir { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
+
+/* Mapa da cidade (por cima do mapa do mundo): nome em cima, o mapa e a barra de ações embaixo */
+.mapa-cidade { display: flex; flex-direction: column; }
+.mapa-cidade[hidden] { display: none; }
+.cabeca-cidade {
+  display: flex;
+  align-items: center;
+  min-height: 50px;
+  padding: 8px 54px 8px 16px;
+  border-bottom: 1px solid var(--borda);
+  background: var(--card);
+}
+.nome-cidade { font-family: 'Cinzel', Georgia, serif; font-size: 1.1rem; color: var(--ouro-2); }
+.cabeca-cidade .fechar-sobre { top: 8px; }
+.mapa-da-cidade { position: relative; flex: 1; min-height: 0; background: #0b1a26; }
+.mapa-da-cidade.marcando { cursor: crosshair; }
 
 /* A página do país dentro da ficha */
 .modo-pais .voltar { display: none; }

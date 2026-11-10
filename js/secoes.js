@@ -17,7 +17,8 @@
 // Opcionais da seção: rotuloPais (nome do campo de país), rotuloTexto (título do texto principal)
 // e linhaDoTempo (a lista vira uma linha do tempo, ordenada pelos campos era e ano),
 // filtroPais (botão para filtrar a lista pelo país / nacionalidade), semPais (sem o campo de país),
-// introducao (abas: um texto de apresentação da seção | a lista).
+// introducao (abas: um texto de apresentação da seção | a lista),
+// regras (um bloco de texto que só quem tem login lê; o visitante vê um aviso 🔒 no lugar).
 // No campo de filtro, "abas" troca os botões de filtro por abas: { valor: 'Nome da aba' }.
 
 // Campo com "soSe" só aparece (e só é guardado) quando os outros campos têm os valores pedidos.
@@ -186,6 +187,51 @@ const SECOES = {
       { chave: 'sede', rotulo: 'Sede' },
       { chave: 'lideranca', rotulo: 'Liderança' },
       { chave: 'divindade', rotulo: 'Divindade ligada', dica: 'Ex.: [[Nome do deus]]' },
+    ],
+  },
+  sistema: {
+    nome: 'Sistema',
+    pagina: 'sistema.html',
+    icone: '⚙︎', // ︎: versão "texto" do símbolo (pega a cor da seção, em vez de emoji colorido)
+    cor: '#6fa8dc',
+    descricao: 'Ancestralidades, classes, comunidades e domínios do Daggerheart',
+    novo: 'Novo verbete',
+    subtitulo: { rotulo: 'Resumo em uma linha', dica: 'Ex.: Guerreiros que juram proteger os outros' },
+    semPais: true,
+    rotuloTexto: 'No mundo',
+    // As regras ficam numa coluna à parte no banco ("regras"), que o visitante não recebe.
+    // Cada tipo (campo "tipo") pode ter partes próprias em "porTipo"; tipo que não está lá só tem
+    // o texto livre. Na página e no editor, as partes vêm nesta ordem:
+    //   valores:     campos curtos. numero (inteiro), quantos (N campos de texto),
+    //                escolher + deTipo (escolher N textos desta seção com esse tipo; viram links)
+    //   habilidades: quadros lado a lado, cada um com nome e texto; o item é o título fixo do quadro
+    //                (null = sem título fixo, o nome da habilidade é o título)
+    //   texto:       false = sem o texto livre ("Outras regras")
+    //   subclasses:  "+ Adicionar subclasse"; cada uma tem nome e uma carta por item
+    regras: {
+      rotulo: 'Regras',
+      dica: 'Só quem tem login vê esta parte.',
+      porTipo: {
+        'Ancestralidade': { texto: false, habilidades: [null, null] },
+        'Classe': {
+          valores: [
+            { chave: 'evasao', rotulo: 'Evasão', numero: true },
+            { chave: 'vida', rotulo: 'Pontos de Vida Iniciais', numero: true },
+            { chave: 'dominios', rotulo: 'Domínios', escolher: 2, deTipo: 'Domínio' },
+            { chave: 'itens', rotulo: 'Itens de Classe' },
+            { chave: 'perguntas', rotulo: 'Perguntas de Origem', quantos: 3 },
+            { chave: 'vinculos', rotulo: 'Vínculos', quantos: 3 },
+          ],
+          habilidades: ['Habilidade de Esperança', 'Habilidade de Classe'],
+          subclasses: ['Fundação', 'Especialização', 'Maestria'],
+        },
+      },
+    },
+    campos: [
+      {
+        chave: 'tipo', rotulo: 'Tipo', opcoes: ['Ancestralidade', 'Classe', 'Comunidade', 'Domínio'],
+        abas: { 'Ancestralidade': 'Ancestralidades', 'Classe': 'Classes', 'Comunidade': 'Comunidades', 'Domínio': 'Domínios' },
+      },
     ],
   },
 };

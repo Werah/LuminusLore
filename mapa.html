@@ -17,6 +17,16 @@
       <div id="mapa"></div>
       <!-- Ficha do país (globo nas pastas da lista do Mundo): abre por cima do mapa -->
       <div class="sobre-mapa" id="sobre-mapa" hidden></div>
+      <!-- Mapa da cidade: abre por cima do mapa do mundo quando o texto aberto é uma cidade com mapa
+           (ou um local dela), com os pontos dos locais da cidade -->
+      <div class="sobre-mapa mapa-cidade" id="mapa-cidade" hidden>
+        <div class="cabeca-cidade">
+          <span class="nome-cidade" id="nome-cidade"></span>
+          <button type="button" class="fechar-sobre" id="fechar-cidade" title="Fechar (Esc)">✕</button>
+        </div>
+        <div class="mapa-da-cidade" id="mapa-da-cidade"></div>
+        <div class="controles-mapa"><div class="barra-mapa" id="barra-cidade"></div></div>
+      </div>
       <div class="controles-mapa">
         <div class="estilo-ponto" id="estilo-ponto" hidden></div>
         <div class="barra-mapa" id="barra-mapa"></div>

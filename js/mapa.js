@@ -315,6 +315,9 @@ caixaEstilo.addEventListener('click', e => {
 
 function desenharBarra() {
   mapa.getContainer().classList.toggle('marcando', marcando);
+  // Cidade com mapa (ou local dela) com o mapa da cidade fechado: botão para abrir de novo
+  const botaoCidade = atual && (atual.mapaLocal || atual.cidadeId) && document.getElementById('mapa-cidade').hidden
+    ? '<button class="pequeno" data-acao="mapa-cidade">🏙 Mapa da cidade</button>' : '';
 
   if (marcando) {
     barra.innerHTML = `
@@ -328,6 +331,7 @@ function desenharBarra() {
   } else if (pontos.has(atual.id)) {
     barra.innerHTML = `
       <span class="nome-atual">${esc(atual.titulo)}</span>
+      ${botaoCidade}
       <button class="pequeno" data-acao="centralizar">Centralizar</button>
       <button class="pequeno${editandoEstilo ? ' ativo' : ''}" data-acao="estilo">🎨 Cor e ícone</button>
       <button class="pequeno" data-acao="marcar">Mover ponto</button>
@@ -336,6 +340,7 @@ function desenharBarra() {
   } else {
     barra.innerHTML = `
       <span class="nome-atual">${esc(atual.titulo)}</span>
+      ${botaoCidade}
       <button class="pequeno primario" data-acao="marcar">📍 Marcar no mapa</button>
     `;
   }
@@ -345,6 +350,10 @@ barra.addEventListener('click', e => {
   const acao = e.target.closest('button')?.dataset.acao;
   if (!acao) return;
   if (acao === 'centralizar') centralizar(atual.id);
+  if (acao === 'mapa-cidade') {
+    atualizarMapaCidade();
+    return;
+  }
   if (acao === 'estilo') {
     editandoEstilo = !editandoEstilo;
     desenharEstilo();
@@ -496,6 +505,7 @@ const janelaFicha = () => sobreMapa.querySelector('iframe')?.contentWindow;
 
 function abrirFichaPais(id) {
   if (parte < 0.3) aplicarParte(0.5); // com o mapa escondido, a ficha não teria onde aparecer
+  fecharMapaCidade();
   sobreMapa.innerHTML = `
     <button type="button" class="fechar-sobre" title="Fechar (Esc)">✕</button>
     <iframe title="Ficha do país" src="artigo.html?id=${encodeURIComponent(id)}&modo=pais"></iframe>
@@ -525,6 +535,286 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !sobreMapa.hidden && !marcando) fecharFichaPais();
 });
 
+// ---------- Mapa da cidade (por cima do mapa do mundo) ----------
+
+// Abre quando o painel mostra uma cidade (ou vilarejo) com mapa, ou um local dela; troca de cidade
+// ao abrir um local de outra; fecha ao abrir qualquer outra coisa (outro lugar, a lista...).
+// Os pontos são os locais da cidade (cidade_id), na posição deles no mapa dela (cidade_x/cidade_y).
+const caixaCidade = document.getElementById('mapa-cidade');
+const barraCidade = document.getElementById('barra-cidade');
+const camadaCidade = L.layerGroup();
+let cidade = null;            // a cidade aberta: { id, titulo, mapaLocal, paisId, largura, altura }
+let mapaCidade = null;        // o Leaflet do mapa da cidade (criado na primeira vez que abre)
+let fundoCidade = null;
+let limitesCidade = null;
+let pontosCidade = new Map(); // id do local -> { ponto, marcador }
+let marcandoCidade = false;   // esperando o clique no mapa da cidade para pôr o texto aberto
+let provisorioCidade = null;  // marcador do local novo que está sendo escrito
+let abrindoCidade = 0;        // para ignorar aberturas atrasadas
+
+// Coordenadas: os pixels da imagem do mapa da cidade, como no mapa do mundo
+const paraCidade = (x, y) => L.latLng((1 - y) * cidade.altura, x * cidade.largura);
+const fracaoNaCidade = ll => ({ x: ll.lng / cidade.largura, y: 1 - ll.lat / cidade.altura });
+
+function tamanhoDaImagem(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ largura: img.naturalWidth, altura: img.naturalHeight });
+    img.onerror = () => reject(new Error('Não deu para carregar o mapa da cidade.'));
+    img.src = url;
+  });
+}
+
+function criarMapaCidade() {
+  mapaCidade = L.map('mapa-da-cidade', {
+    crs: L.CRS.Simple,
+    minZoom: -6,
+    maxZoom: 3,
+    zoomSnap: 0.25,
+    zoomDelta: 0.5,
+    wheelPxPerZoomLevel: 100,
+    attributionControl: false,
+    maxBoundsViscosity: 0.9,
+  });
+  camadaCidade.addTo(mapaCidade);
+  new ResizeObserver(() => { if (cidade) ajustarCidade(false); }).observe(mapaCidade.getContainer());
+  mapaCidade.on('click', cliqueNaCidade);
+  mapaCidade.on('contextmenu', menuDaCidade);
+}
+
+// O zoom mínimo mostra o mapa inteiro da cidade (depende do tamanho da caixa)
+function ajustarCidade(enquadrar) {
+  mapaCidade.invalidateSize({ pan: false });
+  if (!mapaCidade.getSize().x || !mapaCidade.getSize().y) return;
+  mapaCidade.setMinZoom(mapaCidade.getBoundsZoom(limitesCidade) - 0.5);
+  if (enquadrar) mapaCidade.fitBounds(limitesCidade);
+}
+
+async function abrirMapaCidade(info) {
+  document.getElementById('nome-cidade').textContent = info.titulo;
+  if (cidade?.id === info.id && cidade.mapaLocal === info.mapaLocal) return carregarPontosCidade();
+  const meu = ++abrindoCidade;
+  const url = banco.urlImagem(info.mapaLocal);
+  let tamanho;
+  try {
+    tamanho = await tamanhoDaImagem(url);
+  } catch (e) {
+    if (meu !== abrindoCidade) return;
+    cidade = null;
+    camadaCidade.clearLayers();
+    fundoCidade?.remove();
+    caixaCidade.hidden = false;
+    barraCidade.innerHTML = `<span class="erro">${esc(e.message)}</span>`;
+    return;
+  }
+  if (meu !== abrindoCidade) return;
+  if (!sobreMapa.hidden) await fecharFichaPais();
+  if (parte < 0.3) aplicarParte(0.5); // com o mapa escondido, o mapa da cidade não teria onde aparecer
+  cidade = { ...info, ...tamanho };
+  marcandoCidade = false;
+  caixaCidade.hidden = false;
+  if (!mapaCidade) criarMapaCidade();
+  limitesCidade = L.latLngBounds([0, 0], [cidade.altura, cidade.largura]);
+  fundoCidade?.remove();
+  fundoCidade = L.imageOverlay(url, limitesCidade).addTo(mapaCidade);
+  mapaCidade.setMaxBounds(limitesCidade.pad(0.25));
+  ajustarCidade(true);
+  desenharBarra();
+  await carregarPontosCidade();
+}
+
+function fecharMapaCidade() {
+  abrindoCidade++;
+  if (caixaCidade.hidden) return;
+  caixaCidade.hidden = true;
+  cidade = null;
+  marcandoCidade = false;
+  provisorioCidade?.remove();
+  provisorioCidade = null;
+  desenharBarra();
+}
+
+async function carregarPontosCidade() {
+  if (!cidade) return;
+  const id = cidade.id;
+  const lista = await banco.locaisDaCidade(id).catch(() => []);
+  if (cidade?.id !== id) return;
+  camadaCidade.clearLayers();
+  pontosCidade = new Map(lista.filter(p => p.cidadeX != null && p.cidadeY != null).map(p => [p.id, { ponto: p }]));
+  for (const info of pontosCidade.values()) {
+    const p = info.ponto;
+    // Sem cor própria, o ponto herda a da cidade (que, sem cor, herda a do país)
+    info.marcador = L.marker(paraCidade(p.cidadeX, p.cidadeY), { icon: icone({ ...p, paisId: id }), riseOnHover: true })
+      .bindTooltip(() => `<strong>${esc(p.titulo)}</strong>${p.subtitulo ? `<br><small>${esc(p.subtitulo)}</small>` : ''}`,
+        { direction: 'top', offset: [0, -9], className: 'dica-ponto' })
+      .on('click', () => abrir(p.id));
+    camadaCidade.addLayer(info.marcador);
+  }
+  destacarCidade();
+  desenharBarraCidade();
+}
+
+function destacarCidade() {
+  for (const [id, { marcador }] of pontosCidade) {
+    const ativo = id === atual?.id;
+    marcador.getElement()?.classList.toggle('ativo', ativo);
+    marcador.setZIndexOffset(ativo ? 1000 : 0);
+  }
+}
+
+function centralizarNaCidade(id) {
+  const info = pontosCidade.get(id);
+  if (info) mapaCidade.flyTo(info.marcador.getLatLng(), Math.max(mapaCidade.getZoom(), mapaCidade.getMinZoom() + 1.5), { duration: 0.6 });
+}
+
+// Põe (ou move) o texto aberto no mapa da cidade: ele passa a ser um local dela
+async function porNaCidade(id, x, y) {
+  try {
+    await banco.posicionarNaCidade(id, cidade.id, x, y);
+    if (atual?.id === id) atual.cidadeId = cidade.id;
+    await carregarPontosCidade();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+// Clique no mapa da cidade (fora dos pontos): no modo de marcar, põe o ponto ali; senão, volta para a cidade
+async function cliqueNaCidade(e) {
+  if (!cidade) return;
+  if (marcandoCidade) {
+    if (!atual || !limitesCidade.contains(e.latlng)) return;
+    marcandoCidade = false;
+    const { x, y } = fracaoNaCidade(e.latlng);
+    await porNaCidade(atual.id, x, y);
+    return;
+  }
+  if (atual?.id !== cidade.id) abrir(cidade.id);
+}
+
+// Botão direito (ou toque longo): criar um local da cidade ali, ou pôr ali o texto aberto
+function menuDaCidade(e) {
+  if (ehVisitante || !cidade || !limitesCidade.contains(e.latlng)) return;
+  const { x, y } = fracaoNaCidade(e.latlng);
+  const menu = document.createElement('div');
+  menu.className = 'menu-mapa';
+  menu.innerHTML = `
+    <button class="pequeno primario" data-acao="novo">+ Novo local em ${esc(cidade.titulo)} aqui</button>
+    ${atual && atual.id !== cidade.id ? `<button class="pequeno" data-acao="mover">📍 Pôr “${esc(atual.titulo)}” aqui</button>` : ''}
+  `;
+  menu.addEventListener('click', async ev => {
+    const acao = ev.target.closest('button')?.dataset.acao;
+    if (!acao) return;
+    mapaCidade.closePopup();
+    if (acao === 'mover') {
+      marcandoCidade = false;
+      porNaCidade(atual.id, x, y);
+      return;
+    }
+    if (!(await salvarPainel())) return;
+    provisorioCidade?.remove();
+    provisorioCidade = L.marker(e.latlng, { icon: icone({ secao: 'mundo', paisId: cidade.id }), interactive: false }).addTo(mapaCidade);
+    provisorioCidade.getElement()?.classList.add('provisorio');
+    // O local novo já nasce no país da cidade
+    painel.src = `artigo.html?secao=mundo&cidade=${encodeURIComponent(cidade.id)}&cx=${x.toFixed(5)}&cy=${y.toFixed(5)}`
+      + (cidade.paisId ? `&pais=${encodeURIComponent(cidade.paisId)}` : '');
+  });
+  L.popup({ closeButton: false, className: 'popup-mapa' }).setLatLng(e.latlng).setContent(menu).openOn(mapaCidade);
+}
+
+function desenharBarraCidade() {
+  if (!cidade) return;
+  mapaCidade.getContainer().classList.toggle('marcando', marcandoCidade);
+  if (marcandoCidade) {
+    barraCidade.innerHTML = `
+      <span>Clique no mapa onde fica <strong>${esc(atual.titulo)}</strong></span>
+      <button class="pequeno" data-acao="cancelar">Cancelar</button>`;
+  } else if (atual && pontosCidade.has(atual.id)) {
+    barraCidade.innerHTML = `
+      <span class="nome-atual">${esc(atual.titulo)}</span>
+      <button class="pequeno" data-acao="centralizar">Centralizar</button>
+      <button class="pequeno" data-acao="marcar">Mover ponto</button>
+      <button class="pequeno perigo" data-acao="tirar">Tirar da cidade</button>`;
+  } else {
+    barraCidade.innerHTML = `
+      <span class="dica-mapa">Clique num local para abrir o texto${ehVisitante ? '' : ` · Botão direito no mapa cria um local de ${esc(cidade.titulo)} ali`}</span>`;
+  }
+}
+
+barraCidade.addEventListener('click', async e => {
+  const acao = e.target.closest('button')?.dataset.acao;
+  if (!acao || !cidade) return;
+  if (acao === 'centralizar') centralizarNaCidade(atual.id);
+  if (acao === 'marcar') marcandoCidade = true;
+  if (acao === 'cancelar') marcandoCidade = false;
+  if (acao === 'tirar') {
+    if (!confirm(`Tirar “${atual.titulo}” de ${cidade.titulo}? O texto continua existindo, só deixa de ser um local da cidade.`)) return;
+    try {
+      await banco.posicionarNaCidade(atual.id, null);
+      atual.cidadeId = null;
+      await carregarPontosCidade();
+    } catch (err) {
+      alert(err.message);
+    }
+    return;
+  }
+  desenharBarraCidade();
+});
+
+document.getElementById('fechar-cidade').addEventListener('click', fecharMapaCidade);
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || caixaCidade.hidden) return;
+  if (marcandoCidade) {
+    marcandoCidade = false;
+    desenharBarraCidade();
+  } else if (!marcando) {
+    fecharMapaCidade();
+  }
+});
+
+// Depois de cada texto aberto no painel: abre, troca ou fecha o mapa da cidade
+async function atualizarMapaCidade() {
+  let urlPainel = null;
+  try {
+    urlPainel = new URL(painel.contentWindow.location.href);
+  } catch {
+    // Página de fora (não deveria acontecer)
+  }
+  // O marcador provisório só fica enquanto o painel está no editor do local novo
+  if (provisorioCidade && !urlPainel?.searchParams.has('cx')) {
+    provisorioCidade.remove();
+    provisorioCidade = null;
+  }
+  marcandoCidade = false;
+  if (atual?.mapaLocal) {
+    await abrirMapaCidade({ id: atual.id, titulo: atual.titulo, mapaLocal: atual.mapaLocal, paisId: atual.paisId });
+    return;
+  }
+  // Um local de uma cidade, ou o editor de um local novo criado no mapa dela
+  const idCidade = atual ? atual.cidadeId : urlPainel?.searchParams.get('cidade');
+  if (!idCidade) {
+    fecharMapaCidade();
+    return;
+  }
+  if (cidade?.id !== idCidade) {
+    const meu = ++abrindoCidade;
+    let dela = null;
+    try {
+      dela = await banco.buscarArtigo(idCidade);
+    } catch {
+      // Cidade que não existe mais: fecha
+    }
+    if (meu !== abrindoCidade) return;
+    if (!dela?.mapaLocal) {
+      fecharMapaCidade();
+      return;
+    }
+    await abrirMapaCidade({ id: dela.id, titulo: dela.titulo, mapaLocal: dela.mapaLocal, paisId: dela.paisId });
+  } else {
+    await carregarPontosCidade();
+  }
+  if (atual && pontosCidade.has(atual.id)) centralizarNaCidade(atual.id);
+}
+
 // ---------- Conversa com o painel de texto ----------
 
 window.addEventListener('message', async e => {
@@ -532,6 +822,7 @@ window.addEventListener('message', async e => {
   atual = e.data.artigo;
   marcando = false;
   if (atual) marcarSubmenu(atual.secao);
+  atualizarMapaCidade();
 
   // O marcador provisório só fica enquanto o painel está no editor do texto novo
   const urlPainel = new URL(painel.contentWindow.location.href);
@@ -558,13 +849,22 @@ window.addEventListener('message', async e => {
 
 // As seções no alto do painel: abrem a lista de cada uma ali mesmo, sem sair do mapa.
 // Se o painel estiver no editor, grava antes (como ao clicar num ponto).
+// Só as seções que não foram escondidas na engrenagem da home.
 const submenu = document.getElementById('submenu-painel');
-submenu.innerHTML = Object.entries(SECOES)
-  .map(([chave, s]) => `<button type="button" data-secao="${chave}" style="--cor: ${s.cor}">${s.icone} ${esc(s.nome)}</button>`)
-  .join('');
+let secaoNoSubmenu = null;
+function desenharSubmenu() {
+  submenu.innerHTML = Object.entries(SECOES)
+    .filter(([chave]) => secaoVisivel(chave))
+    .map(([chave, s]) => `<button type="button" data-secao="${chave}" style="--cor: ${s.cor}">${s.icone} ${esc(s.nome)}</button>`)
+    .join('');
+  marcarSubmenu(secaoNoSubmenu);
+}
 function marcarSubmenu(secao) {
+  secaoNoSubmenu = secao;
   submenu.querySelectorAll('button').forEach(b => b.classList.toggle('ativo', b.dataset.secao === secao));
 }
+desenharSubmenu();
+aoMudarSecoesOcultas(desenharSubmenu);
 submenu.addEventListener('click', async e => {
   const chave = e.target.closest('[data-secao]')?.dataset.secao;
   if (!chave || !(await salvarPainel())) return;

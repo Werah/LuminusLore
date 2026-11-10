@@ -1,7 +1,7 @@
 # LuminusLore
 
 Site para guardar os textos do cenário de fantasia e escrever junto com os amigos:
-**Mundo**, **História**, **Personagens**, **Panteão** e **Organizações**.
+**Mundo**, **História**, **Personagens**, **Panteão**, **Organizações** e **Sistema**.
 
 - **Páginas:** HTML, CSS e JavaScript puro, hospedadas de graça no **GitHub Pages**.
 - **Dados, login e imagens:** no **Supabase** (Postgres na nuvem, plano grátis).
@@ -17,7 +17,7 @@ home.html                    escolha da seção
 mapa.html                    o Mundo: metade mapa, metade texto (js/mapa.js)
 mundo.html, historia.html,
 personagens.html, panteao.html,
-organizacoes.html            lista de textos de cada seção (todas usam js/secao.js)
+organizacoes.html, sistema.html lista de textos de cada seção (todas usam js/secao.js)
 artigo.html                  ler, escrever, histórico de um texto
 mapa/                        imagens do mapa (geradas por ferramentas/preparar_mapa.py)
 css/style.css                visual
@@ -83,6 +83,8 @@ mapa, histórico, fichas. Não aparece nenhum botão de criar, editar ou excluir
 não deixa: o visitante só tem permissão de **ler**, e só as colunas sem dados pessoais (os e-mails
 ficam de fora; no lugar ele vê o **nome** de quem escreveu, que o banco guarda junto com o texto).
 O site lê pelas "vitrines" `artigos_publico` e `revisoes_publico`.
+As **regras** da seção Sistema também ficam de fora: o visitante lê a lore e vê um aviso 🔒 no
+lugar das regras (o banco nem manda esse texto para ele, nem no histórico).
 
 Se um membro mudar de nome (`update public.membros set nome = ...`), rode o `schema.sql` de novo para
 os textos antigos mostrarem o nome novo aos visitantes.
@@ -96,6 +98,15 @@ drop policy visitantes on public.revisoes;
 ```
 
 (e para reabrir, rode o `schema.sql` de novo).
+
+## Seções da home (engrenagem)
+
+Na home, a **⚙** do menu (só para membros) abre um popup para marcar quais seções aparecem. Vale
+para o **site todo** (fica na tabela `site`, coluna `secoes_ocultas`; todos leem, só membros mudam).
+Uma seção desmarcada sai da home, do menu do topo e do submenu do mapa, e a home redivide a tela
+em fatias iguais entre as que sobraram. Os textos dela continuam existindo e abrem normalmente
+pelos `[[links]]` (e a lista da seção continua no endereço dela, ex.: `sistema.html`).
+O navegador guarda a última escolha para desenhar a página sem piscar e confere no banco em seguida.
 
 ## Escrevendo
 
@@ -178,7 +189,18 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
 - **Links andam pelo mapa:** clicar num `[[link]]` dentro do texto abre o outro texto no painel
   e o mapa vai até o ponto dele.
 - **Submenu do painel:** no alto do painel de texto ficam as seções (Mundo, História, Personagens,
-  Panteão, Organizações). Clicar abre a lista daquela seção ali mesmo, sem sair do mapa.
+  Panteão, Organizações, Sistema). Clicar abre a lista daquela seção ali mesmo, sem sair do mapa.
+- **Mapa da cidade:** no editor de uma cidade ou vilarejo, o campo *Mapa da cidade* recebe uma imagem
+  (reduzida no navegador até 4096 px; fica no Storage e é enviada ao salvar). Com mapa, abrir a cidade
+  mostra o mapa dela por cima do mapa do mundo, com os pontos dos locais dela:
+  - clicar num ponto abre o texto no painel (o mapa da cidade continua aberto);
+  - botão direito cria um local da cidade ali (já no país dela), ou põe ali o texto aberto;
+  - a barra embaixo move o ponto ou tira o texto da cidade; o ✕ (ou Esc) fecha, e o botão
+    *🏙 Mapa da cidade* na barra do mapa do mundo abre de novo;
+  - abrir um local de outra cidade troca para o mapa dela; abrir qualquer outra coisa fecha.
+  Os locais ficam ligados à cidade (`cidade_id`, com a posição em `cidade_x`/`cidade_y`), aparecem em
+  *Locais importantes* na página dela, e a ficha do local mostra *Cidade*. Sem mapa, nada disso abre
+  (mas os locais que já existiam continuam ligados). Mover um ponto não conta como edição do texto.
 
 ### Trocar a imagem do mapa
 
@@ -225,14 +247,46 @@ se o mapa novo for o mesmo desenho em outra resolução.
   Buscar, filtrar ou mudar a ordem volta para a primeira página, e voltar de um texto cai na mesma
   página em que você estava. O tamanho da página é `POR_PAGINA` em `js/secao.js`.
 
+## Sistema (Daggerheart)
+
+- **Abas:** *Ancestralidades*, *Classes*, *Comunidades* e *Domínios* (o campo *Tipo*). O botão
+  *+ Novo verbete* já cria o texto com o tipo da aba aberta.
+- **No mundo / Regras:** o texto principal (*No mundo*) é a lore, aberta para todos. Embaixo dele,
+  no editor, fica o campo *🔒 Regras* (mesma formatação e [[links]]), que só quem tem login lê.
+  As regras ficam na coluna `regras` do banco, fora das permissões do visitante; ele recebe só
+  `tem_regras` (se existem), para mostrar o aviso. Outra seção pode ganhar o mesmo bloco com
+  `regras` em `js/secoes.js`.
+- **Ancestralidade:** as regras são só as *Habilidades*: dois quadros lado a lado, cada um com o
+  nome e o texto de uma habilidade (sem o texto livre).
+- **Classe:** as regras têm
+  - *Evasão* e *Pontos de Vida Iniciais* (números inteiros);
+  - *Domínios*: dois, escolhidos entre os verbetes da aba *Domínios* (viram links na página; se não
+    tiver nenhum cadastrado, o editor avisa);
+  - *Itens de Classe*, três *Perguntas de Origem* e três *Vínculos* (texto, aceitam [[links]]);
+  - dois quadros de habilidade: *Habilidade de Esperança* e *Habilidade de Classe*, cada um com o
+    nome (aparece como subtítulo) e o que a habilidade faz;
+  - *Outras regras* (texto livre);
+  - *+ Adicionar subclasse*: um quadro com o nome da subclasse e as três cartas (*Fundação*,
+    *Especialização*, *Maestria*); o ✕ tira a subclasse. Na página, as cartas ficam numa linha
+    (ou uma embaixo da outra, se não couberem).
+- **Comunidade e Domínio:** só o texto livre.
+- Essas partes ficam na mesma coluna `regras`, como JSON (`lerRegras` / `escreverRegras` em
+  `js/api.js`), então continuam fechadas para o visitante. O que cada tipo tem fica em
+  `regras.porTipo` da seção `sistema`, em `js/secoes.js` (campos, títulos dos quadros, nomes das
+  cartas). Trocar o *Tipo* de um verbete faz as partes do tipo antigo saírem ao salvar (ficam no histórico).
+- **Links:** como os outros textos, dá para escrever `[[Elfo]]` ou `[[Guardião]]` em qualquer
+  lugar do site. Os títulos não se repetem no site todo, então um verbete não pode ter o mesmo
+  nome de um lugar ou organização.
+
 ## Mudar categorias e campos
 
 Tudo fica em `js/secoes.js`: nome, cor e ícone de cada seção, as opções de categoria
 (o primeiro campo com `opcoes` vira o filtro da página) e os campos da ficha.
 Dá para adicionar ou tirar campos sem mexer no banco.
 
-Para criar uma **seção nova**, além de `js/secoes.js`: copie `mundo.html` trocando o
-`data-secao`, e adicione a chave nova na linha `check (secao in (...))` de `supabase/schema.sql`
+Para criar uma **seção nova**, além de `js/secoes.js`: copie `personagens.html` trocando o
+`data-secao` e o título, ponha a chave em `ORDEM` no `home.html` (a home divide a tela em fatias
+iguais, uma por seção), e adicione a chave nova na linha `check (secao in (...))` de `supabase/schema.sql`
 (no Supabase, rode só o `alter table` correspondente, já que a tabela existe).
 
 ## Supabase grátis: pausa por falta de uso

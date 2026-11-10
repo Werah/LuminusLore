@@ -110,7 +110,7 @@ const banco = (() => {
     if (error.code === '23514') return 'Preencha os campos obrigatórios';
     if (error.code === '42501') return 'Sem permissão. Saia e entre de novo.';
     // Coluna que o site usa mas o banco não tem: o schema.sql novo ainda não foi rodado
-    if (error.code === '42703' || error.code === 'PGRST204') {
+    if (['42703', 'PGRST204', '42P01', 'PGRST205'].includes(error.code)) {
       return 'O banco está desatualizado: rode o arquivo supabase/schema.sql de novo no SQL Editor do Supabase.';
     }
     if (/jwt/i.test(error.message || '')) {
@@ -165,6 +165,8 @@ const banco = (() => {
     };
     // Organizações de que o personagem é membro (só vai quando o editor manda)
     if (b.organizacoes !== undefined) dados.organizacoes = [...new Set((b.organizacoes || []).map(String))];
+    // Regras (só nas seções que têm; o visitante nem recebe esta coluna)
+    if (SECOES[secao].regras && b.regras !== undefined) dados.regras = String(b.regras ?? '').replace(/\s+$/, '');
     if (!dados.titulo) throw new Error('Título é obrigatório');
     if (/[[\]|]/.test(dados.titulo)) throw new Error('O título não pode ter [ ] ou |');
     return dados;
@@ -339,6 +341,36 @@ const banco = (() => {
     return linhas.map(doBanco);
   }
 
+  // ---------- Mapa da cidade ----------
+
+  // Os locais de uma cidade (os que têm cidade_id = ela), com a posição no mapa dela.
+  // Servem para os pontos do mapa da cidade e para "Locais importantes".
+  async function locaisDaCidade(cidadeId) {
+    const linhas = await rodar(de('artigos').select('id, titulo, subtitulo, secao, detalhes, pais_id, cidade_x, cidade_y, mapa_cor, mapa_icone')
+      .eq('cidade_id', cidadeId).order('titulo'));
+    return linhas.map(doBanco);
+  }
+
+  // Põe (ou move) o texto no mapa da cidade, o que liga ele à cidade; com cidadeId null, solta da
+  // cidade. x/y em fração da imagem (0 a 1). Não conta como edição do texto.
+  async function posicionarNaCidade(id, cidadeId, x, y) {
+    const dentro = v => (v === null ? null : Math.min(1, Math.max(0, Number(v))));
+    await rodar(de('artigos').update({
+      cidade_id: cidadeId || null,
+      cidade_x: cidadeId ? dentro(x) : null,
+      cidade_y: cidadeId ? dentro(y) : null,
+    }).eq('id', id));
+  }
+
+  // Troca (dataUrl) ou tira (null) a imagem do mapa da cidade; a antiga sai do Storage.
+  // Não conta como edição do texto.
+  async function salvarMapaLocal(id, dataUrl) {
+    const antes = await buscarArtigo(id);
+    const arquivo = dataUrl ? await enviarArquivo(`${id}-mapa`, dataUrl) : '';
+    await rodar(de('artigos').update({ mapa_local: arquivo }).eq('id', id));
+    if (antes.mapaLocal && antes.mapaLocal !== arquivo) await apagarArquivos([antes.mapaLocal]);
+  }
+
   // ---------- Capital ----------
 
   // Põe (ou, com null, tira) a capital de um país. Não conta como edição do texto.
@@ -363,6 +395,22 @@ const banco = (() => {
       mapa_cor: /^#[0-9a-fA-F]{6}$/.test(cor) ? cor.toLowerCase() : '',
       mapa_icone: /^[a-z]{1,20}$/.test(icone) ? icone : '',
     }).eq('id', id));
+  }
+
+  // ---------- Configurações do site ----------
+
+  // Seções escondidas da home e dos menus (valem para todos). Se não der para ler (ex.: o
+  // schema.sql novo ainda não foi rodado), nenhuma fica escondida.
+  async function secoesOcultas() {
+    if (!sb) return [];
+    const { data, error } = await sb.from('site').select('secoes_ocultas').maybeSingle();
+    if (error) return [];
+    return (data?.secoes_ocultas || []).filter(chave => SECOES[chave]);
+  }
+
+  async function esconderSecoes(lista) {
+    const linhas = await rodar(sb.from('site').update({ secoes_ocultas: lista }).eq('id', true).select('id'));
+    if (!linhas.length) throw new Error('O banco está desatualizado: rode o arquivo supabase/schema.sql de novo no SQL Editor do Supabase.');
   }
 
   // ---------- Membros ----------
@@ -435,7 +483,7 @@ const banco = (() => {
     titulos, listarArtigos, buscarArtigo, criarArtigo, salvarArtigo, excluirArtigo, excluidos, restaurarExcluido,
     revisoes, mencoes, pontosDoMapa, paises, lugaresDoPais, posicionar, estilizarPonto, nomes, urlImagem, salvarImagens,
     enviarImagemDoTexto, buscarPersonagens, buscarLideraveis, liderados, definirLider, definirCapital, capitalDe,
-    buscarOrganizacoes, membrosDe,
+    buscarOrganizacoes, membrosDe, secoesOcultas, esconderSecoes, locaisDaCidade, posicionarNaCidade, salvarMapaLocal,
     idIntroducao, criarIntroducao,
   };
 })();

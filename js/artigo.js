@@ -108,6 +108,9 @@ function desenharTexto() {
   // Regente (país, cidade, vila) / Líder (organização)
   const cargo = cargoDeLider(artigo);
   const lider = cargo && artigo.liderId && [...titulos.values()].find(t => t.id === artigo.liderId);
+  const cidadeDoLocal = artigo.cidadeId && [...titulos.values()].find(t => t.id === artigo.cidadeId);
+  // Cidade (ou o que tiver mapa próprio): os locais dela aparecem em "Locais importantes"
+  const temLocais = ehCidadeOuVila(artigo) || !!artigo.mapaLocal;
   // País: a capital dele (uma das suas cidades ou vilarejos)
   const capital = ehPaisOuReino(artigo) && artigo.capitalId && [...titulos.values()].find(t => t.id === artigo.capitalId);
   // Personagem: as organizações de que é membro (as que ainda existem)
@@ -119,6 +122,8 @@ function desenharTexto() {
   const ficha = (lider ? `<div><dt>${esc(cargo)}</dt><dd>${linkWiki(lider.link, lider.titulo, titulos)}</dd></div>` : '')
     + (capital ? `<div><dt>Capital</dt><dd>${linkWiki(capital.link, capital.titulo, titulos)}</dd></div>` : '')
     + (pais && !ehPaisOuReino(artigo) && !s.semPais ? `<div id="linha-pais"><dt>${esc(s.rotuloPais || 'País')}</dt><dd>${linkWiki(pais.link, pais.titulo, titulos)}</dd></div>` : '')
+    // Local de uma cidade (marcado no mapa dela)
+    + (cidadeDoLocal ? `<div><dt>Cidade</dt><dd>${linkWiki(cidadeDoLocal.link, cidadeDoLocal.titulo, titulos)}</dd></div>` : '')
     + (organizacoes.length ? `<div><dt>${organizacoes.length > 1 ? 'Organizações' : 'Organização'}</dt><dd>${
       organizacoes.map(o => linkWiki(o.link, o.titulo, titulos)).join('<br>')}</dd></div>` : '')
     // Cidade: "Capital de" é preenchido depois (carregarCapitalDe), procurando o país que aponta para ela
@@ -136,7 +141,16 @@ function desenharTexto() {
     .filter(c => c.longo && !!c.depois === depois)
     .map(c => `<section class="bloco-campo"><h2>${esc(c.rotulo)}</h2>${renderizarTexto(det[c.chave], titulos)}</section>`)
     .join('');
-  const temAlgumTexto = artigo.conteudo || preenchidos.some(c => c.longo);
+  // Regras (seção Sistema): quem tem login lê; o visitante não recebe o texto, só sabe se existe
+  // (temRegras) e vê o aviso no lugar
+  const blocoRegras = !s.regras ? ''
+    : artigo.regras ? `<section class="bloco-campo bloco-regras"><h2>${esc(s.regras.rotulo)}</h2>${regrasHtml(artigo.regras, s.regras, titulos, artigo.detalhes.tipo)}</section>`
+      : ehVisitante && artigo.temRegras ? `
+        <section class="bloco-campo bloco-regras trancado">
+          <h2>🔒 ${esc(s.regras.rotulo)}</h2>
+          <p>As regras ficam disponíveis só para quem tem login.</p>
+        </section>` : '';
+  const temAlgumTexto = artigo.conteudo || preenchidos.some(c => c.longo) || blocoRegras;
   // Na ficha do país a imagem vira a capa, em vez de ficar na ficha ao lado do texto
   const imagemNaFicha = artigo.imagem && !modoPais;
   const temFicha = imagemNaFicha || ficha;
@@ -187,6 +201,7 @@ function desenharTexto() {
           ${artigo.conteudo && s.rotuloTexto ? `<h2>${esc(s.rotuloTexto)}</h2>` : ''}
           ${artigo.conteudo ? renderizarTexto(artigo.conteudo, titulos) : ''}
           ${blocos(true)}
+          ${blocoRegras}
           ${temAlgumTexto ? '' : '<p class="sem-texto">Ainda não tem nada escrito aqui. Clique em <strong>Editar</strong> para começar.</p>'}
         </div>
       </div>
@@ -196,6 +211,7 @@ function desenharTexto() {
         · Última edição por <strong>${esc(nomeDe(artigo.editadoPor, nomes))}</strong> em ${formatarDataHora(artigo.atualizadoEm)}
       </footer>
       ${modoPais ? '<section class="lugares-pais" id="lugares" hidden></section>' : ''}
+      ${temLocais ? '<section class="lugares-pais locais-cidade" id="locais-cidade" hidden></section>' : ''}
       <section class="mencoes" id="mencoes" hidden></section>
       ${secao === 'organizacoes' ? '<section class="membros-org" id="membros"><p class="vazio">Carregando…</p></section>' : ''}
     </article>
@@ -215,6 +231,7 @@ function desenharTexto() {
   carregarMencoes();
   if (secao === 'organizacoes') carregarMembros();
   if (modoPais) carregarLugares();
+  if (temLocais) carregarLocaisDaCidade();
   if (secao === 'personagens') carregarLiderDe();
   if (ehCidadeOuVila(artigo)) carregarCapitalDe();
   mostrarAvisoEdicao();
@@ -343,6 +360,28 @@ async function carregarLugares() {
   }
 }
 
+// Cidade: "Locais importantes", os textos marcados no mapa dela (abrem no painel de texto do mapa)
+async function carregarLocaisDaCidade() {
+  try {
+    const lista = await banco.locaisDaCidade(artigo.id);
+    const el = document.getElementById('locais-cidade');
+    if (!el || (!lista.length && ehVisitante)) return;
+    el.innerHTML = `<h2>Locais importantes</h2>` + (lista.length ? `
+      <ul>${lista.map(l => `
+        <li><a href="artigo.html?id=${encodeURIComponent(l.id)}">
+          ${ICONES_MAPA[l.mapaIcone]?.svg ? desenhoSvg(ICONES_MAPA[l.mapaIcone].svg) : `<span class="icone-lugar">${SECOES[l.secao]?.icone || ''}</span>`}
+          ${esc(l.titulo)}
+        </a></li>`).join('')}
+      </ul>` : `
+      <p class="sem-texto">${artigo.mapaLocal
+        ? 'Nenhum local ainda. No mapa da cidade, clique com o botão direito para criar um.'
+        : 'Nenhum local ainda. Ponha um mapa da cidade (no editor) para marcar os locais dela nele.'}</p>`);
+    el.hidden = false;
+  } catch {
+    // Não é essencial: se falhar, só não mostra
+  }
+}
+
 // Ficha do país (por cima do mapa): pede para o mapa fechar a ficha
 function fecharFichaDoPais() {
   window.parent.postMessage({ tipo: 'fechar-pais' }, location.origin);
@@ -421,7 +460,54 @@ const AJUDA_FORMATACAO = `
 
 function editar(tituloInicial = '') {
   const s = SECOES[secao];
-  const a = artigo || { titulo: tituloInicial, subtitulo: '', conteudo: '', detalhes: {}, imagem: '', paisId: null };
+  // Texto novo aberto de uma aba da lista (ex.: "Classes") já vem com o valor dela (&d-tipo=Classe)
+  const detalhesIniciais = Object.fromEntries(s.campos
+    .filter(c => c.opcoes?.includes(params.get(`d-${c.chave}`)))
+    .map(c => [c.chave, params.get(`d-${c.chave}`)]));
+  // Local novo criado no mapa de uma cidade já vem no país dela (&pais=)
+  const a = artigo || {
+    titulo: tituloInicial, subtitulo: '', conteudo: '', detalhes: detalhesIniciais, imagem: '', paisId: params.get('pais') || null,
+  };
+  // Regras (Sistema): o texto e as partes de cada tipo (porTipo em secoes.js), cada um no seu campo.
+  // Cada tipo tem os seus quadros (só aparecem os do tipo escolhido); os do tipo salvo vêm preenchidos.
+  const regrasIniciais = lerRegras(a.regras);
+  const tipoSalvo = a.detalhes.tipo || '';
+  const semNada = { valores: {}, habilidades: [], subclasses: [] };
+  // html(p) monta a parte de um tipo; p é a config dele, com "salvas" (o que já estava escrito)
+  const partesDasRegras = html => Object.entries(s.regras?.porTipo || {}).map(([tipo, p]) => {
+    const conteudo = html({ ...p, salvas: tipo === tipoSalvo ? regrasIniciais : semNada });
+    return conteudo.trim() ? `<div class="partes-regras" data-regras-tipo="${esc(tipo)}">${conteudo}</div>` : '';
+  }).join('');
+  function valorDasRegrasHtml(c, p) {
+    const v = p.salvas.valores[c.chave];
+    if (c.escolher) {
+      // As opções (ex.: os domínios cadastrados) chegam depois; por enquanto, só o que já estava escolhido
+      return `
+        <div class="campo valor-escolha">${esc(c.rotulo)}
+          <span class="escolhas">${Array.from({ length: c.escolher }, (_, i) => `
+            <select data-valor="${c.chave}" data-de-tipo="${esc(c.deTipo)}">
+              <option value="">—</option>
+              ${v?.[i] ? `<option value="${esc(v[i])}" selected>${esc(nomeDoTexto(v[i]) || 'Carregando…')}</option>` : ''}
+            </select>`).join('')}
+          </span>
+          <small class="dica dica-escolha"></small>
+        </div>`;
+    }
+    if (c.quantos) {
+      return `
+        <div class="campo valor-largo">${esc(c.rotulo)}
+          ${Array.from({ length: c.quantos }, (_, i) => `
+            <input type="text" data-valor="${c.chave}" maxlength="300" placeholder="${i + 1}." value="${esc(v?.[i] || '')}">`).join('')}
+        </div>`;
+    }
+    return c.numero ? `
+      <label>${esc(c.rotulo)}
+        <input type="number" step="1" inputmode="numeric" data-valor="${c.chave}" value="${esc(v || '')}">
+      </label>` : `
+      <label class="valor-largo">${esc(c.rotulo)}
+        <input type="text" data-valor="${c.chave}" maxlength="300" value="${esc(v || '')}">
+      </label>`;
+  }
   document.title = `${artigo ? `Editando ${artigo.titulo}` : s.novo} - LuminusLore`;
   avisarMapa(artigo);
 
@@ -431,10 +517,17 @@ function editar(tituloInicial = '') {
     ? { x: Number(params.get('x')), y: Number(params.get('y')) }
     : null;
   let pontoPendente = pontoNovo;
+  // Local novo criado com o botão direito no mapa de uma cidade (&cidade=&cx=&cy=): já nasce lá
+  const pontoCidadeNovo = !artigo && params.has('cidade') && params.has('cx') && params.has('cy')
+    ? { cidade: params.get('cidade'), x: Number(params.get('cx')), y: Number(params.get('cy')) }
+    : null;
+  let pontoCidadePendente = pontoCidadeNovo;
+  // Mapa da cidade escolhido aqui: undefined = não mudou, '' = tirar, data URL = imagem nova
+  let mapaLocalNovo;
 
-  // Texto que tem (ou vai ter) ponto no mapa escolhe aqui o ícone e a cor do ponto.
+  // Texto que tem (ou vai ter) ponto no mapa (do mundo ou de uma cidade) escolhe aqui o ícone e a cor.
   // cor '' = herda a do país (ou, sem país, a da seção)
-  const temPonto = !!pontoNovo || (artigo?.mapaX ?? null) !== null;
+  const temPonto = !!pontoNovo || !!pontoCidadeNovo || (artigo?.mapaX ?? null) !== null || (artigo?.cidadeX ?? null) !== null;
   const estiloPonto = { cor: a.mapaCor || '', icone: a.mapaIcone || '' };
   // Texto de apresentação da seção (ex.: "Como os Deuses e a Fé são?"): sem os campos de ficha
   const ehIntroducao = artigo?.id === banco.idIntroducao(secao);
@@ -484,6 +577,7 @@ function editar(tituloInicial = '') {
       <h1>${artigo ? `Editando “${esc(artigo.titulo)}”` : esc(s.novo)}</h1>
       <p class="aviso-edicao" id="aviso-edicao" hidden></p>
       ${pontoNovo ? '<p class="aviso-ponto">📍 Este texto vai ficar no ponto que você marcou no mapa.</p>' : ''}
+      ${pontoCidadeNovo ? `<p class="aviso-ponto">📍 Este texto vai ser um local de <strong>${esc(nomeDoTexto(pontoCidadeNovo.cidade) || 'cidade')}</strong>, no ponto que você marcou no mapa dela.</p>` : ''}
 
       <div class="duas-colunas">
         <label>Título*
@@ -538,6 +632,20 @@ function editar(tituloInicial = '') {
           <p class="dica">Opcional. Ao salvar, o personagem vira o regente (ou o líder, numa organização) do que estiver aqui, e a página de lá passa a mostrar isso.</p>
         </div>` : ''}
 
+      ${secao === 'mundo' && !ehIntroducao ? `
+        <div class="campo campo-mapa-local" hidden>Mapa da cidade
+          <div class="mapa-local">
+            <div class="previa-mapa-local">${a.mapaLocal
+              ? `<img src="${banco.urlImagem(a.mapaLocal)}" alt="Mapa da cidade">` : '<span class="sem-texto">Sem mapa</span>'}</div>
+            <div class="acoes-mapa-local">
+              <label class="botao pequeno">${a.mapaLocal ? 'Trocar mapa' : 'Escolher imagem'} <input type="file" accept="image/*" hidden></label>
+              <button type="button" class="pequeno perigo" data-tirar-mapa${a.mapaLocal ? '' : ' hidden'}>Tirar mapa</button>
+            </div>
+          </div>
+          <small class="dica">Com um mapa, abrir esta cidade mostra o mapa dela por cima do mapa do mundo, e dá para
+            marcar os locais dela nele (botão direito). Os locais aparecem em “Locais importantes”.</small>
+        </div>` : ''}
+
       ${temPonto ? `
         <fieldset class="campo-ponto">
           <legend>Ponto no mapa</legend>
@@ -576,6 +684,30 @@ function editar(tituloInicial = '') {
         </p>
         ${AJUDA_FORMATACAO}
       </div>
+      ${s.regras ? `
+        <div class="campo campo-regras">🔒 ${esc(s.regras.rotulo)}
+          ${partesDasRegras(p => `
+            ${p.valores ? `<div class="valores-regras-editor">${p.valores.map(c => valorDasRegrasHtml(c, p)).join('')}</div>` : ''}
+            ${p.habilidades ? `
+              <span class="rotulo-parte">Habilidades</span>
+              <div class="regras-gemeas">${p.habilidades.map((fixo, i) => `
+                <div class="carta-regra editavel" data-habilidade>
+                  ${fixo ? `<span class="titulo-carta">${esc(fixo)}</span>` : ''}
+                  <input type="text" class="nome-habilidade" maxlength="120" placeholder="${fixo ? 'Nome da habilidade' : `Nome da habilidade ${i + 1}`}"
+                         value="${esc(p.salvas.habilidades[i]?.nome || '')}">
+                  <textarea class="texto-habilidade" rows="5" placeholder="O que ela faz…">${esc(p.salvas.habilidades[i]?.texto || '')}</textarea>
+                </div>`).join('')}
+              </div>` : ''}`)}
+          <div class="texto-regras">
+            <span class="rotulo-parte rotulo-outras">Outras regras</span>
+            <textarea name="regras" rows="10" placeholder="${esc(s.regras.dica)}">${esc(regrasIniciais.texto)}</textarea>
+          </div>
+          ${partesDasRegras(p => (p.subclasses ? `
+            <span class="rotulo-parte">Subclasses</span>
+            <div class="lista-subclasses"></div>
+            <button type="button" class="pequeno btn-subclasse">+ Adicionar subclasse</button>` : ''))}
+          <small class="dica">Só quem tem login vê. Aceita a mesma formatação e os mesmos [[links]] do texto.</small>
+        </div>` : ''}
 
       <p class="erro" id="erro"></p>
       <div class="botoes-modal barra-salvar">
@@ -609,6 +741,15 @@ function editar(tituloInicial = '') {
     for (const c of s.campos) {
       form.querySelector(`[data-campo="${c.chave}"]`).hidden = !campoVisivel(c, valores, { secao, mapaIcone: estiloPonto.icone });
     }
+    // Regras: só as partes do tipo escolhido; o texto livre some onde o tipo não tem (texto: false)
+    // e, quando o tipo tem outras partes, ganha o título "Outras regras"
+    if (s.regras) {
+      const tipo = valores.tipo || '';
+      const p = s.regras.porTipo?.[tipo];
+      form.querySelectorAll('[data-regras-tipo]').forEach(el => { el.hidden = el.dataset.regrasTipo !== tipo; });
+      form.querySelector('.texto-regras').hidden = p?.texto === false;
+      form.querySelector('.rotulo-outras').hidden = !p;
+    }
   }
   form.addEventListener('change', mostrarCamposVisiveis);
   form.addEventListener('click', mostrarCamposVisiveis); // os ícones do ponto são botões (a estrela faz virar país)
@@ -630,6 +771,39 @@ function editar(tituloInicial = '') {
   form.addEventListener('change', atualizarCargo);
   form.addEventListener('click', atualizarCargo); // os ícones do ponto são botões
   atualizarCargo();
+
+  // Mapa da cidade: o campo só aparece em cidade ou vilarejo (pela categoria ou pelo ícone).
+  // A imagem é reduzida no navegador (até 4096 px) e só é enviada ao salvar.
+  const campoMapaLocal = form.querySelector('.campo-mapa-local');
+  if (campoMapaLocal) {
+    const mostrarMapaLocal = () => { campoMapaLocal.hidden = !ehCidadeOuVila(comoEstaAgora()); };
+    form.addEventListener('change', mostrarMapaLocal);
+    form.addEventListener('click', mostrarMapaLocal);
+    mostrarMapaLocal();
+    const previa = campoMapaLocal.querySelector('.previa-mapa-local');
+    const botaoTirar = campoMapaLocal.querySelector('[data-tirar-mapa]');
+    campoMapaLocal.querySelector('input[type="file"]').addEventListener('change', async e => {
+      const arquivo = e.target.files[0];
+      e.target.value = '';
+      if (!arquivo) return;
+      try {
+        mapaLocalNovo = await redimensionarImagem(arquivo, 4096);
+      } catch (err) {
+        alert(err.message);
+        return;
+      }
+      previa.innerHTML = `<img src="${mapaLocalNovo}" alt="Mapa da cidade">`;
+      botaoTirar.hidden = false;
+      alterado = true;
+    });
+    botaoTirar.addEventListener('click', () => {
+      if (!confirm('Tirar o mapa desta cidade? Os locais dela continuam ligados a ela (e voltam ao mapa se você pôr um mapa de novo).')) return;
+      mapaLocalNovo = '';
+      previa.innerHTML = '<span class="sem-texto">Sem mapa</span>';
+      botaoTirar.hidden = true;
+      alterado = true;
+    });
+  }
   ligarBusca(inputLider, {
     buscar: termo => banco.buscarPersonagens(termo),
     mostrar: p => `${SECOES.personagens.icone} ${esc(p.titulo)}${p.subtitulo ? ` <small>${esc(p.subtitulo)}</small>` : ''}`,
@@ -821,7 +995,61 @@ function editar(tituloInicial = '') {
 
   // Digitar [[ sugere os títulos (no texto e nos campos da ficha, que também aceitam links)
   ligarSugestaoDeLinks(textarea, titulos);
-  form.querySelectorAll('input[type="text"][name^="d-"], textarea[name^="d-"]').forEach(campo => ligarSugestaoDeLinks(campo, titulos));
+  form.querySelectorAll('input[type="text"][name^="d-"], textarea[name^="d-"], textarea[name="regras"], .texto-habilidade, input[type="text"][data-valor]')
+    .forEach(campo => ligarSugestaoDeLinks(campo, titulos));
+
+  // Regras: escolher entre os textos de um tipo (ex.: os domínios da classe, entre os cadastrados na aba Domínios)
+  const escolhas = [...form.querySelectorAll('select[data-de-tipo]')];
+  if (escolhas.length) {
+    banco.listarArtigos(secao).then(lista => {
+      for (const select of escolhas) {
+        const tipo = select.dataset.deTipo;
+        const opcoes = lista.filter(t => t.detalhes?.tipo === tipo && t.id !== artigo?.id);
+        const atual = select.value;
+        select.innerHTML = '<option value="">—</option>' + opcoes
+          .map(t => `<option value="${esc(t.id)}"${t.id === atual ? ' selected' : ''}>${esc(t.titulo)}</option>`).join('');
+        const aba = s.campos.find(c => c.abas)?.abas?.[tipo] || tipo;
+        select.closest('.campo').querySelector('.dica-escolha').textContent = opcoes.length
+          ? '' : `Nenhum cadastrado ainda: crie na aba “${aba}”.`;
+      }
+    }).catch(() => {});
+  }
+
+  // Subclasses: cada uma é um quadro com nome e as cartas; "+ Adicionar subclasse" cria outro
+  form.querySelectorAll('.lista-subclasses').forEach(lista => {
+    const tipo = lista.closest('[data-regras-tipo]').dataset.regrasTipo;
+    const cartas = s.regras.porTipo[tipo].subclasses;
+    function adicionarSubclasse(sub = { nome: '', cartas: [] }) {
+      lista.insertAdjacentHTML('beforeend', `
+        <div class="subclasse editavel" data-subclasse>
+          <div class="cabeca-subclasse">
+            <input type="text" class="nome-subclasse" maxlength="120" placeholder="Nome da subclasse" value="${esc(sub.nome)}">
+            <button type="button" class="pequeno perigo" data-tirar-subclasse title="Tirar esta subclasse">✕</button>
+          </div>
+          <div class="cartas-subclasse">${cartas.map((rotulo, i) => `
+            <label class="carta-regra editavel">${esc(rotulo)}
+              <textarea class="carta-subclasse" rows="6" placeholder="O que a carta faz…">${esc(sub.cartas[i] || '')}</textarea>
+            </label>`).join('')}
+          </div>
+        </div>`);
+      const nova = lista.lastElementChild;
+      nova.querySelectorAll('textarea').forEach(campo => ligarSugestaoDeLinks(campo, titulos));
+      return nova;
+    }
+    if (tipo === tipoSalvo) regrasIniciais.subclasses.forEach(sub => adicionarSubclasse(sub));
+    lista.parentElement.querySelector('.btn-subclasse').addEventListener('click', () => {
+      adicionarSubclasse().querySelector('.nome-subclasse').focus();
+      alterado = true;
+    });
+    lista.addEventListener('click', e => {
+      const subclasse = e.target.closest('[data-tirar-subclasse]')?.closest('[data-subclasse]');
+      if (!subclasse) return;
+      const escrita = [...subclasse.querySelectorAll('input, textarea')].some(c => c.value.trim());
+      if (escrita && !confirm('Tirar esta subclasse e tudo o que está escrito nela?')) return;
+      subclasse.remove();
+      alterado = true;
+    });
+  });
 
   // Escrever / Pré-visualizar
   const abas = form.querySelectorAll('.abas-editor button[data-aba]');
@@ -893,6 +1121,37 @@ function editar(tituloInicial = '') {
     const capitalId = ehPaisAgora() ? form.capital.value || null : null;
     // Só o personagem tem organizações (nos outros, o campo nem vai para o banco)
     const extra = secao === 'personagens' ? { organizacoes: organizacoesAgora.map(o => o.id) } : {};
+    // Regras: só vão as partes do tipo escolhido (as de outro tipo ficam só no histórico)
+    if (s.regras) {
+      const tipo = detalhes.tipo || '';
+      const p = s.regras.porTipo?.[tipo] || {};
+      const doTipo = seletor => [...form.querySelectorAll(`[data-regras-tipo="${CSS.escape(tipo)}"] ${seletor}`)];
+      const valores = {};
+      for (const c of p.valores || []) {
+        const lidos = doTipo(`[data-valor="${c.chave}"]`).map(el => el.value.trim());
+        const escolhidos = lidos.filter(Boolean);
+        if (c.numero && lidos[0] && !/^-?\d+$/.test(lidos[0])) {
+          erro.textContent = `${c.rotulo} precisa ser um número inteiro`;
+          return Promise.resolve(false);
+        }
+        if (c.escolher && new Set(escolhidos).size < escolhidos.length) {
+          erro.textContent = `Em ${c.rotulo}, escolha opções diferentes`;
+          return Promise.resolve(false);
+        }
+        valores[c.chave] = c.escolher ? escolhidos : c.quantos ? lidos : lidos[0];
+      }
+      extra.regras = escreverRegras({
+        texto: p.texto === false ? '' : form.regras.value,
+        valores,
+        habilidades: doTipo('[data-habilidade]').map(el => ({
+          nome: el.querySelector('.nome-habilidade').value, texto: el.querySelector('.texto-habilidade').value,
+        })),
+        subclasses: doTipo('[data-subclasse]').map(el => ({
+          nome: el.querySelector('.nome-subclasse').value,
+          cartas: [...el.querySelectorAll('.carta-subclasse')].map(t => t.value),
+        })),
+      });
+    }
     const dados = { secao, titulo: form.titulo.value, subtitulo: form.subtitulo.value, conteudo: textarea.value, detalhes, paisId, ...extra };
 
     return semCliqueDuplo(form, async () => {
@@ -904,6 +1163,14 @@ function editar(tituloInicial = '') {
         if (pontoPendente) {
           await banco.posicionar(artigo.id, pontoPendente.x, pontoPendente.y);
           pontoPendente = null;
+        }
+        if (pontoCidadePendente) {
+          await banco.posicionarNaCidade(artigo.id, pontoCidadePendente.cidade, pontoCidadePendente.x, pontoCidadePendente.y);
+          pontoCidadePendente = null;
+        }
+        if (mapaLocalNovo !== undefined) {
+          await banco.salvarMapaLocal(artigo.id, mapaLocalNovo || null);
+          mapaLocalNovo = undefined;
         }
         if (temPonto && (estiloPonto.cor !== (artigo.mapaCor || '') || estiloPonto.icone !== (artigo.mapaIcone || ''))) {
           await banco.estilizarPonto(artigo.id, estiloPonto.cor, estiloPonto.icone);
@@ -1001,7 +1268,9 @@ async function desenharHistorico() {
       const caixa = botao.closest('li').querySelector('.versao');
       if (caixa.hidden) {
         caixa.innerHTML = (v.subtitulo ? `<p class="subtitulo">${esc(v.subtitulo)}</p>` : '')
-          + (v.conteudo ? renderizarTexto(v.conteudo, titulos) : '<p class="sem-texto">(sem texto)</p>');
+          + (v.conteudo ? renderizarTexto(v.conteudo, titulos) : '<p class="sem-texto">(sem texto)</p>')
+          + (v.regras ? `<section class="bloco-campo bloco-regras"><h2>${esc(SECOES[secao].regras?.rotulo || 'Regras')}</h2>${
+            regrasHtml(v.regras, SECOES[secao].regras, titulos, v.detalhes?.tipo)}</section>` : '');
       }
       caixa.hidden = !caixa.hidden;
       botao.textContent = caixa.hidden ? 'Ver' : 'Esconder';

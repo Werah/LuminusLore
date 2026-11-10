@@ -5,10 +5,14 @@
 const embutido = window.self !== window.top;
 if (embutido) document.documentElement.classList.add('embutido');
 
-// Conta para o mapa qual texto o painel está mostrando (null = nenhum: lista, texto inexistente...)
+// Conta para o mapa qual texto o painel está mostrando (null = nenhum: lista, texto inexistente...).
+// mapaLocal (a cidade tem mapa) e cidadeId (é um local de uma cidade) decidem o mapa da cidade.
 function avisarMapa(artigo) {
   if (!embutido) return;
-  const dados = artigo ? { id: artigo.id, titulo: artigo.titulo, secao: artigo.secao } : null;
+  const dados = artigo ? {
+    id: artigo.id, titulo: artigo.titulo, secao: artigo.secao,
+    mapaLocal: artigo.mapaLocal || '', cidadeId: artigo.cidadeId || null, paisId: artigo.paisId || null,
+  } : null;
   window.parent.postMessage({ tipo: 'artigo', artigo: dados }, location.origin);
 }
 
@@ -320,6 +324,92 @@ function tipoDoLiderado(a) {
   if (ehPais(a)) return 'país';
   if (a.detalhes?.categoria === 'Vilarejo' || a.mapaIcone === 'vila') return 'vila';
   return 'cidade';
+}
+
+// ---------- Regras (seção Sistema) ----------
+
+// A coluna "regras" guarda texto simples ou, quando tem partes (ver "regras" em secoes.js), um JSON:
+// { "v": 1, "texto": "...", "valores": { "evasao": "9", "dominios": [id, id], "perguntas": ["", "", ""] },
+//   "habilidades": [{ "nome", "texto" }], "subclasses": [{ "nome", "cartas": ["...", ...] }] }
+function lerRegras(bruto) {
+  const regras = { texto: String(bruto || ''), valores: {}, habilidades: [], subclasses: [] };
+  if (regras.texto.startsWith('{"v":')) {
+    try {
+      const r = JSON.parse(regras.texto);
+      return { texto: r.texto || '', valores: r.valores || {}, habilidades: r.habilidades || [], subclasses: r.subclasses || [] };
+    } catch {
+      // Não é o JSON das partes: fica como texto
+    }
+  }
+  return regras;
+}
+
+// O contrário de lerRegras: sem partes preenchidas, fica só o texto ('' se nada foi escrito)
+function escreverRegras({ texto = '', valores = {}, habilidades = [], subclasses = [] }) {
+  const semFim = v => String(v || '').replace(/\s+$/, '');
+  const limpo = v => (Array.isArray(v) ? v.map(x => String(x || '').trim()) : String(v || '').trim());
+  const vals = Object.fromEntries(Object.entries(valores).map(([k, v]) => [k, limpo(v)])
+    .filter(([, v]) => (Array.isArray(v) ? v.some(Boolean) : v)));
+  const habs = habilidades.map(h => ({ nome: String(h.nome || '').trim(), texto: semFim(h.texto) }));
+  const subs = subclasses
+    .map(s => ({ nome: String(s.nome || '').trim(), cartas: s.cartas.map(semFim) }))
+    .filter(s => s.nome || s.cartas.some(Boolean));
+  const temVals = Object.keys(vals).length > 0;
+  const temHabs = habs.some(h => h.nome || h.texto);
+  if (!temVals && !temHabs && !subs.length) return semFim(texto);
+  return JSON.stringify({
+    v: 1, texto: semFim(texto), ...(temVals && { valores: vals }), ...(temHabs && { habilidades: habs }), ...(subs.length && { subclasses: subs }),
+  });
+}
+
+// Tudo o que está escrito nas regras, junto (para a busca)
+function textoDasRegras(bruto) {
+  const r = lerRegras(bruto);
+  return [r.texto, ...Object.values(r.valores).flat(), ...r.habilidades.flatMap(h => [h.nome, h.texto]),
+    ...r.subclasses.flatMap(s => [s.nome, ...s.cartas])].join(' ');
+}
+
+// As regras na página, na ordem: valores (Evasão, Domínios...), habilidades lado a lado, o texto e
+// cada subclasse com as cartas dela. "tipo" escolhe as partes (porTipo em secoes.js).
+function regrasHtml(bruto, config, titulos, tipo) {
+  const r = lerRegras(bruto);
+  const parte = config?.porTipo?.[tipo] || {};
+  const texto = v => (v ? renderizarTexto(v, titulos) : '<p class="sem-texto">—</p>');
+  const textoPorId = id => [...titulos.values()].find(t => t.id === id);
+
+  const valores = (parte.valores || []).map(c => {
+    const v = r.valores[c.chave];
+    if (c.escolher) {
+      const links = (v || []).map(textoPorId).filter(Boolean).map(t => linkWiki(t.link, t.titulo, titulos));
+      return links.length ? `<div><dt>${esc(c.rotulo)}</dt><dd>${links.join(' · ')}</dd></div>` : '';
+    }
+    if (c.quantos) {
+      const itens = (v || []).filter(Boolean);
+      return itens.length ? `<div class="valor-largo"><dt>${esc(c.rotulo)}</dt><dd><ul>${
+        itens.map(i => `<li>${linhaComLinks(i, titulos)}</li>`).join('')}</ul></dd></div>` : '';
+    }
+    return v ? `<div${c.numero ? '' : ' class="valor-largo"'}><dt>${esc(c.rotulo)}</dt><dd>${linhaComLinks(v, titulos)}</dd></div>` : '';
+  }).join('');
+
+  const habs = r.habilidades.some(h => h.nome || h.texto) ? r.habilidades : [];
+  return (valores ? `<dl class="valores-regras">${valores}</dl>` : '')
+    + (habs.length ? `
+      <div class="regras-gemeas">${habs.map((h, i) => {
+        const fixo = parte.habilidades?.[i];
+        const cabeca = fixo
+          ? `<h3>${esc(fixo)}</h3>${h.nome ? `<h4>${esc(h.nome)}</h4>` : ''}`
+          : `<h3>${esc(h.nome || `Habilidade ${i + 1}`)}</h3>`;
+        return `<div class="carta-regra">${cabeca}${texto(h.texto)}</div>`;
+      }).join('')}
+      </div>` : '')
+    + (r.texto ? renderizarTexto(r.texto, titulos) : '')
+    + r.subclasses.map(s => `
+      <div class="subclasse">
+        <h3>${esc(s.nome || 'Subclasse')}</h3>
+        <div class="cartas-subclasse">${s.cartas.map((c, i) => `
+          <div class="carta-regra"><h4>${esc(parte.subclasses?.[i] || `Carta ${i + 1}`)}</h4>${texto(c)}</div>`).join('')}
+        </div>
+      </div>`).join('');
 }
 
 // Começo do texto sem a marcação, para mostrar nos cards.
@@ -699,12 +789,99 @@ function ligarCampoImagens(raiz, semImagem, molduras) {
   };
 }
 
+// ---------- Seções escondidas ----------
+
+// Seções que saem da home e dos menus (escolhidas na engrenagem da home; valem para o site todo).
+// Os textos delas continuam existindo e abrem pelos links. A lista fica também no navegador, para
+// as páginas já abrirem sem elas; logo depois confere no banco e redesenha se mudou.
+const CHAVE_OCULTAS = 'luminus-secoes-ocultas';
+let secoesOcultas = [];
+try {
+  secoesOcultas = JSON.parse(localStorage.getItem(CHAVE_OCULTAS) || '[]');
+} catch {
+  // Sem armazenamento: começa com todas e espera o banco
+}
+const secaoVisivel = chave => !secoesOcultas.includes(chave);
+const ouvintesOcultas = new Set();
+
+// fn() é chamada quando muda o que está escondido (para redesenhar a home, o menu...)
+function aoMudarSecoesOcultas(fn) {
+  ouvintesOcultas.add(fn);
+}
+
+function definirSecoesOcultas(lista) {
+  if (JSON.stringify(lista) === JSON.stringify(secoesOcultas)) return;
+  secoesOcultas = lista;
+  try {
+    localStorage.setItem(CHAVE_OCULTAS, JSON.stringify(lista));
+  } catch {
+    // Sem armazenamento: só não fica guardado para a próxima página
+  }
+  ouvintesOcultas.forEach(fn => fn());
+}
+
+banco.secoesOcultas().then(definirSecoesOcultas).catch(() => {});
+
+// Popup da engrenagem da home: marcar quais seções aparecem
+async function abrirEscolhaDeSecoes() {
+  definirSecoesOcultas(await banco.secoesOcultas().catch(() => secoesOcultas)); // parte do que está no banco
+  const dialog = document.createElement('dialog');
+  dialog.innerHTML = `
+    <form method="dialog">
+      <h2>Seções da home</h2>
+      <p class="dica-secoes">Vale para o site todo. As desmarcadas saem da home e dos menus, mas os
+        textos delas continuam existindo e abrem pelos links.</p>
+      <div class="lista-secoes-home">${Object.entries(SECOES).map(([chave, s]) => `
+        <label class="opcao-secao" style="--cor: ${s.cor}">
+          <input type="checkbox" name="secao" value="${chave}"${secaoVisivel(chave) ? ' checked' : ''}>
+          <span class="icone">${s.icone}</span> ${esc(s.nome)}
+        </label>`).join('')}
+      </div>
+      <p class="erro"></p>
+      <div class="botoes-modal">
+        <button type="button" class="btn-fechar">Cancelar</button>
+        <button type="submit" class="primario">Salvar</button>
+      </div>
+    </form>
+  `;
+  document.body.appendChild(dialog);
+  const form = dialog.querySelector('form');
+  const erro = dialog.querySelector('.erro');
+  dialog.addEventListener('close', () => dialog.remove());
+  dialog.querySelector('.btn-fechar').addEventListener('click', () => dialog.close());
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const marcadas = [...form.querySelectorAll('input[name="secao"]:checked')].map(c => c.value);
+    if (!marcadas.length) {
+      erro.textContent = 'Deixe pelo menos uma seção.';
+      return;
+    }
+    const ocultas = Object.keys(SECOES).filter(chave => !marcadas.includes(chave));
+    semCliqueDuplo(form, async () => {
+      try {
+        await banco.esconderSecoes(ocultas);
+        definirSecoesOcultas(ocultas);
+        dialog.close();
+      } catch (err) {
+        erro.textContent = err.message;
+      }
+    });
+  });
+  dialog.showModal();
+}
+
 // ---------- Topo e conta ----------
 
-// Monta a barra do topo; "atual" é o nome da seção ativa
-function montarTopo(atual) {
-  const nav = Object.values(SECOES)
-    .map(s => `<a href="${paginaDaSecao(s)}" class="${s.nome === atual ? 'ativo' : ''}">${s.nome}</a>`)
+// Monta a barra do topo; "atual" é o nome da seção ativa. Com "engrenagem" (a home), mostra a
+// engrenagem que escolhe as seções. Se as seções escondidas mudarem, monta de novo.
+let topoMontado = null;
+aoMudarSecoesOcultas(() => { if (topoMontado) montarTopo(...topoMontado); });
+
+function montarTopo(atual, { engrenagem = false } = {}) {
+  topoMontado = [atual, { engrenagem }];
+  const nav = Object.entries(SECOES)
+    .filter(([chave]) => secaoVisivel(chave))
+    .map(([, s]) => `<a href="${paginaDaSecao(s)}" class="${s.nome === atual ? 'ativo' : ''}">${s.nome}</a>`)
     .join('');
   if (ehVisitante) {
     // Visitante: sem conta; "Entrar com conta" volta para o login
@@ -716,8 +893,12 @@ function montarTopo(atual) {
   }
   document.getElementById('topo').innerHTML = `
     <a class="marca" href="home.html">✦ LuminusLore</a>
-    <nav>${nav}<a href="#" class="conta" id="btn-conta" title="Sua conta">Conta</a><a href="#" onclick="sair(); return false;">Sair</a></nav>
+    <nav>${nav}${engrenagem ? '<a href="#" class="btn-engrenagem" id="btn-engrenagem" title="Escolher as seções da home" aria-label="Escolher as seções da home">⚙︎</a>' : ''}<a href="#" class="conta" id="btn-conta" title="Sua conta">Conta</a><a href="#" onclick="sair(); return false;">Sair</a></nav>
   `;
+  document.getElementById('btn-engrenagem')?.addEventListener('click', e => {
+    e.preventDefault();
+    abrirEscolhaDeSecoes();
+  });
   const btnConta = document.getElementById('btn-conta');
   btnConta.addEventListener('click', e => {
     e.preventDefault();

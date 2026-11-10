@@ -50,7 +50,7 @@ $$;
 -- ficam em "detalhes" e são definidos em js/secoes.js.
 create table if not exists public.artigos (
   id            text primary key default gen_random_uuid()::text,
-  secao         text not null check (secao in ('mundo', 'historia', 'personagens', 'panteao', 'organizacoes')),
+  secao         text not null check (secao in ('mundo', 'historia', 'personagens', 'panteao', 'organizacoes', 'sistema')),
   titulo        text not null check (length(trim(titulo)) > 0),
   subtitulo     text not null default '',
   conteudo      text not null default '',
@@ -111,6 +111,22 @@ alter table public.artigos drop constraint if exists artigos_organizacoes_nao_e_
 alter table public.artigos add constraint artigos_organizacoes_nao_e_ele_mesmo check (not (id = any (organizacoes)));
 create index if not exists artigos_organizacoes on public.artigos using gin (organizacoes);
 
+-- Mapa de uma cidade (ou vilarejo): imagem no Storage ('' = sem mapa). Com mapa, abrir a cidade mostra
+-- o mapa dela por cima do mapa do mundo. Os locais dela guardam cidade_id e a posição no mapa da
+-- cidade (cidade_x/cidade_y: fração da imagem, como mapa_x/mapa_y). Excluir a cidade solta os locais.
+alter table public.artigos add column if not exists mapa_local text not null default '';
+alter table public.artigos add column if not exists cidade_id text references public.artigos(id) on delete set null;
+alter table public.artigos add column if not exists cidade_x double precision check (cidade_x between 0 and 1);
+alter table public.artigos add column if not exists cidade_y double precision check (cidade_y between 0 and 1);
+alter table public.artigos drop constraint if exists artigos_cidade_nao_e_ela_mesma;
+alter table public.artigos add constraint artigos_cidade_nao_e_ela_mesma check (cidade_id is null or cidade_id <> id);
+create index if not exists artigos_cidade on public.artigos (cidade_id);
+
+-- Regras (seção Sistema): texto que só os membros leem. O visitante não recebe esta coluna (ela fica
+-- fora das permissões e da vitrine dele, mais abaixo); recebe só "tem_regras", para mostrar o aviso 🔒.
+alter table public.artigos add column if not exists regras text not null default '';
+alter table public.artigos add column if not exists tem_regras boolean generated always as (regras <> '') stored;
+
 -- Antes era uma organização só (organizacao_id): passa para a lista e a coluna antiga sai.
 -- A vitrine do visitante usa a coluna antiga, então sai junto (é criada de novo mais abaixo).
 do $$
@@ -129,7 +145,7 @@ $$;
 -- este arquivo antes de existirem História e Personagens.
 alter table public.artigos drop constraint if exists artigos_secao_check;
 alter table public.artigos add constraint artigos_secao_check
-  check (secao in ('mundo', 'historia', 'personagens', 'panteao', 'organizacoes'));
+  check (secao in ('mundo', 'historia', 'personagens', 'panteao', 'organizacoes', 'sistema'));
 
 -- Título não se repete (é por ele que os links [[Título]] encontram o texto), com uma exceção:
 -- um país (ponto de estrela) pode ter o mesmo nome de um outro texto, como a capital dele.
@@ -160,6 +176,8 @@ alter table public.revisoes add column if not exists excluido     boolean not nu
 alter table public.revisoes add column if not exists excluido_por text not null default '';
 alter table public.revisoes add column if not exists excluido_em  timestamptz;
 alter table public.revisoes add column if not exists linha        jsonb;
+-- As regras de cada versão (só membros leem, como na tabela de textos)
+alter table public.revisoes add column if not exists regras       text not null default '';
 
 -- Nome de quem escreveu/editou/excluiu, guardado junto com o e-mail (o banco preenche).
 -- É o que o visitante vê: ele não tem acesso às colunas de e-mail.
@@ -192,8 +210,8 @@ begin
     new.criado_por := old.criado_por;
     new.criado_em := old.criado_em;
     new.criado_por_nome := coalesce(nullif(public.nome_de(old.criado_por), ''), old.criado_por_nome);
-    if (old.secao, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.pais_id, old.organizacoes)
-       is not distinct from (new.secao, new.titulo, new.subtitulo, new.conteudo, new.detalhes, new.pais_id, new.organizacoes) then
+    if (old.secao, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.pais_id, old.organizacoes, old.regras)
+       is not distinct from (new.secao, new.titulo, new.subtitulo, new.conteudo, new.detalhes, new.pais_id, new.organizacoes, new.regras) then
       new.editado_por := old.editado_por;
       new.atualizado_em := old.atualizado_em;
       new.editado_por_nome := coalesce(nullif(public.nome_de(old.editado_por), ''), old.editado_por_nome);
@@ -219,11 +237,11 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  if (old.titulo, old.subtitulo, old.conteudo, old.detalhes)
-     is distinct from (new.titulo, new.subtitulo, new.conteudo, new.detalhes) then
-    insert into public.revisoes (artigo_id, titulo, subtitulo, conteudo, detalhes, editado_por, editado_em,
+  if (old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.regras)
+     is distinct from (new.titulo, new.subtitulo, new.conteudo, new.detalhes, new.regras) then
+    insert into public.revisoes (artigo_id, titulo, subtitulo, conteudo, detalhes, regras, editado_por, editado_em,
                                  editado_por_nome)
-    values (old.id, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.editado_por, old.atualizado_em,
+    values (old.id, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.regras, old.editado_por, old.atualizado_em,
             old.editado_por_nome);
   end if;
   return new;
@@ -279,9 +297,9 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.revisoes (artigo_id, titulo, subtitulo, conteudo, detalhes, editado_por, editado_em,
+  insert into public.revisoes (artigo_id, titulo, subtitulo, conteudo, detalhes, regras, editado_por, editado_em,
                                excluido, excluido_por, excluido_em, linha, editado_por_nome, excluido_por_nome)
-  values (old.id, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.editado_por, old.atualizado_em,
+  values (old.id, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.regras, old.editado_por, old.atualizado_em,
           true, public.email_atual(), now(), to_jsonb(old), old.editado_por_nome, public.nome_de(public.email_atual()));
   return old;
 end
@@ -336,11 +354,13 @@ begin
   if exists (select 1 from public.artigos where id = l->>'id') then
     raise exception 'Esse texto já foi restaurado.';
   end if;
-  insert into public.artigos (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, pais_id, lider_id, capital_id, organizacoes,
-                              mapa_x, mapa_y, mapa_cor, mapa_icone, imagem_x, imagem_y, imagens_extras)
+  insert into public.artigos (id, secao, titulo, subtitulo, conteudo, detalhes, regras, imagem, pais_id, lider_id, capital_id, organizacoes,
+                              mapa_x, mapa_y, mapa_cor, mapa_icone, imagem_x, imagem_y, imagens_extras,
+                              mapa_local, cidade_id, cidade_x, cidade_y)
   values (
     l->>'id', l->>'secao', l->>'titulo',
     coalesce(l->>'subtitulo', ''), coalesce(l->>'conteudo', ''), coalesce(l->'detalhes', '{}'::jsonb),
+    coalesce(l->>'regras', ''),
     coalesce(l->>'imagem', ''),
     (select id from public.artigos where id = l->>'pais_id'),
     (select id from public.artigos where id = l->>'lider_id'),
@@ -353,7 +373,12 @@ begin
     (l->>'mapa_x')::double precision, (l->>'mapa_y')::double precision,
     coalesce(l->>'mapa_cor', ''), coalesce(l->>'mapa_icone', ''),
     coalesce((l->>'imagem_x')::real, 50), coalesce((l->>'imagem_y')::real, 50),
-    coalesce(l->'imagens_extras', '[]'::jsonb)
+    coalesce(l->'imagens_extras', '[]'::jsonb),
+    -- O mapa da cidade volta junto; um local só volta para a cidade se ela ainda existir
+    coalesce(l->>'mapa_local', ''),
+    (select id from public.artigos where id = l->>'cidade_id'),
+    case when exists (select 1 from public.artigos where id = l->>'cidade_id') then (l->>'cidade_x')::double precision end,
+    case when exists (select 1 from public.artigos where id = l->>'cidade_id') then (l->>'cidade_y')::double precision end
   );
   return l->>'id';
 end
@@ -393,6 +418,7 @@ grant execute on function public.nome_de(text) to authenticated;
 -- O botão "Entrar como visitante" usa a chave pública, sem login. O visitante:
 --   * só pode LER, e só as colunas abaixo (nada de e-mail: criado_por, editado_por, excluido_por
 --     e a cópia "linha" ficam de fora; no lugar ele vê os nomes, *_nome);
+--   * não lê as regras (coluna "regras", nos textos e no histórico): só "tem_regras", se existem;
 --   * não pode criar, editar nem excluir nada (não tem essas permissões);
 --   * não vê a lista de membros.
 drop policy if exists visitantes on public.artigos;
@@ -402,7 +428,7 @@ create policy visitantes on public.revisoes for select to anon using (true);
 
 grant select (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, criado_em, atualizado_em,
               mapa_x, mapa_y, mapa_cor, mapa_icone, pais_id, lider_id, capital_id, organizacoes, imagem_x, imagem_y, imagens_extras,
-              criado_por_nome, editado_por_nome)
+              criado_por_nome, editado_por_nome, tem_regras, mapa_local, cidade_id, cidade_x, cidade_y)
   on public.artigos to anon;
 grant select (id, artigo_id, titulo, subtitulo, conteudo, detalhes, editado_em, excluido, excluido_em,
               editado_por_nome, excluido_por_nome)
@@ -418,7 +444,8 @@ select
   a.criado_em,
   a.editado_por_nome as editado_por,
   a.atualizado_em, a.mapa_x, a.mapa_y, a.mapa_cor, a.mapa_icone, a.pais_id, a.lider_id,
-  a.imagem_x, a.imagem_y, a.imagens_extras, a.capital_id, a.organizacoes
+  a.imagem_x, a.imagem_y, a.imagens_extras, a.capital_id, a.organizacoes, a.tem_regras,
+  a.mapa_local, a.cidade_id, a.cidade_x, a.cidade_y
 from public.artigos a;
 
 create or replace view public.revisoes_publico with (security_invoker = true) as
@@ -444,6 +471,27 @@ where public.nome_de(editado_por) <> '' and editado_por_nome <> public.nome_de(e
 
 update public.revisoes set excluido_por_nome = public.nome_de(excluido_por)
 where public.nome_de(excluido_por) <> '' and excluido_por_nome <> public.nome_de(excluido_por);
+
+-- ---------- Configurações do site ----------
+
+-- Uma linha só, com o que vale para o site todo.
+--   secoes_ocultas: seções escondidas da home e dos menus (escolhidas na engrenagem da home).
+--                   Os textos delas continuam existindo e abrem pelos links.
+-- Todos leem (o visitante também); só membros mudam.
+create table if not exists public.site (
+  id             boolean primary key default true check (id),
+  secoes_ocultas text[] not null default '{}'
+);
+insert into public.site (id) values (true) on conflict (id) do nothing;
+
+alter table public.site enable row level security;
+drop policy if exists membros on public.site;
+drop policy if exists visitantes on public.site;
+create policy membros on public.site for all to authenticated using (public.eh_membro()) with check (public.eh_membro());
+create policy visitantes on public.site for select to anon using (true);
+revoke all on public.site from anon, authenticated;
+grant select on public.site to anon, authenticated;
+grant update (secoes_ocultas) on public.site to authenticated;
 
 -- ---------- Imagens (Storage) ----------
 

@@ -263,9 +263,11 @@ function card(a, cor) {
 }
 
 const passaNaBusca = (a, termo) => !termo
-  || normalizar(`${a.titulo} ${a.subtitulo} ${Object.values(detalhesComPadrao(chave, a.detalhes)).join(' ')} ${a.conteudo}`).includes(termo);
+  || normalizar(`${a.titulo} ${a.subtitulo} ${Object.values(detalhesComPadrao(chave, a.detalhes)).join(' ')} ${a.conteudo} ${textoDasRegras(a.regras)}`).includes(termo);
 
 function desenhar() {
+  // Com abas, o texto novo já nasce com o valor da aba aberta (ex.: Classes → Tipo: Classe)
+  if (abas) btnNovo.href = `artigo.html?secao=${chave}&d-${campoFiltro.chave}=${encodeURIComponent(filtro)}`;
   const termo = normalizar(busca.value.trim());
   const ordenar = l => (ordem.value === 'recentes' ? l.sort((a, b) => b.atualizadoEm.localeCompare(a.atualizadoEm)) : l);
   const itens = ordenar(artigos.filter(a => !ehPasta(a) && (!filtro || valorFiltro(a) === filtro) && passaNoPais(a)));
