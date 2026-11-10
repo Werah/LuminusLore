@@ -163,6 +163,8 @@ input, select, textarea {
 }
 
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--ouro); }
+/* Campo preenchido sozinho (ex.: "Fica em" de um local de cidade) e país travado */
+input.so-leitura, select:disabled { opacity: 0.7; cursor: not-allowed; }
 
 textarea { resize: vertical; min-height: 70px; }
 

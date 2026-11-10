@@ -118,12 +118,12 @@ function desenharTexto() {
     ? (artigo.organizacoes || []).map(id => [...titulos.values()].find(t => t.id === id)).filter(Boolean)
     : [];
   const det = detalhesComPadrao(secao, artigo.detalhes); // ex.: personagem sem tipo aparece como NPC
+  // Local de uma cidade: "Fica em" é sempre a cidade (com o nome de agora, mesmo se ela mudou de nome)
+  if (cidadeDoLocal) for (const c of s.campos.filter(c => c.daCidade)) det[c.chave] = `[[${cidadeDoLocal.link}]]`;
   const preenchidos = s.campos.filter(c => det[c.chave] && campoVisivel(c, det, artigo));
   const ficha = (lider ? `<div><dt>${esc(cargo)}</dt><dd>${linkWiki(lider.link, lider.titulo, titulos)}</dd></div>` : '')
     + (capital ? `<div><dt>Capital</dt><dd>${linkWiki(capital.link, capital.titulo, titulos)}</dd></div>` : '')
     + (pais && !ehPaisOuReino(artigo) && !s.semPais ? `<div id="linha-pais"><dt>${esc(s.rotuloPais || 'País')}</dt><dd>${linkWiki(pais.link, pais.titulo, titulos)}</dd></div>` : '')
-    // Local de uma cidade (marcado no mapa dela)
-    + (cidadeDoLocal ? `<div><dt>Cidade</dt><dd>${linkWiki(cidadeDoLocal.link, cidadeDoLocal.titulo, titulos)}</dd></div>` : '')
     + (organizacoes.length ? `<div><dt>${organizacoes.length > 1 ? 'Organizações' : 'Organização'}</dt><dd>${
       organizacoes.map(o => linkWiki(o.link, o.titulo, titulos)).join('<br>')}</dd></div>` : '')
     // Cidade: "Capital de" é preenchido depois (carregarCapitalDe), procurando o país que aponta para ela
@@ -522,6 +522,9 @@ function editar(tituloInicial = '') {
     ? { cidade: params.get('cidade'), x: Number(params.get('cx')), y: Number(params.get('cy')) }
     : null;
   let pontoCidadePendente = pontoCidadeNovo;
+  // Local de uma cidade (já ligado a ela ou nascendo no mapa dela): o país é o da cidade (não muda
+  // aqui; o banco garante), "Fica em" é a cidade e a categoria tem as opções de local de cidade
+  const cidadeDoTexto = artigo?.cidadeId || pontoCidadeNovo?.cidade || null;
   // Mapa da cidade escolhido aqui: undefined = não mudou, '' = tirar, data URL = imagem nova
   let mapaLocalNovo;
 
@@ -552,9 +555,17 @@ function editar(tituloInicial = '') {
           <textarea name="d-${c.chave}" rows="4" placeholder="${esc(c.dica || '')}">${esc(valor)}</textarea>
         </label>`;
     }
+    if (c.daCidade && cidadeDoTexto) {
+      return `
+        <label data-campo="${c.chave}">${esc(c.rotulo)}
+          <input type="text" name="d-${c.chave}" value="${esc(`[[${nomeDoTexto(cidadeDoTexto)}]]`)}" readonly
+                 class="so-leitura" title="Num local de cidade, é sempre a cidade">
+        </label>`;
+    }
     if (c.opcoes) {
       // Valor antigo que saiu da lista de opções continua aparecendo
-      const opcoes = !valor || c.opcoes.includes(valor) ? c.opcoes : [...c.opcoes, valor];
+      const lista = (cidadeDoTexto && c.opcoesNaCidade) || c.opcoes;
+      const opcoes = !valor || lista.includes(valor) ? lista : [...lista, valor];
       return `
         <label data-campo="${c.chave}">${esc(c.rotulo)}
           <select name="d-${c.chave}">
@@ -599,12 +610,13 @@ function editar(tituloInicial = '') {
         </label>
         <label class="campo-do-pais">${esc(s.rotuloPais || 'País')}
           <span class="campo-pais">
-            <select name="pais">
+            <select name="pais"${cidadeDoTexto ? ' disabled' : ''}>
               <option value="">Nenhum (região neutra)</option>
               ${a.paisId ? `<option value="${esc(a.paisId)}" selected>Carregando…</option>` : ''}
             </select>
             <span class="amostra-cor" title="Cor que o ponto herda no mapa" hidden></span>
           </span>
+          ${cidadeDoTexto ? `<small class="dica">O mesmo de ${esc(nomeDoTexto(cidadeDoTexto) || 'cidade')}.</small>` : ''}
         </label>
         <label class="campo-lider" hidden><span class="rotulo-lider">Líder</span>
           <span class="campo-busca">

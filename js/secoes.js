@@ -11,6 +11,8 @@
 //   padrao: valor quando ninguém escolheu (vale também para os textos antigos, sem o campo)
 //   resumo: o card da lista mostra este campo embaixo do nome (e não o começo do texto principal)
 //   noCard: o valor aparece também como selo no card da lista (ex.: Vivo / Morto)
+//   opcoesNaCidade: as opções no lugar de "opcoes" quando o texto é um local de uma cidade (marcado no mapa dela)
+//   daCidade: num local de uma cidade, o campo é sempre a cidade (preenchido sozinho, sem editar)
 //   nomes:  nome que aparece no site para uma opção, ex.: { 'Era Moderna': 'Era Moderna // Era de Darion' }
 //           (o valor guardado continua o da lista de opções)
 // Nos campos da ficha também dá para usar [[links]] para outros textos.
@@ -109,8 +111,12 @@ const SECOES = {
     campos: [
       // Texto livre: as formas de governo variam demais para uma lista
       { chave: 'governo', rotulo: 'Forma de Governo', dica: 'Ex.: Monarquia, Teocracia, Conselho de Magos', soPais: true },
-      { chave: 'categoria', rotulo: 'Categoria', opcoes: ['País/Reino', 'Cidade', 'Vilarejo', 'Forte', 'Floresta', 'Perigo', 'Montanha', 'Corpo de Água', 'Outro'] },
-      { chave: 'localizacao', rotulo: 'Fica em', dica: 'Ex.: [[Solarium]]' },
+      {
+        chave: 'categoria', rotulo: 'Categoria',
+        opcoes: ['País/Reino', 'Cidade', 'Vilarejo', 'Forte', 'Floresta', 'Perigo', 'Montanha', 'Corpo de Água', 'Outro'],
+        opcoesNaCidade: ['Loja', 'Templo', 'Mansão', 'Guarnição', 'Porto', 'Fazenda', 'Guilda', 'Salão de Reuniões', 'Outros'],
+      },
+      { chave: 'localizacao', rotulo: 'Fica em', dica: 'Ex.: [[Solarium]]', daCidade: true },
     ],
   },
   historia: {

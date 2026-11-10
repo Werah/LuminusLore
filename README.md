@@ -198,9 +198,14 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
   - a barra embaixo move o ponto ou tira o texto da cidade; o ✕ (ou Esc) fecha, e o botão
     *🏙 Mapa da cidade* na barra do mapa do mundo abre de novo;
   - abrir um local de outra cidade troca para o mapa dela; abrir qualquer outra coisa fecha.
-  Os locais ficam ligados à cidade (`cidade_id`, com a posição em `cidade_x`/`cidade_y`), aparecem em
-  *Locais importantes* na página dela, e a ficha do local mostra *Cidade*. Sem mapa, nada disso abre
-  (mas os locais que já existiam continuam ligados). Mover um ponto não conta como edição do texto.
+  Os locais ficam ligados à cidade (`cidade_id`, com a posição em `cidade_x`/`cidade_y`) e aparecem em
+  *Locais importantes* na página dela. Sem mapa, nada disso abre (mas os locais que já existiam
+  continuam ligados). Mover um ponto não conta como edição do texto.
+- **Locais de cidade:** o *País* é sempre o da cidade (travado no editor, e o banco garante: se a
+  cidade mudar de país, os locais vão junto, sem contar como edição deles); *Fica em* é sempre a
+  cidade (preenchido sozinho); e a *Categoria* tem opções próprias (Loja, Templo, Mansão, Guarnição,
+  Porto, Fazenda, Guilda, Salão de Reuniões, Outros: `opcoesNaCidade` em `js/secoes.js`). Tirado da
+  cidade, o local volta a ser um texto comum.
 
 ### Trocar a imagem do mapa
 

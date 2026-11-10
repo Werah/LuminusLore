@@ -210,8 +210,11 @@ begin
     new.criado_por := old.criado_por;
     new.criado_em := old.criado_em;
     new.criado_por_nome := coalesce(nullif(public.nome_de(old.criado_por), ''), old.criado_por_nome);
-    if (old.secao, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.pais_id, old.organizacoes, old.regras)
-       is not distinct from (new.secao, new.titulo, new.subtitulo, new.conteudo, new.detalhes, new.pais_id, new.organizacoes, new.regras) then
+    -- O país de um local de cidade vem da cidade (cidade_define_pais): mudar ali não é editar o local
+    if (old.secao, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.organizacoes, old.regras,
+        case when new.cidade_id is null then old.pais_id end)
+       is not distinct from (new.secao, new.titulo, new.subtitulo, new.conteudo, new.detalhes, new.organizacoes, new.regras,
+        case when new.cidade_id is null then new.pais_id end) then
       new.editado_por := old.editado_por;
       new.atualizado_em := old.atualizado_em;
       new.editado_por_nome := coalesce(nullif(public.nome_de(old.editado_por), ''), old.editado_por_nome);
@@ -271,6 +274,50 @@ create trigger soltar_capital
   after update of pais_id on public.artigos
   for each row when (old.pais_id is distinct from new.pais_id)
   execute function public.soltar_capital();
+
+-- Local de uma cidade (cidade_id) fica sempre no país dela, e a cidade que muda de país leva os
+-- locais junto. Não conta como edição dos locais (carimbar_artigo ignora o país deles).
+-- O nome faz esta regra rodar depois de carimbar_artigo (as regras "before" vão em ordem alfabética).
+create or replace function public.cidade_define_pais()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.cidade_id is not null then
+    new.pais_id := (select pais_id from public.artigos where id = new.cidade_id);
+  end if;
+  return new;
+end
+$$;
+
+drop trigger if exists cidade_define_pais on public.artigos;
+create trigger cidade_define_pais
+  before insert or update of cidade_id, pais_id on public.artigos
+  for each row execute function public.cidade_define_pais();
+
+create or replace function public.pais_para_os_locais()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  update public.artigos set pais_id = new.pais_id
+  where cidade_id = new.id and pais_id is distinct from new.pais_id;
+  return null;
+end
+$$;
+
+drop trigger if exists pais_para_os_locais on public.artigos;
+create trigger pais_para_os_locais
+  after update of pais_id on public.artigos
+  for each row when (old.pais_id is distinct from new.pais_id)
+  execute function public.pais_para_os_locais();
+
+-- Locais que já existiam com outro país: passam para o da cidade (sem contar como edição)
+update public.artigos l set pais_id = c.pais_id
+from public.artigos c
+where l.cidade_id = c.id and l.pais_id is distinct from c.pais_id;
 
 -- Organização excluída sai da lista de organizações dos personagens
 create or replace function public.soltar_membros()
