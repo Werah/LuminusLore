@@ -229,11 +229,10 @@ function desenharFiltros() {
     `).join('');
 }
 
-// Resumo do card: o campo marcado com "resumo" (se a seção tiver um, só ele) ou o texto principal
-// e, sem ele, o primeiro campo longo preenchido (ex.: Descrição)
+// Resumo do card (resumoDoArtigo, em api.js). Com um campo "resumo" (ex.: Descrição da divindade),
+// o card mantém as quebras de linha dele.
 const campoResumo = SECAO.campos.find(c => c.resumo);
-const resumoDe = a => campoResumo ? a.detalhes[campoResumo.chave] || ''
-  : a.conteudo || SECAO.campos.filter(c => c.longo).map(c => a.detalhes[c.chave]).find(Boolean) || '';
+const resumoDe = resumoDoArtigo;
 
 // Selo "✎ Ana editando" nos cards dos textos que alguém está editando agora
 let meuEmail = '';

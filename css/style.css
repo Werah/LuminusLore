@@ -645,6 +645,28 @@ a.card { text-decoration: none; color: inherit; }
   white-space: nowrap;
 }
 
+/* Prévia de um link (mouse parado em cima): card pequeno com imagem, seção, nome e uma linha */
+.previa-link {
+  position: fixed;
+  z-index: 3000;
+  width: 280px;
+  overflow: hidden;
+  border: 1px solid var(--borda);
+  border-top: 2px solid var(--cor, var(--ouro));
+  border-radius: 10px;
+  background: var(--card);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  animation: surgir 0.15s ease;
+}
+.capa-previa { aspect-ratio: 2 / 1; overflow: hidden; }
+.capa-previa img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.capa-previa .sem-imagem .emblema { font-size: 2.4rem; }
+.corpo-previa { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px 10px; }
+.secao-previa { color: var(--cor, var(--ouro)); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.corpo-previa strong { font-family: 'Cinzel', Georgia, serif; color: var(--texto); }
+.descricao-previa { color: var(--texto-2); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 .capa { aspect-ratio: 2 / 1; overflow: hidden; }
 .capa img { width: 100%; height: 100%; object-fit: cover; display: block; }
 

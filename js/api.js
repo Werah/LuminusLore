@@ -412,6 +412,15 @@ function regrasHtml(bruto, config, titulos, tipo) {
       </div>`).join('');
 }
 
+// O que resume um texto no card: o campo marcado com "resumo" (se a seção tiver um, só ele) ou o
+// texto principal e, sem ele, o primeiro campo longo preenchido (ex.: Descrição)
+function resumoDoArtigo(a) {
+  const campos = SECOES[a.secao]?.campos || [];
+  const campoResumo = campos.find(c => c.resumo);
+  if (campoResumo) return a.detalhes?.[campoResumo.chave] || '';
+  return a.conteudo || campos.filter(c => c.longo).map(c => a.detalhes?.[c.chave]).find(Boolean) || '';
+}
+
 // Começo do texto sem a marcação, para mostrar nos cards.
 // linhas: mantém as quebras de linha (linhas em branco viram uma quebra só); senão, tudo numa linha.
 function resumoTexto(texto, tamanho = 180, linhas = false) {
@@ -788,6 +797,77 @@ function ligarCampoImagens(raiz, semImagem, molduras) {
     },
   };
 }
+
+// ---------- Prévia dos links ----------
+
+// Parar o mouse em cima de um link para outro texto (em qualquer página) mostra um card pequeno:
+// a imagem, a seção, o nome e uma linha de descrição. Só com mouse (no toque não dá para "parar em cima").
+// Os cards das listas já são o card, então ficam de fora.
+const ESPERA_PREVIA = 800; // ms parado em cima do link até aparecer
+const textosDaPrevia = new Map(); // id -> Promise do texto (cada um é buscado uma vez por página)
+let previa = null;
+let linkDaPrevia = null;
+let esperaDaPrevia = null;
+
+function idDoLink(link) {
+  try {
+    const url = new URL(link.href);
+    return url.origin === location.origin && url.pathname.endsWith('/artigo.html') ? url.searchParams.get('id') : null;
+  } catch {
+    return null;
+  }
+}
+
+function esconderPrevia() {
+  clearTimeout(esperaDaPrevia);
+  esperaDaPrevia = null;
+  linkDaPrevia = null;
+  previa?.remove();
+  previa = null;
+}
+
+async function mostrarPrevia(link, id) {
+  if (!textosDaPrevia.has(id)) textosDaPrevia.set(id, banco.buscarArtigo(id).catch(() => null));
+  const a = await textosDaPrevia.get(id);
+  const s = a && SECOES[a.secao];
+  if (!s || linkDaPrevia !== link) return; // o mouse já saiu do link
+  const descricao = a.subtitulo || resumoTexto(resumoDoArtigo(a), 200);
+  previa = document.createElement('div');
+  previa.className = 'previa-link';
+  previa.style.setProperty('--cor', s.cor);
+  previa.innerHTML = `
+    <div class="capa-previa">${a.imagem
+      ? `<img src="${banco.urlImagem(a.imagem)}" alt="" style="${posicaoDaImagem(a)}">` : emblemaSecao(a.secao)}</div>
+    <div class="corpo-previa">
+      <small class="secao-previa">${s.icone} ${esc(s.nome)}</small>
+      <strong>${esc(a.titulo)}</strong>
+      ${descricao ? `<span class="descricao-previa">${esc(descricao)}</span>` : ''}
+    </div>`;
+  document.body.appendChild(previa);
+  // Embaixo do link; sem espaço embaixo, em cima. Nunca sai da tela pelos lados.
+  const r = link.getBoundingClientRect();
+  const { offsetWidth: largura, offsetHeight: altura } = previa;
+  const top = r.bottom + 8 + altura > innerHeight - 8 ? r.top - altura - 8 : r.bottom + 8;
+  previa.style.top = `${Math.max(8, top)}px`;
+  previa.style.left = `${Math.min(Math.max(8, r.left), innerWidth - largura - 8)}px`;
+}
+
+const semMouse = matchMedia('(hover: none)'); // celular/tablet: o toque também dispara "mouseover"
+document.addEventListener('mouseover', e => {
+  if (semMouse.matches) return;
+  const link = e.target.closest?.('a[href]');
+  if (!link || link === linkDaPrevia || link.closest('.card, .topo')) return;
+  const id = idDoLink(link);
+  if (!id) return;
+  esconderPrevia();
+  linkDaPrevia = link;
+  esperaDaPrevia = setTimeout(() => mostrarPrevia(link, id), ESPERA_PREVIA);
+});
+document.addEventListener('mouseout', e => {
+  if (linkDaPrevia && !linkDaPrevia.contains(e.relatedTarget)) esconderPrevia();
+});
+document.addEventListener('pointerdown', esconderPrevia);
+addEventListener('scroll', esconderPrevia, true);
 
 // ---------- Seções escondidas ----------
 
