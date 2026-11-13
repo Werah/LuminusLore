@@ -191,6 +191,8 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
 - **Prévia dos links:** em qualquer página, parar o mouse em cima de um link para outro texto
   (uns 0,8 s, `ESPERA_PREVIA` em `js/api.js`) mostra um card pequeno com a imagem, a seção, o nome e
   uma linha de descrição (o resumo do card da lista). Só com mouse; no celular não aparece.
+  Os pontos do mapa (do mundo e das cidades) mostram o mesmo card; nos países, com a dica
+  *Clique para aproximar*.
 - **Submenu do painel:** no alto do painel de texto ficam as seções (Mundo, História, Personagens,
   Panteão, Organizações, Sistema). Clicar abre a lista daquela seção ali mesmo, sem sair do mapa.
 - **Mapa da cidade:** no editor de uma cidade ou vilarejo, o campo *Mapa da cidade* recebe uma imagem

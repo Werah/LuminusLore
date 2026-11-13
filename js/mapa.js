@@ -160,19 +160,25 @@ async function carregarPontos() {
   // Os ícones são feitos depois de juntar todos, porque a cor pode vir do país
   for (const info of pontos.values()) {
     const p = info.ponto;
-    info.marcador = L.marker(paraMapa(p.mapaX, p.mapaY), { icon: icone(p), riseOnHover: true })
-      .bindTooltip(() => dicaDoPonto(p), { direction: 'top', offset: [0, -9], className: 'dica-ponto' })
-      .on('click', () => abrir(p.id));
+    info.marcador = L.marker(paraMapa(p.mapaX, p.mapaY), { icon: icone(p), riseOnHover: true });
+    ligarPrevia(info.marcador, () => p.id, () => (ehPais(p) ? 'Clique para aproximar' : ''));
     (ehPais(p) ? camadaPaises : camadaLocais).addLayer(info.marcador);
   }
   mostrarCamadaCerta();
   desenharEstilo();
 }
 
-function dicaDoPonto(p) {
-  return `<strong>${esc(p.titulo)}</strong>${p.subtitulo ? `<br><small>${esc(p.subtitulo)}</small>` : ''}`
-    + (ehPais(p) ? '<br><small>Clique para aproximar</small>' : '');
+// Mouse parado em cima do ponto: o mesmo card da prévia dos links (agendarPrevia, em api.js).
+// Clicar abre o texto. id() e dica() são lidas na hora (o ponto pode virar país no meio do caminho).
+function ligarPrevia(marcador, id, dica = () => '') {
+  marcador
+    .on('mouseover', () => agendarPrevia(marcador.getElement(), id(), dica()))
+    .on('click', () => {
+      esconderPrevia();
+      abrir(id());
+    });
 }
+mapa.on('movestart zoomstart', esconderPrevia);
 
 // Depois de mudar cor ou ícone: refaz todos os ícones (a cor de um país passa para os pontos dele)
 // e põe cada ponto na camada certa (virar ou deixar de ser país muda quando ele aparece)
@@ -577,6 +583,7 @@ function criarMapaCidade() {
     maxBoundsViscosity: 0.9,
   });
   camadaCidade.addTo(mapaCidade);
+  mapaCidade.on('movestart zoomstart', esconderPrevia);
   new ResizeObserver(() => { if (cidade) ajustarCidade(false); }).observe(mapaCidade.getContainer());
   mapaCidade.on('click', cliqueNaCidade);
   mapaCidade.on('contextmenu', menuDaCidade);
@@ -644,10 +651,8 @@ async function carregarPontosCidade() {
   for (const info of pontosCidade.values()) {
     const p = info.ponto;
     // Sem cor própria, o ponto herda a da cidade (que, sem cor, herda a do país)
-    info.marcador = L.marker(paraCidade(p.cidadeX, p.cidadeY), { icon: icone({ ...p, paisId: id }), riseOnHover: true })
-      .bindTooltip(() => `<strong>${esc(p.titulo)}</strong>${p.subtitulo ? `<br><small>${esc(p.subtitulo)}</small>` : ''}`,
-        { direction: 'top', offset: [0, -9], className: 'dica-ponto' })
-      .on('click', () => abrir(p.id));
+    info.marcador = L.marker(paraCidade(p.cidadeX, p.cidadeY), { icon: icone({ ...p, paisId: id }), riseOnHover: true });
+    ligarPrevia(info.marcador, () => p.id);
     camadaCidade.addLayer(info.marcador);
   }
   destacarCidade();

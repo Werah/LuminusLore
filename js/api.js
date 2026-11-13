@@ -802,7 +802,8 @@ function ligarCampoImagens(raiz, semImagem, molduras) {
 
 // Parar o mouse em cima de um link para outro texto (em qualquer página) mostra um card pequeno:
 // a imagem, a seção, o nome e uma linha de descrição. Só com mouse (no toque não dá para "parar em cima").
-// Os cards das listas já são o card, então ficam de fora.
+// Os cards das listas já são o card, então ficam de fora. Os pontos do mapa usam o mesmo card
+// (agendarPrevia, chamado pelo mapa).
 const ESPERA_PREVIA = 800; // ms parado em cima do link até aparecer
 const textosDaPrevia = new Map(); // id -> Promise do texto (cada um é buscado uma vez por página)
 let previa = null;
@@ -826,7 +827,16 @@ function esconderPrevia() {
   previa = null;
 }
 
-async function mostrarPrevia(link, id) {
+// Mostra a prévia do texto "id" junto do elemento (um link, um ponto do mapa...) depois da espera.
+// Ela some quando o mouse sai do elemento. "dica" é uma linha a mais embaixo (ex.: "Clique para aproximar").
+function agendarPrevia(elemento, id, dica = '') {
+  if (semMouse.matches || elemento === linkDaPrevia) return;
+  esconderPrevia();
+  linkDaPrevia = elemento;
+  esperaDaPrevia = setTimeout(() => mostrarPrevia(elemento, id, dica), ESPERA_PREVIA);
+}
+
+async function mostrarPrevia(link, id, dica = '') {
   if (!textosDaPrevia.has(id)) textosDaPrevia.set(id, banco.buscarArtigo(id).catch(() => null));
   const a = await textosDaPrevia.get(id);
   const s = a && SECOES[a.secao];
@@ -842,6 +852,7 @@ async function mostrarPrevia(link, id) {
       <small class="secao-previa">${s.icone} ${esc(s.nome)}</small>
       <strong>${esc(a.titulo)}</strong>
       ${descricao ? `<span class="descricao-previa">${esc(descricao)}</span>` : ''}
+      ${dica ? `<small class="dica-previa">${esc(dica)}</small>` : ''}
     </div>`;
   document.body.appendChild(previa);
   // Embaixo do link; sem espaço embaixo, em cima. Nunca sai da tela pelos lados.
@@ -854,14 +865,10 @@ async function mostrarPrevia(link, id) {
 
 const semMouse = matchMedia('(hover: none)'); // celular/tablet: o toque também dispara "mouseover"
 document.addEventListener('mouseover', e => {
-  if (semMouse.matches) return;
   const link = e.target.closest?.('a[href]');
-  if (!link || link === linkDaPrevia || link.closest('.card, .topo')) return;
+  if (!link || link.closest('.card, .topo')) return;
   const id = idDoLink(link);
-  if (!id) return;
-  esconderPrevia();
-  linkDaPrevia = link;
-  esperaDaPrevia = setTimeout(() => mostrarPrevia(link, id), ESPERA_PREVIA);
+  if (id) agendarPrevia(link, id);
 });
 document.addEventListener('mouseout', e => {
   if (linkDaPrevia && !linkDaPrevia.contains(e.relatedTarget)) esconderPrevia();
