@@ -7,7 +7,13 @@
 exigirLogin();
 montarTopo('Mundo');
 
-const MAPA = SECOES.mundo.mapa;
+// O mapa principal é o do site (pasta mapa/, em secoes.js); os outros vêm do banco (tabela "mapas",
+// adicionados pelo botão "+ Mapa"). Cada ponto é de um mapa (mapaId; vazio = o principal), e só os
+// pontos do mapa aberto aparecem. id '' = o principal. "mapaAtual" é lido pela lista do Mundo no painel.
+const PRINCIPAL = { ...SECOES.mundo.mapa, id: '', nome: SECOES.mundo.mapa.nome || 'Mapa principal' };
+let MAPA = PRINCIPAL;
+let mapasExtras = [];
+window.mapaAtual = '';
 const ZOOM_FOCO = -1; // zoom mínimo ao centralizar num ponto (0 = imagem no tamanho original)
 const painel = document.getElementById('painel');
 const barra = document.getElementById('barra-mapa');
@@ -24,7 +30,7 @@ let carregamento = 0;    // para ignorar respostas atrasadas de carregarPontos()
 
 // Coordenadas em pixels da imagem: [0, 0] é o canto de baixo à esquerda e
 // [altura, largura] o de cima à direita (no Leaflet o "y" cresce para cima).
-const limites = L.latLngBounds([0, 0], [MAPA.altura, MAPA.largura]);
+let limites = L.latLngBounds([0, 0], [MAPA.altura, MAPA.largura]);
 
 const mapa = L.map('mapa', {
   crs: L.CRS.Simple,
@@ -38,10 +44,18 @@ const mapa = L.map('mapa', {
   maxBoundsViscosity: 0.9,
 });
 
-// A prévia leve aparece na hora; a imagem grande aparece por cima quando termina de carregar
-L.imageOverlay(MAPA.previa, limites).addTo(mapa);
-const completa = L.imageOverlay(MAPA.imagem, limites, { opacity: 0, className: 'mapa-completo' }).addTo(mapa);
-completa.on('load', () => completa.setOpacity(1));
+// A prévia leve aparece na hora; a imagem grande aparece por cima quando termina de carregar.
+// As imagens do principal estão no site; as dos outros mapas, no Storage.
+let fundo = [];
+function desenharFundo() {
+  fundo.forEach(camada => camada.remove());
+  const url = arquivo => (MAPA.id ? banco.urlImagem(arquivo) : arquivo);
+  fundo = MAPA.previa ? [L.imageOverlay(url(MAPA.previa), limites).addTo(mapa)] : [];
+  const completa = L.imageOverlay(url(MAPA.imagem), limites, { opacity: 0, className: 'mapa-completo' }).addTo(mapa);
+  completa.on('load', () => completa.setOpacity(1));
+  fundo.push(completa);
+}
+desenharFundo();
 
 // Dois níveis de detalhe: com o mapa afastado só aparecem os países (ehPais, em api.js);
 // chegando mais perto, os países somem e aparecem todos os outros pontos.
@@ -150,13 +164,17 @@ function icone(p) {
 
 // ---------- Pontos ----------
 
+let mapaDoPonto = new Map(); // id do texto -> id do mapa em que está o ponto dele ('' = o principal)
+
 async function carregarPontos() {
   const meu = ++carregamento;
   const lista = await banco.pontosDoMapa();
   if (meu !== carregamento) return; // já pediram de novo enquanto este carregava
   camadaPaises.clearLayers();
   camadaLocais.clearLayers();
-  pontos = new Map(lista.map(p => [p.id, { ponto: p }]));
+  mapaDoPonto = new Map(lista.map(p => [p.id, p.mapaId || '']));
+  // Só os pontos do mapa aberto
+  pontos = new Map(lista.filter(p => (p.mapaId || '') === MAPA.id).map(p => [p.id, { ponto: p }]));
   // Os ícones são feitos depois de juntar todos, porque a cor pode vir do país
   for (const info of pontos.values()) {
     const p = info.ponto;
@@ -250,7 +268,7 @@ async function soltarSelecao() {
 async function posicionar(id, x, y) {
   const primeiraVez = x !== null && !pontos.has(id);
   try {
-    await banco.posicionar(id, x, y);
+    await banco.posicionar(id, x, y, MAPA.id); // no mapa aberto (se o ponto estava em outro, passa para este)
     if (primeiraVez) editandoEstilo = true;
     await carregarPontos();
   } catch (e) {
@@ -415,10 +433,155 @@ mapa.on('contextmenu', e => {
     if (provisorio) provisorio.remove();
     provisorio = L.marker(e.latlng, { icon: icone({ secao: 'mundo' }), interactive: false }).addTo(mapa);
     provisorio.getElement()?.classList.add('provisorio');
-    painel.src = `artigo.html?secao=mundo&x=${x.toFixed(5)}&y=${y.toFixed(5)}`;
+    painel.src = `artigo.html?secao=mundo&x=${x.toFixed(5)}&y=${y.toFixed(5)}${MAPA.id ? `&mapa=${encodeURIComponent(MAPA.id)}` : ''}`;
   });
   L.popup({ closeButton: false, className: 'popup-mapa' }).setLatLng(e.latlng).setContent(menu).openOn(mapa);
 });
+
+// ---------- Outros mapas do Mundo ----------
+
+// No canto de cima à esquerda (embaixo do zoom): a escolha do mapa e, para quem tem conta,
+// "+ Mapa" (adiciona um) e 🗑 (remove o aberto, se não tiver pontos). O mapa aberto fica guardado
+// no navegador; abrir um texto com ponto em outro mapa troca para ele.
+const CHAVE_MAPA = 'luminus-mapa-aberto';
+let seletorMapa = null;
+
+const SeletorMapa = L.Control.extend({
+  options: { position: 'topleft' },
+  onAdd() {
+    seletorMapa = L.DomUtil.create('div', 'seletor-mapa');
+    L.DomEvent.disableClickPropagation(seletorMapa);
+    L.DomEvent.disableScrollPropagation(seletorMapa);
+    seletorMapa.addEventListener('change', e => trocarMapa(e.target.value));
+    seletorMapa.addEventListener('click', e => {
+      const acao = e.target.closest('button')?.dataset.acao;
+      if (acao === 'adicionar-mapa') abrirAdicionarMapa();
+      if (acao === 'remover-mapa') removerMapaAberto();
+    });
+    desenharSeletorMapa();
+    return seletorMapa;
+  },
+});
+
+function desenharSeletorMapa() {
+  if (!seletorMapa) return;
+  const todos = [PRINCIPAL, ...mapasExtras];
+  seletorMapa.hidden = ehVisitante && todos.length < 2; // visitante só escolhe se tiver mais de um
+  seletorMapa.innerHTML = `
+    <select title="Mapa aberto" aria-label="Mapa aberto">${todos.map(m => `
+      <option value="${esc(m.id)}"${m.id === MAPA.id ? ' selected' : ''}>${esc(m.nome)}</option>`).join('')}
+    </select>
+    ${ehVisitante ? '' : `
+      <button type="button" class="pequeno" data-acao="adicionar-mapa" title="Adicionar um mapa">+ Mapa</button>
+      ${MAPA.id ? '<button type="button" class="pequeno perigo" data-acao="remover-mapa" title="Remover este mapa">🗑</button>' : ''}`}`;
+}
+
+new SeletorMapa().addTo(mapa);
+
+async function trocarMapa(id) {
+  const novo = id ? mapasExtras.find(m => m.id === id) : PRINCIPAL;
+  if (!novo || novo.id === MAPA.id) return;
+  MAPA = novo;
+  window.mapaAtual = novo.id;
+  try {
+    localStorage.setItem(CHAVE_MAPA, novo.id);
+  } catch {
+    // Sem armazenamento: só não lembra da próxima vez
+  }
+  limites = L.latLngBounds([0, 0], [MAPA.altura, MAPA.largura]);
+  mapa.setMaxBounds(limites.pad(0.25));
+  desenharFundo();
+  marcando = false;
+  editandoEstilo = false;
+  provisorio?.remove();
+  provisorio = null;
+  vistaEscolhida = false; // mostra o mapa novo inteiro
+  ajustarTamanho();
+  desenharSeletorMapa();
+  desenharEstilo();
+  try {
+    await carregarPontos();
+  } catch {
+    // Sem os pontos, o mapa fica sem eles
+  }
+  desenharBarra();
+  // A lista do Mundo no painel mostra só os países do mapa aberto
+  try {
+    if (painel.contentWindow.location.pathname.endsWith(SECOES.mundo.pagina)) painel.contentWindow.desenhar?.();
+  } catch {
+    // Página de fora (não deveria acontecer)
+  }
+}
+
+function abrirAdicionarMapa() {
+  const dialog = document.createElement('dialog');
+  dialog.innerHTML = `
+    <form method="dialog">
+      <h2>Adicionar mapa</h2>
+      <p class="dica-secoes">Outro continente, outro plano, uma região em detalhe… Cada mapa tem os seus pontos:
+        trocar de mapa mostra só os pontos dele.</p>
+      <label>Nome
+        <input type="text" name="nome" required maxlength="80" placeholder="Ex.: Ilhas do Norte">
+      </label>
+      <label>Imagem
+        <input type="file" name="imagem" accept="image/*" required>
+      </label>
+      <small class="dica">A imagem é reduzida no navegador (até 5000 px) antes de enviar.</small>
+      <p class="erro"></p>
+      <div class="botoes-modal">
+        <button type="button" class="btn-fechar">Cancelar</button>
+        <button type="submit" class="primario">Adicionar</button>
+      </div>
+    </form>`;
+  document.body.appendChild(dialog);
+  const form = dialog.querySelector('form');
+  const erro = dialog.querySelector('.erro');
+  dialog.addEventListener('close', () => dialog.remove());
+  dialog.querySelector('.btn-fechar').addEventListener('click', () => dialog.close());
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    erro.textContent = '';
+    semCliqueDuplo(form, async () => {
+      try {
+        const arquivo = form.imagem.files[0];
+        const imagem = await redimensionarImagem(arquivo, 5000);
+        const previa = await redimensionarImagem(arquivo, 1200);
+        const { largura, altura } = await tamanhoDaImagem(imagem);
+        const novo = await banco.criarMapa(form.nome.value, imagem, previa, largura, altura);
+        mapasExtras.push(novo);
+        dialog.close();
+        await trocarMapa(novo.id);
+      } catch (err) {
+        erro.textContent = err.message;
+      }
+    });
+  });
+  dialog.showModal();
+}
+
+async function removerMapaAberto() {
+  if (!MAPA.id || !confirm(`Remover o mapa “${MAPA.nome}”? Só dá para remover um mapa sem pontos; os textos não mudam.`)) return;
+  try {
+    await banco.removerMapa(MAPA);
+    mapasExtras = mapasExtras.filter(m => m.id !== MAPA.id);
+    await trocarMapa('');
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+// Os outros mapas; depois, o que estava aberto da última vez (se a página não abriu num texto)
+const mapasCarregados = banco.mapas().then(lista => {
+  mapasExtras = lista;
+  desenharSeletorMapa();
+  let guardado = '';
+  try {
+    guardado = localStorage.getItem(CHAVE_MAPA) || '';
+  } catch {
+    // Sem armazenamento: começa no principal
+  }
+  if (guardado && !new URLSearchParams(location.search).has('id')) return trocarMapa(guardado);
+}).catch(() => {}); // banco sem a tabela de mapas (schema.sql antigo): só o principal
 
 // ---------- Divisão entre mapa e texto ----------
 
@@ -843,6 +1006,9 @@ window.addEventListener('message', async e => {
   desenharBarra();
   try {
     await carregarPontos();
+    // Texto com ponto em outro mapa: troca para o mapa dele
+    await mapasCarregados;
+    if (atual && mapaDoPonto.has(atual.id) && mapaDoPonto.get(atual.id) !== MAPA.id) await trocarMapa(mapaDoPonto.get(atual.id));
   } catch {
     return; // sem os pontos, só não centraliza
   }

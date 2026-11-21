@@ -513,8 +513,9 @@ function editar(tituloInicial = '') {
 
   // Texto novo criado com o botão direito no mapa: já nasce com o ponto.
   // Fica pendente até ser gravado: se falhar, salvar de novo tenta outra vez.
+  // (&mapa=: o ponto é num dos outros mapas do Mundo; sem ele, no principal)
   const pontoNovo = !artigo && params.has('x') && params.has('y')
-    ? { x: Number(params.get('x')), y: Number(params.get('y')) }
+    ? { x: Number(params.get('x')), y: Number(params.get('y')), mapa: params.get('mapa') || null }
     : null;
   let pontoPendente = pontoNovo;
   // Local novo criado com o botão direito no mapa de uma cidade (&cidade=&cx=&cy=): já nasce lá
@@ -1173,7 +1174,7 @@ function editar(tituloInicial = '') {
           ? await banco.salvarArtigo(artigo.id, dados, artigo.atualizadoEm)
           : await banco.criarArtigo(dados);
         if (pontoPendente) {
-          await banco.posicionar(artigo.id, pontoPendente.x, pontoPendente.y);
+          await banco.posicionar(artigo.id, pontoPendente.x, pontoPendente.y, pontoPendente.mapa);
           pontoPendente = null;
         }
         if (pontoCidadePendente) {

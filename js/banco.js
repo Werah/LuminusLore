@@ -274,11 +274,36 @@ const banco = (() => {
 
   // ---------- Mapa ----------
 
-  // Textos que têm ponto no mapa (de qualquer seção)
+  // Textos que têm ponto no mapa (de qualquer seção e de todos os mapas: mapaId null = o principal)
   async function pontosDoMapa() {
-    const linhas = await rodar(de('artigos').select('id, titulo, subtitulo, secao, pais_id, mapa_x, mapa_y, mapa_cor, mapa_icone')
+    const linhas = await rodar(de('artigos').select('id, titulo, subtitulo, secao, pais_id, mapa_x, mapa_y, mapa_cor, mapa_icone, mapa_id')
       .not('mapa_x', 'is', null).not('mapa_y', 'is', null));
     return linhas.map(doBanco);
+  }
+
+  // Os mapas do Mundo além do principal, na ordem em que foram adicionados
+  async function mapas() {
+    return (await rodar(de('mapas').select('*').order('criado_em'))).map(doBanco);
+  }
+
+  // Adiciona um mapa: a imagem e a prévia (data URLs, já reduzidas no navegador) vão para o Storage
+  async function criarMapa(nome, imagem, previa, largura, altura) {
+    if (!String(nome || '').trim()) throw new Error('Dê um nome ao mapa');
+    const arquivo = await enviarArquivo('mapa', imagem);
+    const arquivoPrevia = await enviarArquivo('mapa-previa', previa);
+    const linha = await rodar(de('mapas').insert({ nome: nome.trim(), imagem: arquivo, previa: arquivoPrevia, largura, altura })
+      .select('*').single());
+    return doBanco(linha);
+  }
+
+  // Remove um mapa sem pontos (o banco também não deixa remover um com pontos)
+  async function removerMapa(mapa) {
+    const comPonto = await rodar(de('artigos').select('id').eq('mapa_id', mapa.id).not('mapa_x', 'is', null).limit(1));
+    if (comPonto.length) throw new Error('Este mapa ainda tem pontos. Tire os pontos dele (ou ponha em outro mapa) antes de remover.');
+    const { error } = await de('mapas').delete().eq('id', mapa.id);
+    if (error?.code === '23503') throw new Error('Este mapa ainda tem pontos. Tire os pontos dele (ou ponha em outro mapa) antes de remover.');
+    if (error) throw new Error(erroAmigavel(error));
+    await apagarArquivos([mapa.imagem, mapa.previa]);
   }
 
   // Países: os textos cujo ponto no mapa tem o ícone de estrela. "cor" já é a cor que os pontos herdam.
@@ -384,9 +409,10 @@ const banco = (() => {
   }
 
   // Coloca, move ou (com x/y null) tira o texto do mapa. x/y em fração da imagem (0 a 1).
-  async function posicionar(id, x, y) {
+  // mapaId: em qual mapa do Mundo (null = o principal).
+  async function posicionar(id, x, y, mapaId = null) {
     const dentro = v => (v === null ? null : Math.min(1, Math.max(0, Number(v))));
-    await rodar(de('artigos').update({ mapa_x: dentro(x), mapa_y: dentro(y) }).eq('id', id));
+    await rodar(de('artigos').update({ mapa_x: dentro(x), mapa_y: dentro(y), mapa_id: x === null ? null : mapaId || null }).eq('id', id));
   }
 
   // Cor (#rrggbb, ou '' para a cor da seção) e ícone (ou '' para só o ponto) do ponto no mapa
@@ -481,7 +507,7 @@ const banco = (() => {
 
   return {
     titulos, listarArtigos, buscarArtigo, criarArtigo, salvarArtigo, excluirArtigo, excluidos, restaurarExcluido,
-    revisoes, mencoes, pontosDoMapa, paises, lugaresDoPais, posicionar, estilizarPonto, nomes, urlImagem, salvarImagens,
+    revisoes, mencoes, pontosDoMapa, mapas, criarMapa, removerMapa, paises, lugaresDoPais, posicionar, estilizarPonto, nomes, urlImagem, salvarImagens,
     enviarImagemDoTexto, buscarPersonagens, buscarLideraveis, liderados, definirLider, definirCapital, capitalDe,
     buscarOrganizacoes, membrosDe, secoesOcultas, esconderSecoes, locaisDaCidade, posicionarNaCidade, salvarMapaLocal,
     idIntroducao, criarIntroducao,

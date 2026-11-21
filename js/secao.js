@@ -385,7 +385,18 @@ const ICONE_GLOBO = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" str
 // Pastas: uma por país (A–Z) e "Outros" no fim. Buscando ou filtrando, só aparecem as pastas com
 // resultado (ou o país cujo nome bate com a busca), já abertas.
 function desenharPastas(itens, termo) {
-  const paises = artigos.filter(ehPasta).sort((a, b) => a.titulo.localeCompare(b.titulo));
+  // Dentro do mapa (painel), só os países do mapa aberto e o que pertence a eles; textos de países
+  // (ou com ponto) de outro mapa somem. Fora do mapa, todos.
+  let mapaAberto;
+  try {
+    mapaAberto = embutido ? window.parent.mapaAtual : undefined;
+  } catch {
+    // Sem acesso à página de fora: mostra todos
+  }
+  const noMapa = p => mapaAberto === undefined || (p.mapaId || '') === mapaAberto;
+  const deOutroMapa = new Set(artigos.filter(a => ehPasta(a) && !noMapa(a)).map(a => a.id));
+  itens = itens.filter(a => !deOutroMapa.has(a.paisId) && (a.paisId || a.mapaX == null || noMapa(a)));
+  const paises = artigos.filter(a => ehPasta(a) && noMapa(a)).sort((a, b) => a.titulo.localeCompare(b.titulo));
   const idsPaises = new Set(paises.map(p => p.id));
   const procurando = !!termo || !!filtro;
 
@@ -405,6 +416,7 @@ function desenharPastas(itens, termo) {
   lista.innerHTML = mostrar.map(g => {
     const cor = g.pais ? g.pais.mapaCor || SECAO.cor : '#6b6478';
     const aberta = procurando || !fechadas.has(g.id);
+    const cards = cardsComCidades(g.itens, cor, procurando);
     return `
       <section class="pasta${aberta ? ' aberta' : ''}${g.pais ? '' : ' outros'}" style="--cor: ${cor}">
         <div class="pasta-cabeca" data-pasta="${esc(g.id)}" role="button" tabindex="0" aria-expanded="${aberta}">
@@ -417,12 +429,69 @@ function desenharPastas(itens, termo) {
         </div>
         <div class="pasta-itens">
           ${g.itens.length
-            ? `<div class="grade">${g.itens.map(a => card(a, cor)).join('')}</div>`
+            ? `<div class="grade">${cards}</div>`
             : `<p class="pasta-vazia">${g.pais ? 'Nenhum lugar neste país ainda. No editor de um ponto de interesse, escolha este país no campo “País”.' : 'Nada aqui.'}</p>`}
         </div>
       </section>
     `;
   }).join('');
+}
+
+// Cidades dentro das pastas: os locais de uma cidade (marcados no mapa dela) não ficam soltos no país,
+// ficam dentro do card da cidade. Fechada, a cidade é um card com "▾ N locais"; aberta, vira uma faixa
+// (como a do país, menor) com os cards dos locais embaixo. Buscando, as cidades com resultado abrem.
+const CHAVE_CIDADES = 'luminus-cidades-abertas';
+let cidadesAbertas = new Set(); // fica guardado no navegador
+try {
+  cidadesAbertas = new Set(JSON.parse(localStorage.getItem(CHAVE_CIDADES) || '[]'));
+} catch {
+  // Sem armazenamento: todas fechadas
+}
+
+function cardsComCidades(itens, cor, procurando) {
+  const porId = new Map(artigos.map(a => [a.id, a]));
+  const locais = new Map(); // id da cidade -> os locais dela (entre os itens)
+  for (const a of itens) {
+    if (a.cidadeId && porId.has(a.cidadeId)) locais.set(a.cidadeId, [...(locais.get(a.cidadeId) || []), a]);
+  }
+  const html = itens.filter(a => !(a.cidadeId && porId.has(a.cidadeId)))
+    .map(a => (locais.has(a.id) ? cidade(a, locais.get(a.id), cor, procurando) : card(a, cor)));
+  // Cidade que não passou na busca, mas com locais que passaram: aparece para mostrar os locais
+  for (const [id, dela] of locais) {
+    if (!itens.some(a => a.id === id)) html.push(cidade(porId.get(id), dela, cor, procurando));
+  }
+  return html.join('');
+}
+
+function cidade(c, locais, cor, procurando) {
+  if (!procurando && !cidadesAbertas.has(c.id)) {
+    return card(c, cor).replace('</a>', `
+      <span class="abrir-cidade" data-cidade="${esc(c.id)}" role="button" title="Mostrar os locais de ${esc(c.titulo)}">
+        ▾ ${locais.length} ${locais.length === 1 ? 'local' : 'locais'}
+      </span></a>`);
+  }
+  const desenho = ICONES_MAPA[c.mapaIcone]?.svg || ICONES_MAPA.cidade.svg;
+  return `
+    <section class="subpasta" style="--cor: ${cor}">
+      <div class="subpasta-cabeca" data-cidade="${esc(c.id)}" role="button" tabindex="0" aria-expanded="true">
+        <a class="subpasta-abrir" href="artigo.html?id=${encodeURIComponent(c.id)}" title="Abrir ${esc(c.titulo)}">${desenhoSvg(desenho)}</a>
+        <h3>${esc(c.titulo)}</h3>
+        <span class="pasta-qtd">${locais.length}</span>
+        <span class="pasta-seta" aria-hidden="true">▾</span>
+      </div>
+      <div class="grade">${locais.map(a => card(a, cor)).join('')}</div>
+    </section>`;
+}
+
+function alternarCidade(id) {
+  if (cidadesAbertas.has(id)) cidadesAbertas.delete(id);
+  else cidadesAbertas.add(id);
+  try {
+    localStorage.setItem(CHAVE_CIDADES, JSON.stringify([...cidadesAbertas]));
+  } catch {
+    // Sem armazenamento: só não lembra da próxima vez
+  }
+  desenhar();
 }
 
 function alternarPasta(id) {
@@ -448,14 +517,23 @@ lista.addEventListener('click', e => {
     abrirFichaPais(info.dataset.info);
     return;
   }
+  // Seta da cidade: abre/fecha os locais dela (sem abrir o texto, já que o card é um link)
+  const daCidade = e.target.closest('[data-cidade]');
+  if (daCidade && !e.target.closest('.subpasta-abrir')) {
+    e.preventDefault();
+    if (!busca.value.trim() && !filtro) alternarCidade(daCidade.dataset.cidade);
+    return;
+  }
   const cabeca = e.target.closest('[data-pasta]');
   if (cabeca && !busca.value.trim() && !filtro) alternarPasta(cabeca.dataset.pasta);
 });
 lista.addEventListener('keydown', e => {
-  const cabeca = e.target.closest?.('[data-pasta]');
+  const cabeca = e.target.closest?.('[data-pasta], .subpasta-cabeca');
   if (!cabeca || e.target !== cabeca || (e.key !== 'Enter' && e.key !== ' ')) return;
   e.preventDefault();
-  if (!busca.value.trim() && !filtro) alternarPasta(cabeca.dataset.pasta);
+  if (busca.value.trim() || filtro) return;
+  if (cabeca.dataset.cidade) alternarCidade(cabeca.dataset.cidade);
+  else alternarPasta(cabeca.dataset.pasta);
 });
 
 filtros.addEventListener('click', e => {

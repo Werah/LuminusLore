@@ -174,6 +174,16 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
   pertencem a ele; o que não tem país fica em *Outros*. Clicar na faixa abre/fecha a pasta
   (o navegador lembra). O globo antes do nome abre a **ficha do país** por cima do mapa: capa com a
   imagem do país, texto, os lugares dele, e dá para editar ali mesmo.
+  Os locais de uma cidade (marcados no mapa dela) ficam dentro do card da cidade, não soltos no país:
+  o card mostra *▾ N locais*, e clicar abre a cidade como uma faixa menor (como a do país) com os
+  cards dos locais embaixo; clicar na faixa fecha (o navegador lembra). Buscando, as cidades com
+  resultado abrem sozinhas.
+- **Vários mapas:** no canto de cima à esquerda do mapa do Mundo fica a escolha do mapa e, para quem
+  tem conta, *+ Mapa* (nome e imagem; a imagem é reduzida até 5000 px e ganha uma prévia leve) e 🗑
+  (remove o mapa aberto, só se ele não tiver pontos). Cada ponto é de um mapa (`mapa_id`; vazio = o
+  principal, o da pasta `mapa/`): trocar de mapa mostra só os pontos dele, e a lista do Mundo no
+  painel mostra só os países dele. Abrir um texto com ponto em outro mapa troca para esse mapa, e
+  *Marcar no mapa* põe o ponto no mapa aberto. O nome do principal fica em `js/secoes.js`.
 - **Várias imagens:** no editor, *+ Adicionar imagem* (dá para escolher várias de uma vez). Cada
   miniatura tem ◀ ▶ (mudar a ordem), ⤢ (ajustar a posição) e ✕ (tirar); a primeira é a principal
   (é a que aparece na capa do país, na linha do tempo etc.). Com mais de uma, o card e a página

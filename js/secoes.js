@@ -101,7 +101,9 @@ const SECOES = {
     subtitulo: { rotulo: 'Resumo em uma linha', dica: 'Ex.: O reino das mil pontes' },
     // O Mundo abre no mapa: metade mapa, metade texto. As imagens são geradas por
     // ferramentas/preparar_mapa.py; largura/altura são as da imagem original (o script mostra).
+    // Os outros mapas (botão "+ Mapa" no mapa) ficam no banco; este é o principal.
     mapa: {
+      nome: 'Mapa principal', // como aparece na escolha do mapa
       pagina: 'mapa.html',
       imagem: 'mapa/mapa.webp',
       previa: 'mapa/mapa-previa.webp',

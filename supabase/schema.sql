@@ -44,6 +44,21 @@ as $$
   select exists (select 1 from public.membros where lower(email) = public.email_atual())
 $$;
 
+-- ---------- Mapas do Mundo ----------
+
+-- Mapas além do principal (o do site, na pasta mapa/), adicionados pelo botão do mapa do Mundo.
+-- A imagem (e uma prévia leve) ficam no Storage; largura/altura são as da imagem enviada.
+-- Um mapa só pode ser removido sem pontos nele (ver mapa_id nos textos).
+create table if not exists public.mapas (
+  id        text primary key default gen_random_uuid()::text,
+  nome      text not null check (length(trim(nome)) > 0),
+  imagem    text not null,
+  previa    text not null default '',
+  largura   integer not null check (largura > 0),
+  altura    integer not null check (altura > 0),
+  criado_em timestamptz not null default now()
+);
+
 -- ---------- Textos ----------
 
 -- Um texto de qualquer seção. Os campos extras de cada seção (categoria, domínios, sede...)
@@ -71,6 +86,9 @@ alter table public.artigos add column if not exists mapa_cor text not null defau
   check (mapa_cor = '' or mapa_cor ~ '^#[0-9a-fA-F]{6}$');
 alter table public.artigos add column if not exists mapa_icone text not null default ''
   check (mapa_icone ~ '^[a-z]{0,20}$');
+-- Em qual mapa do Mundo está o ponto (vazio = o mapa principal). Mapa com pontos não pode ser removido.
+alter table public.artigos add column if not exists mapa_id text references public.mapas(id) on delete restrict;
+create index if not exists artigos_mapa on public.artigos (mapa_id);
 
 -- País a que o texto pertence (país = texto com ponto de estrela no mapa). Vazio = região neutra.
 -- Excluir o país só solta os textos dele.
@@ -403,7 +421,7 @@ begin
   end if;
   insert into public.artigos (id, secao, titulo, subtitulo, conteudo, detalhes, regras, imagem, pais_id, lider_id, capital_id, organizacoes,
                               mapa_x, mapa_y, mapa_cor, mapa_icone, imagem_x, imagem_y, imagens_extras,
-                              mapa_local, cidade_id, cidade_x, cidade_y)
+                              mapa_local, cidade_id, cidade_x, cidade_y, mapa_id)
   values (
     l->>'id', l->>'secao', l->>'titulo',
     coalesce(l->>'subtitulo', ''), coalesce(l->>'conteudo', ''), coalesce(l->'detalhes', '{}'::jsonb),
@@ -417,7 +435,9 @@ begin
       select jsonb_array_elements_text(coalesce(l->'organizacoes', '[]'::jsonb)) as o
       union select l->>'organizacao_id'
     ) x where o is not null and exists (select 1 from public.artigos where id = o)), '{}'),
-    (l->>'mapa_x')::double precision, (l->>'mapa_y')::double precision,
+    -- O ponto só volta se o mapa dele ainda existir (o principal sempre existe)
+    case when l->>'mapa_id' is null or exists (select 1 from public.mapas where id = l->>'mapa_id') then (l->>'mapa_x')::double precision end,
+    case when l->>'mapa_id' is null or exists (select 1 from public.mapas where id = l->>'mapa_id') then (l->>'mapa_y')::double precision end,
     coalesce(l->>'mapa_cor', ''), coalesce(l->>'mapa_icone', ''),
     coalesce((l->>'imagem_x')::real, 50), coalesce((l->>'imagem_y')::real, 50),
     coalesce(l->'imagens_extras', '[]'::jsonb),
@@ -425,7 +445,8 @@ begin
     coalesce(l->>'mapa_local', ''),
     (select id from public.artigos where id = l->>'cidade_id'),
     case when exists (select 1 from public.artigos where id = l->>'cidade_id') then (l->>'cidade_x')::double precision end,
-    case when exists (select 1 from public.artigos where id = l->>'cidade_id') then (l->>'cidade_y')::double precision end
+    case when exists (select 1 from public.artigos where id = l->>'cidade_id') then (l->>'cidade_y')::double precision end,
+    (select id from public.mapas where id = l->>'mapa_id')
   );
   return l->>'id';
 end
@@ -436,10 +457,20 @@ $$;
 alter table public.membros  enable row level security;
 alter table public.artigos  enable row level security;
 alter table public.revisoes enable row level security;
+alter table public.mapas    enable row level security;
 
 drop policy if exists membros on public.membros;
 drop policy if exists membros on public.artigos;
 drop policy if exists membros on public.revisoes;
+drop policy if exists membros on public.mapas;
+drop policy if exists visitantes on public.mapas;
+
+-- Mapas do Mundo: membros adicionam e removem; todos (o visitante também) veem
+create policy membros on public.mapas for all to authenticated using (public.eh_membro()) with check (public.eh_membro());
+create policy visitantes on public.mapas for select to anon using (true);
+revoke all on public.mapas from anon, authenticated;
+grant select, insert, delete on public.mapas to authenticated;
+grant select on public.mapas to anon;
 
 -- Membros veem a lista de membros (para mostrar os nomes); só o painel do Supabase altera
 create policy membros on public.membros  for select to authenticated using (public.eh_membro());
@@ -475,7 +506,7 @@ create policy visitantes on public.revisoes for select to anon using (true);
 
 grant select (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, criado_em, atualizado_em,
               mapa_x, mapa_y, mapa_cor, mapa_icone, pais_id, lider_id, capital_id, organizacoes, imagem_x, imagem_y, imagens_extras,
-              criado_por_nome, editado_por_nome, tem_regras, mapa_local, cidade_id, cidade_x, cidade_y)
+              criado_por_nome, editado_por_nome, tem_regras, mapa_local, cidade_id, cidade_x, cidade_y, mapa_id)
   on public.artigos to anon;
 grant select (id, artigo_id, titulo, subtitulo, conteudo, detalhes, editado_em, excluido, excluido_em,
               editado_por_nome, excluido_por_nome)
@@ -492,7 +523,7 @@ select
   a.editado_por_nome as editado_por,
   a.atualizado_em, a.mapa_x, a.mapa_y, a.mapa_cor, a.mapa_icone, a.pais_id, a.lider_id,
   a.imagem_x, a.imagem_y, a.imagens_extras, a.capital_id, a.organizacoes, a.tem_regras,
-  a.mapa_local, a.cidade_id, a.cidade_x, a.cidade_y
+  a.mapa_local, a.cidade_id, a.cidade_x, a.cidade_y, a.mapa_id
 from public.artigos a;
 
 create or replace view public.revisoes_publico with (security_invoker = true) as
