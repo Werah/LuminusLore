@@ -1,7 +1,7 @@
 # LuminusLore
 
 Site para guardar os textos do cenário de fantasia e escrever junto com os amigos:
-**Mundo**, **História**, **Personagens**, **Panteão**, **Organizações** e **Sistema**.
+**Mundo**, **História**, **Personagens**, **Panteão**, **Organizações**, **Sistema** e **Campanhas**.
 
 - **Páginas:** HTML, CSS e JavaScript puro, hospedadas de graça no **GitHub Pages**.
 - **Dados, login e imagens:** no **Supabase** (Postgres na nuvem, plano grátis).
@@ -17,7 +17,8 @@ home.html                    escolha da seção
 mapa.html                    o Mundo: metade mapa, metade texto (js/mapa.js)
 mundo.html, historia.html,
 personagens.html, panteao.html,
-organizacoes.html, sistema.html lista de textos de cada seção (todas usam js/secao.js)
+organizacoes.html, sistema.html,
+campanhas.html, sessoes.html lista de textos de cada seção (todas usam js/secao.js)
 artigo.html                  ler, escrever, histórico de um texto
 mapa/                        imagens do mapa (geradas por ferramentas/preparar_mapa.py)
 css/style.css                visual
@@ -266,6 +267,20 @@ se o mapa novo for o mesmo desenho em outra resolução.
 - **Paginação:** as listas em cards (Personagens, Organizações e Divindades) mostram 20 por página.
   Buscar, filtrar ou mudar a ordem volta para a primeira página, e voltar de um texto cai na mesma
   página em que você estava. O tamanho da página é `POR_PAGINA` em `js/secao.js`.
+
+## Campanhas
+
+- **Campanha:** card com imagem e *Descrição* (o que aparece no card). A página dela tem a descrição
+  em cima e as abas *Personagens*, *Sessões* e *Inventário* (o navegador lembra a última aberta).
+- **Personagens:** os personagens de jogador ligados à campanha (campo *Campanha* no editor do
+  personagem, que só aparece em personagem de jogador). São personagens normais: aparecem também
+  na seção Personagens. *+ Novo personagem* na aba já cria um personagem de jogador da campanha.
+- **Sessões:** cada sessão é um texto (com imagem, *Sessão nº*, *Data* e o texto formatado de *O que
+  aconteceu*), em ordem de número. *+ Nova sessão* cria uma na campanha; o ← da sessão volta para
+  ela. As sessões não aparecem na home nem nos menus (`foraDoMenu` em `js/secoes.js`), mas
+  `sessoes.html` lista todas e guarda as excluídas (para restaurar).
+- **Inventário:** é o texto principal da campanha (campo *Inventário* no editor dela).
+- A ligação fica na coluna `campanha_id`. Excluir a campanha solta os personagens e as sessões.
 
 ## Sistema (Daggerheart)
 

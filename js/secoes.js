@@ -20,8 +20,27 @@
 // e linhaDoTempo (a lista vira uma linha do tempo, ordenada pelos campos era e ano),
 // filtroPais (botão para filtrar a lista pelo país / nacionalidade), semPais (sem o campo de país),
 // introducao (abas: um texto de apresentação da seção | a lista),
-// regras (um bloco de texto que só quem tem login lê; o visitante vê um aviso 🔒 no lugar).
+// regras (um bloco de texto que só quem tem login lê; o visitante vê um aviso 🔒 no lugar),
+// campanha (o texto pode ser de uma campanha: campo "Campanha" no editor; com soSe, só com certo valor),
+// foraDoMenu (a seção não aparece na home nem nos menus: os textos dela são abertos por outro lugar).
 // No campo de filtro, "abas" troca os botões de filtro por abas: { valor: 'Nome da aba' }.
+// "icone" pode ser um caractere ou um desenho SVG (como o d20 das Campanhas).
+
+// Seções que aparecem na home e nos menus (as "foraDoMenu" ficam de fora)
+const secaoNoMenu = chave => !SECOES[chave]?.foraDoMenu;
+
+// d20 (icosaedro visto de frente): o contorno, a face do meio e as arestas até a borda
+const ICONE_D20 = '<svg class="icone-svg" viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor"'
+  + ' stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">'
+  + '<path d="M12 2l8.66 5v10L12 22l-8.66-5V7z"/><path d="M12 7.5l4.5 8h-9z"/>'
+  + '<path d="M12 2v5.5M20.66 7L12 7.5M20.66 7l-4.16 8.5M20.66 17l-4.16-1.5M12 22l4.5-6.5M12 22l-4.5-6.5'
+  + 'M3.34 17l4.16-1.5M3.34 7l4.16 8.5M3.34 7L12 7.5"/></svg>';
+
+// Livro aberto (o registro das sessões)
+const ICONE_LIVRO = '<svg class="icone-svg" viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor"'
+  + ' stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">'
+  + '<path d="M2.5 5.5c3-1.2 6.2-1 9.5 1 3.3-2 6.5-2.2 9.5-1v13c-3-1.2-6.2-1-9.5 1-3.3-2-6.5-2.2-9.5-1z"/>'
+  + '<path d="M12 6.5v13"/></svg>';
 
 // Campo com "soSe" só aparece (e só é guardado) quando os outros campos têm os valores pedidos.
 // Campo com "soPais" só aparece se o texto for um país ("a" traz secao e mapaIcone; sem "a", não confere
@@ -150,6 +169,7 @@ const SECOES = {
     rotuloPais: 'Nacionalidade',
     rotuloTexto: 'História',
     filtroPais: true, // botão para filtrar pela nacionalidade
+    campanha: { soSe: { tipo: 'Personagem de jogador' } }, // personagem de jogador pode ser de uma campanha
     campos: [
       // "abas": na lista, o filtro vira abas (uma sempre escolhida) com estes nomes
       { chave: 'tipo', rotulo: 'Tipo', opcoes: ['NPC', 'Personagem de jogador'], padrao: 'NPC', abas: { 'NPC': 'NPCs', 'Personagem de jogador': 'Personagens' } },
@@ -240,6 +260,40 @@ const SECOES = {
         chave: 'tipo', rotulo: 'Tipo', opcoes: ['Ancestralidade', 'Classe', 'Comunidade', 'Domínio'],
         abas: { 'Ancestralidade': 'Ancestralidades', 'Classe': 'Classes', 'Comunidade': 'Comunidades', 'Domínio': 'Domínios' },
       },
+    ],
+  },
+  // A página de uma campanha tem as abas Personagens (os personagens de jogador dela) | Sessões |
+  // Inventário (o texto principal da campanha)
+  campanhas: {
+    nome: 'Campanhas',
+    pagina: 'campanhas.html',
+    icone: ICONE_D20,
+    cor: '#4db6ac',
+    descricao: 'As campanhas: personagens, sessões e o inventário do grupo',
+    novo: 'Nova campanha',
+    subtitulo: null,
+    semPais: true,
+    rotuloTexto: 'Inventário',
+    campos: [
+      { chave: 'descricao', rotulo: 'Descrição', longo: true, resumo: true, dica: 'Do que se trata a campanha. É o que aparece no card.' },
+    ],
+  },
+  // Sessões ficam dentro das campanhas (aba "Sessões"); a página sessoes.html lista todas
+  sessoes: {
+    nome: 'Sessões',
+    pagina: 'sessoes.html',
+    icone: ICONE_LIVRO,
+    cor: '#4db6ac',
+    descricao: 'Todas as sessões das campanhas',
+    novo: 'Nova sessão',
+    subtitulo: null,
+    semPais: true,
+    foraDoMenu: true,
+    campanha: { obrigatoria: true },
+    rotuloTexto: 'O que aconteceu',
+    campos: [
+      { chave: 'numero', rotulo: 'Sessão nº', numero: true, dica: 'Ex.: 12' },
+      { chave: 'data', rotulo: 'Data', dica: 'Ex.: 14/11/2026' },
     ],
   },
 };

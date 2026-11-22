@@ -918,7 +918,7 @@ async function abrirEscolhaDeSecoes() {
       <h2>Seções da home</h2>
       <p class="dica-secoes">Vale para o site todo. As desmarcadas saem da home e dos menus, mas os
         textos delas continuam existindo e abrem pelos links.</p>
-      <div class="lista-secoes-home">${Object.entries(SECOES).map(([chave, s]) => `
+      <div class="lista-secoes-home">${Object.entries(SECOES).filter(([chave]) => secaoNoMenu(chave)).map(([chave, s]) => `
         <label class="opcao-secao" style="--cor: ${s.cor}">
           <input type="checkbox" name="secao" value="${chave}"${secaoVisivel(chave) ? ' checked' : ''}>
           <span class="icone">${s.icone}</span> ${esc(s.nome)}
@@ -943,7 +943,7 @@ async function abrirEscolhaDeSecoes() {
       erro.textContent = 'Deixe pelo menos uma seção.';
       return;
     }
-    const ocultas = Object.keys(SECOES).filter(chave => !marcadas.includes(chave));
+    const ocultas = Object.keys(SECOES).filter(chave => secaoNoMenu(chave) && !marcadas.includes(chave));
     semCliqueDuplo(form, async () => {
       try {
         await banco.esconderSecoes(ocultas);
@@ -967,7 +967,7 @@ aoMudarSecoesOcultas(() => { if (topoMontado) montarTopo(...topoMontado); });
 function montarTopo(atual, { engrenagem = false } = {}) {
   topoMontado = [atual, { engrenagem }];
   const nav = Object.entries(SECOES)
-    .filter(([chave]) => secaoVisivel(chave))
+    .filter(([chave]) => secaoNoMenu(chave) && secaoVisivel(chave))
     .map(([, s]) => `<a href="${paginaDaSecao(s)}" class="${s.nome === atual ? 'ativo' : ''}">${s.nome}</a>`)
     .join('');
   if (ehVisitante) {

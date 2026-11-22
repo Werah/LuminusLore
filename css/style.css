@@ -381,6 +381,24 @@ body.pagina-home {
 
 .fatias .divisoria:hover::after { transform: translate(-50%, -50%) scale(1.05); }
 
+/* O mesmo, para ícone desenhado em SVG (ex.: o d20 das Campanhas), que não cabe no ::after */
+.fatias .divisoria > .icone-fundo {
+  position: absolute;
+  z-index: 0;
+  left: var(--lx);
+  top: var(--ly);
+  font-size: min(34vh, 18rem);
+  line-height: 1;
+  opacity: 0.05;
+  filter: grayscale(1);
+  transform: translate(-50%, -50%);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  pointer-events: none;
+}
+.fatias .divisoria:hover > .icone-fundo { opacity: 0.09; transform: translate(-50%, -50%) scale(1.05); }
+/* Ícone SVG no meio do texto (título da seção, botões, cards): do tamanho da letra */
+.icone-svg { display: inline-block; vertical-align: -0.125em; }
+
 .fatia-conteudo {
   position: absolute;
   left: var(--lx);
@@ -643,6 +661,18 @@ a.card { text-decoration: none; color: inherit; }
   border: 1px solid currentColor;
   color: var(--cor, var(--ouro));
   white-space: nowrap;
+}
+
+/* Campanha: abas Personagens | Sessões | Inventário, embaixo da descrição */
+.abas-campanha { margin: 24px 0 16px; }
+.painel-campanha[hidden] { display: none; }
+.acoes-campanha { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.card-sessao .numero-sessao {
+  margin: 0;
+  color: var(--cor, var(--ouro));
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* Prévia de um link (mouse parado em cima): card pequeno com imagem, seção, nome e uma linha */

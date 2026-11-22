@@ -65,7 +65,7 @@ create table if not exists public.mapas (
 -- ficam em "detalhes" e são definidos em js/secoes.js.
 create table if not exists public.artigos (
   id            text primary key default gen_random_uuid()::text,
-  secao         text not null check (secao in ('mundo', 'historia', 'personagens', 'panteao', 'organizacoes', 'sistema')),
+  secao         text not null check (secao in ('mundo', 'historia', 'personagens', 'panteao', 'organizacoes', 'sistema', 'campanhas', 'sessoes')),
   titulo        text not null check (length(trim(titulo)) > 0),
   subtitulo     text not null default '',
   conteudo      text not null default '',
@@ -140,6 +140,13 @@ alter table public.artigos drop constraint if exists artigos_cidade_nao_e_ela_me
 alter table public.artigos add constraint artigos_cidade_nao_e_ela_mesma check (cidade_id is null or cidade_id <> id);
 create index if not exists artigos_cidade on public.artigos (cidade_id);
 
+-- Campanha de um texto: os personagens de jogador dela e as sessões (a página da campanha mostra os
+-- dois). Excluir a campanha só solta os textos.
+alter table public.artigos add column if not exists campanha_id text references public.artigos(id) on delete set null;
+alter table public.artigos drop constraint if exists artigos_campanha_nao_e_ela_mesma;
+alter table public.artigos add constraint artigos_campanha_nao_e_ela_mesma check (campanha_id is null or campanha_id <> id);
+create index if not exists artigos_campanha on public.artigos (campanha_id);
+
 -- Regras (seção Sistema): texto que só os membros leem. O visitante não recebe esta coluna (ela fica
 -- fora das permissões e da vitrine dele, mais abaixo); recebe só "tem_regras", para mostrar o aviso 🔒.
 alter table public.artigos add column if not exists regras text not null default '';
@@ -163,7 +170,7 @@ $$;
 -- este arquivo antes de existirem História e Personagens.
 alter table public.artigos drop constraint if exists artigos_secao_check;
 alter table public.artigos add constraint artigos_secao_check
-  check (secao in ('mundo', 'historia', 'personagens', 'panteao', 'organizacoes', 'sistema'));
+  check (secao in ('mundo', 'historia', 'personagens', 'panteao', 'organizacoes', 'sistema', 'campanhas', 'sessoes'));
 
 -- Título não se repete (é por ele que os links [[Título]] encontram o texto), com uma exceção:
 -- um país (ponto de estrela) pode ter o mesmo nome de um outro texto, como a capital dele.
@@ -229,9 +236,9 @@ begin
     new.criado_em := old.criado_em;
     new.criado_por_nome := coalesce(nullif(public.nome_de(old.criado_por), ''), old.criado_por_nome);
     -- O país de um local de cidade vem da cidade (cidade_define_pais): mudar ali não é editar o local
-    if (old.secao, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.organizacoes, old.regras,
+    if (old.secao, old.titulo, old.subtitulo, old.conteudo, old.detalhes, old.organizacoes, old.regras, old.campanha_id,
         case when new.cidade_id is null then old.pais_id end)
-       is not distinct from (new.secao, new.titulo, new.subtitulo, new.conteudo, new.detalhes, new.organizacoes, new.regras,
+       is not distinct from (new.secao, new.titulo, new.subtitulo, new.conteudo, new.detalhes, new.organizacoes, new.regras, new.campanha_id,
         case when new.cidade_id is null then new.pais_id end) then
       new.editado_por := old.editado_por;
       new.atualizado_em := old.atualizado_em;
@@ -421,7 +428,7 @@ begin
   end if;
   insert into public.artigos (id, secao, titulo, subtitulo, conteudo, detalhes, regras, imagem, pais_id, lider_id, capital_id, organizacoes,
                               mapa_x, mapa_y, mapa_cor, mapa_icone, imagem_x, imagem_y, imagens_extras,
-                              mapa_local, cidade_id, cidade_x, cidade_y, mapa_id)
+                              mapa_local, cidade_id, cidade_x, cidade_y, mapa_id, campanha_id)
   values (
     l->>'id', l->>'secao', l->>'titulo',
     coalesce(l->>'subtitulo', ''), coalesce(l->>'conteudo', ''), coalesce(l->'detalhes', '{}'::jsonb),
@@ -446,7 +453,8 @@ begin
     (select id from public.artigos where id = l->>'cidade_id'),
     case when exists (select 1 from public.artigos where id = l->>'cidade_id') then (l->>'cidade_x')::double precision end,
     case when exists (select 1 from public.artigos where id = l->>'cidade_id') then (l->>'cidade_y')::double precision end,
-    (select id from public.mapas where id = l->>'mapa_id')
+    (select id from public.mapas where id = l->>'mapa_id'),
+    (select id from public.artigos where id = l->>'campanha_id')
   );
   return l->>'id';
 end
@@ -506,7 +514,7 @@ create policy visitantes on public.revisoes for select to anon using (true);
 
 grant select (id, secao, titulo, subtitulo, conteudo, detalhes, imagem, criado_em, atualizado_em,
               mapa_x, mapa_y, mapa_cor, mapa_icone, pais_id, lider_id, capital_id, organizacoes, imagem_x, imagem_y, imagens_extras,
-              criado_por_nome, editado_por_nome, tem_regras, mapa_local, cidade_id, cidade_x, cidade_y, mapa_id)
+              criado_por_nome, editado_por_nome, tem_regras, mapa_local, cidade_id, cidade_x, cidade_y, mapa_id, campanha_id)
   on public.artigos to anon;
 grant select (id, artigo_id, titulo, subtitulo, conteudo, detalhes, editado_em, excluido, excluido_em,
               editado_por_nome, excluido_por_nome)
@@ -523,7 +531,7 @@ select
   a.editado_por_nome as editado_por,
   a.atualizado_em, a.mapa_x, a.mapa_y, a.mapa_cor, a.mapa_icone, a.pais_id, a.lider_id,
   a.imagem_x, a.imagem_y, a.imagens_extras, a.capital_id, a.organizacoes, a.tem_regras,
-  a.mapa_local, a.cidade_id, a.cidade_x, a.cidade_y, a.mapa_id
+  a.mapa_local, a.cidade_id, a.cidade_x, a.cidade_y, a.mapa_id, a.campanha_id
 from public.artigos a;
 
 create or replace view public.revisoes_publico with (security_invoker = true) as

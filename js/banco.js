@@ -165,6 +165,11 @@ const banco = (() => {
     };
     // Organizações de que o personagem é membro (só vai quando o editor manda)
     if (b.organizacoes !== undefined) dados.organizacoes = [...new Set((b.organizacoes || []).map(String))];
+    // Campanha (personagem de jogador, sessão): só vai quando o editor manda
+    if (SECOES[secao].campanha && b.campanhaId !== undefined) {
+      dados.campanha_id = b.campanhaId || null;
+      if (SECOES[secao].campanha.obrigatoria && !dados.campanha_id) throw new Error('Escolha a campanha');
+    }
     // Regras (só nas seções que têm; o visitante nem recebe esta coluna)
     if (SECOES[secao].regras && b.regras !== undefined) dados.regras = String(b.regras ?? '').replace(/\s+$/, '');
     if (!dados.titulo) throw new Error('Título é obrigatório');
@@ -366,6 +371,21 @@ const banco = (() => {
     return linhas.map(doBanco);
   }
 
+  // ---------- Campanhas ----------
+
+  // Todas as campanhas (para o campo "Campanha" do editor)
+  async function campanhas() {
+    return (await rodar(de('artigos').select('id, titulo').eq('secao', 'campanhas').order('titulo'))).map(doBanco);
+  }
+
+  // Os textos de uma campanha (personagens de jogador e sessões), para as abas da página dela
+  async function textosDaCampanha(campanhaId) {
+    const linhas = await rodar(de('artigos')
+      .select('id, titulo, subtitulo, secao, detalhes, conteudo, imagem, imagem_x, imagem_y, imagens_extras, criado_em')
+      .eq('campanha_id', campanhaId).order('titulo'));
+    return linhas.map(doBanco);
+  }
+
   // ---------- Mapa da cidade ----------
 
   // Os locais de uma cidade (os que têm cidade_id = ela), com a posição no mapa dela.
@@ -509,7 +529,7 @@ const banco = (() => {
     titulos, listarArtigos, buscarArtigo, criarArtigo, salvarArtigo, excluirArtigo, excluidos, restaurarExcluido,
     revisoes, mencoes, pontosDoMapa, mapas, criarMapa, removerMapa, paises, lugaresDoPais, posicionar, estilizarPonto, nomes, urlImagem, salvarImagens,
     enviarImagemDoTexto, buscarPersonagens, buscarLideraveis, liderados, definirLider, definirCapital, capitalDe,
-    buscarOrganizacoes, membrosDe, secoesOcultas, esconderSecoes, locaisDaCidade, posicionarNaCidade, salvarMapaLocal,
+    buscarOrganizacoes, membrosDe, campanhas, textosDaCampanha, secoesOcultas, esconderSecoes, locaisDaCidade, posicionarNaCidade, salvarMapaLocal,
     idIntroducao, criarIntroducao,
   };
 })();

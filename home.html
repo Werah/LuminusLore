@@ -25,8 +25,9 @@
     // Uma fatia por seção, saindo do centro da tela, todas com a mesma área.
     // Ordem das fatias no sentido horário, começando em cima à esquerda (seções novas entram no fim).
     // As seções escondidas na engrenagem não entram, e as outras dividem a tela entre si.
-    const ORDEM = ['mundo', 'personagens', 'organizacoes', 'panteao', 'historia', 'sistema'];
-    const todas = [...ORDEM.filter(k => SECOES[k]), ...Object.keys(SECOES).filter(k => !ORDEM.includes(k))];
+    const ORDEM = ['mundo', 'personagens', 'organizacoes', 'panteao', 'historia', 'sistema', 'campanhas'];
+    const todas = [...ORDEM.filter(k => SECOES[k]), ...Object.keys(SECOES).filter(k => !ORDEM.includes(k))]
+      .filter(secaoNoMenu); // ex.: Sessões ficam dentro das Campanhas
 
     // A borda da tela é percorrida de 0 a 4 (um lado por unidade, no sentido horário a partir do
     // canto de cima à esquerda). Do centro, cada lado "vale" exatamente 1/4 da área da tela,
@@ -65,7 +66,9 @@
         const ly = `${(50 + (meio[1] - 50) * ate).toFixed(2)}%`;
         return `
           <div class="fatia" style="--cor: ${s.cor}; --forma: ${forma}; --lx: ${lx}; --ly: ${ly}">
-            <a class="divisoria" href="${paginaDaSecao(s)}" data-icone="${s.icone}" style="--cor: ${s.cor}">
+            <a class="divisoria" href="${paginaDaSecao(s)}" style="--cor: ${s.cor}"
+               ${s.icone.startsWith('<') ? '' : `data-icone="${s.icone}"`}>
+              ${s.icone.startsWith('<') ? `<span class="icone-fundo">${s.icone}</span>` : ''}
               <span class="fatia-conteudo">
                 <span class="icone">${s.icone}</span>
                 <span class="titulo">${esc(s.nome)}</span>

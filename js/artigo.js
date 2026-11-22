@@ -109,6 +109,9 @@ function desenharTexto() {
   const cargo = cargoDeLider(artigo);
   const lider = cargo && artigo.liderId && [...titulos.values()].find(t => t.id === artigo.liderId);
   const cidadeDoLocal = artigo.cidadeId && [...titulos.values()].find(t => t.id === artigo.cidadeId);
+  // Personagem de jogador / sessão: a campanha dele. Campanha: abas Personagens | Sessões | Inventário
+  const campanha = artigo.campanhaId && [...titulos.values()].find(t => t.id === artigo.campanhaId);
+  const ehCampanha = secao === 'campanhas';
   // Cidade (ou o que tiver mapa próprio): os locais dela aparecem em "Locais importantes"
   const temLocais = ehCidadeOuVila(artigo) || !!artigo.mapaLocal;
   // País: a capital dele (uma das suas cidades ou vilarejos)
@@ -124,6 +127,7 @@ function desenharTexto() {
   const ficha = (lider ? `<div><dt>${esc(cargo)}</dt><dd>${linkWiki(lider.link, lider.titulo, titulos)}</dd></div>` : '')
     + (capital ? `<div><dt>Capital</dt><dd>${linkWiki(capital.link, capital.titulo, titulos)}</dd></div>` : '')
     + (pais && !ehPaisOuReino(artigo) && !s.semPais ? `<div id="linha-pais"><dt>${esc(s.rotuloPais || 'País')}</dt><dd>${linkWiki(pais.link, pais.titulo, titulos)}</dd></div>` : '')
+    + (campanha ? `<div><dt>Campanha</dt><dd>${linkWiki(campanha.link, campanha.titulo, titulos)}</dd></div>` : '')
     + (organizacoes.length ? `<div><dt>${organizacoes.length > 1 ? 'Organizações' : 'Organização'}</dt><dd>${
       organizacoes.map(o => linkWiki(o.link, o.titulo, titulos)).join('<br>')}</dd></div>` : '')
     // Cidade: "Capital de" é preenchido depois (carregarCapitalDe), procurando o país que aponta para ela
@@ -150,7 +154,10 @@ function desenharTexto() {
           <h2>🔒 ${esc(s.regras.rotulo)}</h2>
           <p>As regras ficam disponíveis só para quem tem login.</p>
         </section>` : '';
-  const temAlgumTexto = artigo.conteudo || preenchidos.some(c => c.longo) || blocoRegras;
+  // Na campanha o texto principal fica na aba Inventário, não embaixo da descrição
+  const temAlgumTexto = (artigo.conteudo && !ehCampanha) || preenchidos.some(c => c.longo) || blocoRegras;
+  const textoPrincipal = (artigo.conteudo && s.rotuloTexto ? `<h2>${esc(s.rotuloTexto)}</h2>` : '')
+    + (artigo.conteudo ? renderizarTexto(artigo.conteudo, titulos) : '');
   // Na ficha do país a imagem vira a capa, em vez de ficar na ficha ao lado do texto
   const imagemNaFicha = artigo.imagem && !modoPais;
   const temFicha = imagemNaFicha || ficha;
@@ -179,8 +186,14 @@ function desenharTexto() {
         ${acoes}
       </header>`;
 
+  // Sessão volta para a campanha dela (as sessões ficam lá)
+  const voltar = secao === 'sessoes' && campanha
+    ? `<a class="voltar" href="artigo.html?id=${encodeURIComponent(campanha.id)}">← ${esc(campanha.titulo)}</a>`
+    : `<a class="voltar" href="${s.pagina}">← ${esc(s.nome)}</a>`;
+  const novoNaCampanha = (secaoNova, extra = '') => `artigo.html?secao=${secaoNova}${extra}&campanha=${encodeURIComponent(artigo.id)}`;
+
   pagina.innerHTML = `
-    <a class="voltar" href="${s.pagina}">← ${esc(s.nome)}</a>
+    ${voltar}
     <article class="artigo" data-secao="${secao}" style="--cor: ${s.cor}">
       ${cabeca}
       <p class="aviso-edicao" id="aviso-edicao" hidden></p>
@@ -198,13 +211,34 @@ function desenharTexto() {
           </aside>` : ''}
         <div class="prosa">
           ${blocos(false)}
-          ${artigo.conteudo && s.rotuloTexto ? `<h2>${esc(s.rotuloTexto)}</h2>` : ''}
-          ${artigo.conteudo ? renderizarTexto(artigo.conteudo, titulos) : ''}
+          ${ehCampanha ? '' : textoPrincipal}
           ${blocos(true)}
           ${blocoRegras}
           ${temAlgumTexto ? '' : '<p class="sem-texto">Ainda não tem nada escrito aqui. Clique em <strong>Editar</strong> para começar.</p>'}
         </div>
       </div>
+      ${ehCampanha ? `
+        <div class="filtros abas-filtro abas-campanha" role="tablist" style="--cor-secao: ${s.cor}">
+          <button type="button" data-aba-campanha="personagens" role="tab">Personagens <span class="qtd" id="qtd-personagens"></span></button>
+          <button type="button" data-aba-campanha="sessoes" role="tab">Sessões <span class="qtd" id="qtd-sessoes"></span></button>
+          <button type="button" data-aba-campanha="inventario" role="tab">Inventário</button>
+        </div>
+        <section class="painel-campanha" data-painel="personagens">
+          <div class="acoes-campanha so-membro">
+            <a class="botao pequeno primario" href="${novoNaCampanha('personagens', `&d-tipo=${encodeURIComponent('Personagem de jogador')}`)}">+ Novo personagem</a>
+          </div>
+          <div id="campanha-personagens"><p class="vazio">Carregando…</p></div>
+        </section>
+        <section class="painel-campanha" data-painel="sessoes" hidden>
+          <div class="acoes-campanha so-membro">
+            <a class="botao pequeno primario" href="${novoNaCampanha('sessoes')}">+ Nova sessão</a>
+          </div>
+          <div id="campanha-sessoes"><p class="vazio">Carregando…</p></div>
+        </section>
+        <section class="painel-campanha prosa" data-painel="inventario" hidden>
+          ${artigo.conteudo ? renderizarTexto(artigo.conteudo, titulos)
+            : '<p class="sem-texto">O inventário ainda está vazio. No editor da campanha, escreva no campo “Inventário”.</p>'}
+        </section>` : ''}
 
       <footer class="assinatura">
         Criado por <strong>${esc(nomeDe(artigo.criadoPor, nomes))}</strong> em ${formatarData(artigo.criadoEm)}
@@ -230,6 +264,7 @@ function desenharTexto() {
   document.getElementById('btn-excluir').addEventListener('click', excluir);
   carregarMencoes();
   if (secao === 'organizacoes') carregarMembros();
+  if (ehCampanha) carregarCampanha();
   if (modoPais) carregarLugares();
   if (temLocais) carregarLocaisDaCidade();
   if (secao === 'personagens') carregarLiderDe();
@@ -245,6 +280,88 @@ function tirarFichaVazia(el) {
     ficha.remove();
     document.querySelector('.corpo-artigo')?.classList.add('sem-ficha');
   }
+}
+
+// Campanha: abas Personagens (os personagens de jogador dela) | Sessões (em ordem de número) |
+// Inventário (o texto principal). O navegador lembra a última aba aberta.
+const CHAVE_ABA_CAMPANHA = 'luminus-aba-campanha';
+async function carregarCampanha() {
+  const abas = document.querySelector('.abas-campanha');
+  const mostrarAba = aba => {
+    abas.querySelectorAll('button').forEach(b => b.classList.toggle('ativo', b.dataset.abaCampanha === aba));
+    document.querySelectorAll('.painel-campanha').forEach(p => { p.hidden = p.dataset.painel !== aba; });
+  };
+  abas.addEventListener('click', e => {
+    const aba = e.target.closest('[data-aba-campanha]')?.dataset.abaCampanha;
+    if (!aba) return;
+    mostrarAba(aba);
+    try {
+      localStorage.setItem(CHAVE_ABA_CAMPANHA, aba);
+    } catch {
+      // Sem armazenamento: só não lembra da próxima vez
+    }
+  });
+  let abaGuardada = 'personagens';
+  try {
+    abaGuardada = localStorage.getItem(CHAVE_ABA_CAMPANHA) || abaGuardada;
+  } catch {
+    // Sem armazenamento: começa em Personagens
+  }
+  mostrarAba(abas.querySelector(`[data-aba-campanha="${abaGuardada}"]`) ? abaGuardada : 'personagens');
+
+  let textos;
+  try {
+    textos = await banco.textosDaCampanha(artigo.id);
+  } catch (e) {
+    for (const id of ['campanha-personagens', 'campanha-sessoes']) document.getElementById(id).innerHTML = `<p class="erro">${esc(e.message)}</p>`;
+    return;
+  }
+  const personagens = textos.filter(t => t.secao === 'personagens');
+  // Sessões pelo número (as sem número no fim, na ordem em que foram criadas)
+  const numero = t => (t.detalhes.numero ? Number(t.detalhes.numero) : Infinity);
+  const sessoes = textos.filter(t => t.secao === 'sessoes')
+    .sort((a, b) => numero(a) - numero(b) || a.criadoEm.localeCompare(b.criadoEm));
+  document.getElementById('qtd-personagens').textContent = personagens.length;
+  document.getElementById('qtd-sessoes').textContent = sessoes.length;
+
+  const corP = SECOES.personagens.cor;
+  document.getElementById('campanha-personagens').innerHTML = personagens.length ? `
+    <div class="grade">${personagens.map(p => {
+      const d = p.detalhes;
+      const info = [d.raca, d.classe].filter(Boolean).join(' · ') + (d.jogador ? ` — jogado por ${d.jogador}` : '');
+      return `
+        <a class="card clicavel artigo-card" href="artigo.html?id=${encodeURIComponent(p.id)}" style="--cor: ${corP}">
+          ${capaArtigo(p)}
+          <div class="corpo-card">
+            <div class="linha-titulo">
+              <h3>${esc(p.titulo)}</h3>
+              <span class="selos">${selosDoCard('personagens', p.detalhes)}</span>
+            </div>
+            ${p.subtitulo ? `<p class="subtitulo">${esc(p.subtitulo)}</p>` : ''}
+            ${info ? `<p class="info">${esc(info)}</p>` : ''}
+          </div>
+        </a>`;
+    }).join('')}
+    </div>`
+    : '<p class="sem-texto">Nenhum personagem nesta campanha ainda. No editor de um personagem de jogador, escolha esta campanha no campo “Campanha”.</p>';
+
+  const corS = SECOES.sessoes.cor;
+  document.getElementById('campanha-sessoes').innerHTML = sessoes.length ? `
+    <div class="grade">${sessoes.map(t => {
+      const cabeca = [t.detalhes.numero ? `Sessão ${t.detalhes.numero}` : 'Sessão', t.detalhes.data].filter(Boolean).join(' · ');
+      const resumo = resumoTexto(t.conteudo);
+      return `
+        <a class="card clicavel artigo-card card-sessao" href="artigo.html?id=${encodeURIComponent(t.id)}" style="--cor: ${corS}">
+          ${capaArtigo(t)}
+          <div class="corpo-card">
+            <p class="numero-sessao">${esc(cabeca)}</p>
+            <h3>${esc(t.titulo)}</h3>
+            ${resumo ? `<p class="descricao">${esc(resumo)}</p>` : ''}
+          </div>
+        </a>`;
+    }).join('')}
+    </div>`
+    : '<p class="sem-texto">Nenhuma sessão registrada ainda.</p>';
 }
 
 // Organização: abas "Sobre" (o texto) e "Membros" (os personagens filiados a ela)
@@ -421,7 +538,7 @@ function desenharInexistente(titulo) {
       <h2>“${esc(titulo)}” ainda não foi escrito</h2>
       <p>${ehVisitante ? 'Ninguém escreveu este texto ainda.' : 'Quer começar? Escolha onde ele fica:'}</p>
       <div class="acoes-centro so-membro">
-        ${Object.entries(SECOES).map(([k, s]) => `
+        ${Object.entries(SECOES).filter(([k]) => secaoNoMenu(k)).map(([k, s]) => `
           <a class="botao" href="artigo.html?secao=${k}&titulo=${encodeURIComponent(titulo)}">${s.icone} ${esc(s.nome)}</a>
         `).join('')}
       </div>
@@ -465,8 +582,10 @@ function editar(tituloInicial = '') {
     .filter(c => c.opcoes?.includes(params.get(`d-${c.chave}`)))
     .map(c => [c.chave, params.get(`d-${c.chave}`)]));
   // Local novo criado no mapa de uma cidade já vem no país dela (&pais=)
+  // Texto novo criado na página de uma campanha (&campanha=) já vem nela
   const a = artigo || {
     titulo: tituloInicial, subtitulo: '', conteudo: '', detalhes: detalhesIniciais, imagem: '', paisId: params.get('pais') || null,
+    campanhaId: params.get('campanha') || null,
   };
   // Regras (Sistema): o texto e as partes de cada tipo (porTipo em secoes.js), cada um no seu campo.
   // Cada tipo tem os seus quadros (só aparecem os do tipo escolhido); os do tipo salvo vêm preenchidos.
@@ -626,6 +745,13 @@ function editar(tituloInicial = '') {
           </span>
         </label>
         ${campos}
+        ${s.campanha ? `
+          <label class="campo-campanha">Campanha${s.campanha.obrigatoria ? '*' : ''}
+            <select name="campanha">
+              <option value="">${s.campanha.obrigatoria ? '— escolha —' : 'Nenhuma'}</option>
+              ${a.campanhaId ? `<option value="${esc(a.campanhaId)}" selected>${esc(nomeDoTexto(a.campanhaId) || 'Carregando…')}</option>` : ''}
+            </select>
+          </label>` : ''}
       </div>
       <div${ehIntroducao ? ' hidden' : ''}>${camposLongos}</div>
       ${secao === 'personagens' ? `
@@ -754,6 +880,9 @@ function editar(tituloInicial = '') {
     for (const c of s.campos) {
       form.querySelector(`[data-campo="${c.chave}"]`).hidden = !campoVisivel(c, valores, { secao, mapaIcone: estiloPonto.icone });
     }
+    // Campanha: só quando vale (ex.: personagem de jogador)
+    const campoCampanha = form.querySelector('.campo-campanha');
+    if (campoCampanha) campoCampanha.hidden = !campoVisivel(s.campanha, valores);
     // Regras: só as partes do tipo escolhido; o texto livre some onde o tipo não tem (texto: false)
     // e, quando o tipo tem outras partes, ganha o título "Outras regras"
     if (s.regras) {
@@ -784,6 +913,15 @@ function editar(tituloInicial = '') {
   form.addEventListener('change', atualizarCargo);
   form.addEventListener('click', atualizarCargo); // os ícones do ponto são botões
   atualizarCargo();
+
+  // Campanha: as opções são as campanhas cadastradas
+  if (s.campanha) {
+    banco.campanhas().then(lista => {
+      const atualCampanha = form.campanha.value;
+      form.campanha.innerHTML = `<option value="">${s.campanha.obrigatoria ? '— escolha —' : 'Nenhuma'}</option>`
+        + lista.map(c => `<option value="${esc(c.id)}"${c.id === atualCampanha ? ' selected' : ''}>${esc(c.titulo)}</option>`).join('');
+    }).catch(() => {});
+  }
 
   // Mapa da cidade: o campo só aparece em cidade ou vilarejo (pela categoria ou pelo ícone).
   // A imagem é reduzida no navegador (até 4096 px) e só é enviada ao salvar.
@@ -1122,7 +1260,8 @@ function editar(tituloInicial = '') {
     alterado = false;
     window.salvarAlteracoes = null;
     if (artigo) desenharTexto();
-    else location.href = s.pagina;
+    // Texto novo aberto de uma campanha: volta para ela
+    else location.href = params.get('campanha') ? `artigo.html?id=${encodeURIComponent(params.get('campanha'))}` : s.pagina;
   });
 
   // Grava o que está no editor; devolve true se deu certo (o erro aparece no próprio editor)
@@ -1134,6 +1273,8 @@ function editar(tituloInicial = '') {
     const capitalId = ehPaisAgora() ? form.capital.value || null : null;
     // Só o personagem tem organizações (nos outros, o campo nem vai para o banco)
     const extra = secao === 'personagens' ? { organizacoes: organizacoesAgora.map(o => o.id) } : {};
+    // Campanha: quando o campo não vale (ex.: virou NPC), o texto sai da campanha
+    if (s.campanha) extra.campanhaId = campoVisivel(s.campanha, detalhes) ? form.campanha.value || null : null;
     // Regras: só vão as partes do tipo escolhido (as de outro tipo ficam só no histórico)
     if (s.regras) {
       const tipo = detalhes.tipo || '';
@@ -1310,6 +1451,8 @@ async function excluir() {
   try {
     await banco.excluirArtigo(artigo.id);
     if (modoPais) fecharFichaDoPais();
+    // Sessão excluída: volta para a campanha dela (ela fica em "Textos excluídos" de sessoes.html)
+    else if (secao === 'sessoes' && artigo.campanhaId) location.href = `artigo.html?id=${encodeURIComponent(artigo.campanhaId)}`;
     else location.href = SECOES[secao].pagina;
   } catch (e) {
     alert(e.message);

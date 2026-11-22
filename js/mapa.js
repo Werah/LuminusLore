@@ -1025,7 +1025,7 @@ const submenu = document.getElementById('submenu-painel');
 let secaoNoSubmenu = null;
 function desenharSubmenu() {
   submenu.innerHTML = Object.entries(SECOES)
-    .filter(([chave]) => secaoVisivel(chave))
+    .filter(([chave]) => secaoNoMenu(chave) && secaoVisivel(chave))
     .map(([chave, s]) => `<button type="button" data-secao="${chave}" style="--cor: ${s.cor}">${s.icone} ${esc(s.nome)}</button>`)
     .join('');
   marcarSubmenu(secaoNoSubmenu);
