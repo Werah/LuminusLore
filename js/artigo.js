@@ -19,7 +19,11 @@ if (modoPais) {
   document.documentElement.classList.add('modo-pais');
   document.head.insertAdjacentHTML('beforeend', '<base target="painel">');
 }
-const urlDoTexto = id => `artigo.html?id=${encodeURIComponent(id)}${modoPais ? '&modo=pais' : ''}`;
+// &de=: o texto de onde a pessoa veio (ex.: a campanha), para onde o "←" volta. Continua depois de
+// salvar; um personagem novo criado na campanha (&campanha=) também volta para ela.
+const veioDe = params.get('de') || params.get('campanha');
+const urlDoTexto = id => `artigo.html?id=${encodeURIComponent(id)}${modoPais ? '&modo=pais' : ''}${
+  veioDe && veioDe !== id ? `&de=${encodeURIComponent(veioDe)}` : ''}`;
 
 let artigo = null;       // texto aberto; null enquanto um texto novo não foi salvo
 let secao = '';          // chave em SECOES
@@ -185,9 +189,12 @@ function desenharTexto() {
         ${acoes}
       </header>`;
 
-  // Sessão volta para a campanha dela (as sessões ficam lá)
-  const voltar = secao === 'sessoes' && campanha
-    ? `<a class="voltar" href="artigo.html?id=${encodeURIComponent(campanha.id)}">← ${esc(campanha.titulo)}</a>`
+  // Volta para o texto de onde veio (&de=, ex.: aberto pela página da campanha); sessão sem isso
+  // volta para a campanha dela (as sessões ficam lá); o resto, para a lista da seção
+  const origem = (veioDe && veioDe !== artigo.id && [...titulos.values()].find(t => t.id === veioDe))
+    || (secao === 'sessoes' && campanha);
+  const voltar = origem
+    ? `<a class="voltar" href="${urlDoTexto(origem.id)}">← ${esc(origem.titulo)}</a>`
     : `<a class="voltar" href="${s.pagina}">← ${esc(s.nome)}</a>`;
   const novoNaCampanha = (secaoNova, extra = '') => `artigo.html?secao=${secaoNova}${extra}&campanha=${encodeURIComponent(artigo.id)}`;
 
@@ -351,6 +358,8 @@ async function carregarCampanha() {
     return;
   }
   const personagens = textos.filter(t => t.secao === 'personagens');
+  // Abertos daqui, o "←" deles volta para a campanha
+  const daCampanha = id => `artigo.html?id=${encodeURIComponent(id)}&de=${encodeURIComponent(artigo.id)}`;
   // Sessões: a mais recente (maior número) primeiro; as sem número no fim
   const numero = t => (t.detalhes.numero ? Number(t.detalhes.numero) : -Infinity);
   const sessoes = textos.filter(t => t.secao === 'sessoes')
@@ -372,7 +381,7 @@ async function carregarCampanha() {
     const morto = d.situacao === 'Morto';
     return `
       <a class="barra-personagem sem-previa${p.imagem ? ' com-imagem' : ''}${morto ? ' morto' : ''}"
-         href="artigo.html?id=${encodeURIComponent(p.id)}" data-id="${esc(p.id)}"
+         href="${daCampanha(p.id)}" data-id="${esc(p.id)}"
          style="${p.imagem ? `--img: url('${banco.urlImagem(p.imagem)}'); --pos: ${p.imagemX ?? 50}% ${p.imagemY ?? 50}%` : ''}">
         ${p.imagem ? '' : `<span class="marca-dagua">${esc(iniciais(p.titulo))}</span>`}
         <strong>${morto ? '✝ ' : ''}${esc(p.titulo)}</strong>
@@ -390,7 +399,7 @@ async function carregarCampanha() {
     <ul class="lista-sessoes">${sessoes.map(t => {
       const resumo = resumoTexto(t.conteudo, 260);
       return `
-        <li><a class="item-sessao sem-previa" href="artigo.html?id=${encodeURIComponent(t.id)}">
+        <li><a class="item-sessao sem-previa" href="${daCampanha(t.id)}">
           ${t.imagem ? `<img src="${banco.urlImagem(t.imagem)}" alt="" loading="lazy" style="${posicaoDaImagem(t)}">` : ''}
           <div class="texto-sessao">
             <div class="cabeca">
