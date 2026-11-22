@@ -40,6 +40,7 @@ const mapa = L.map('mapa', {
   zoomDelta: 0.5,
   wheelPxPerZoomLevel: 100,
   attributionControl: false,
+  zoomControl: false, // o zoom entra depois da escolha do mapa, para ficar embaixo dela (ver SeletorMapa)
   maxBounds: limites.pad(0.25),
   maxBoundsViscosity: 0.9,
 });
@@ -112,8 +113,10 @@ const BotaoPontos = L.Control.extend({
 
 function desenharBotaoPontos(botao) {
   botao.innerHTML = pontosOcultos ? OLHO_FECHADO : OLHO_ABERTO;
-  botao.title = pontosOcultos ? 'Mostrar os pontos (só para você)' : 'Esconder os pontos (só para você)';
+  botao.title = pontosOcultos ? 'Mostrar os pontos e os botões (só para você)' : 'Esconder os pontos e os botões (só para você)';
   botao.classList.toggle('ativo', pontosOcultos);
+  // Junto com os pontos somem a escolha do mapa e o zoom (só o olho fica, para mostrar de novo)
+  mapa.getContainer().classList.toggle('sem-controles', pontosOcultos);
 }
 
 new BotaoPontos().addTo(mapa);
@@ -440,7 +443,7 @@ mapa.on('contextmenu', e => {
 
 // ---------- Outros mapas do Mundo ----------
 
-// No canto de cima à esquerda (embaixo do zoom): a escolha do mapa e, para quem tem conta,
+// No canto de cima à esquerda (em cima do zoom): a escolha do mapa e, para quem tem conta,
 // "+ Mapa" (adiciona um) e 🗑 (remove o aberto, se não tiver pontos). O mapa aberto fica guardado
 // no navegador; abrir um texto com ponto em outro mapa troca para ele.
 const CHAVE_MAPA = 'luminus-mapa-aberto';
@@ -476,7 +479,9 @@ function desenharSeletorMapa() {
       ${MAPA.id ? '<button type="button" class="pequeno perigo" data-acao="remover-mapa" title="Remover este mapa">🗑</button>' : ''}`}`;
 }
 
+// No mesmo canto, os controles ficam na ordem em que entram: a escolha do mapa em cima, o zoom embaixo
 new SeletorMapa().addTo(mapa);
+L.control.zoom({ position: 'topleft' }).addTo(mapa);
 
 async function trocarMapa(id) {
   const novo = id ? mapasExtras.find(m => m.id === id) : PRINCIPAL;

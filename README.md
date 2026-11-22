@@ -153,8 +153,8 @@ Se aparecer "O banco está desatualizado", rode `supabase/schema.sql` de novo no
   o primeiro ponto). Ícones: cidade, vila, torre, castelo, caveira, floresta, espadas cruzadas, montanha,
   templo, porto, navio, corpo de água e estrela (país). Sem cor escolhida, o ponto usa a cor do país ou, sem país, da seção. Para criar ícones novos,
   veja `ICONES_MAPA` em `js/mapa.js`.
-- **Esconder os pontos:** o olho no canto de cima do mapa esconde todos os pontos para ver só o
-  desenho. Vale só para quem clicou (fica guardado no navegador dele).
+- **Esconder os pontos:** o olho no canto de cima do mapa esconde todos os pontos (e a escolha do
+  mapa e o zoom) para ver só o desenho. Vale só para quem clicou (fica guardado no navegador dele).
 - **Clicar fora dos pontos** solta o texto selecionado (o painel volta para a lista). Se o
   editor estiver aberto com mudanças, elas são salvas antes.
 - **Países:** um ponto com o ícone de estrela é um país. Com o mapa afastado só aparecem os

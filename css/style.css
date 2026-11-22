@@ -1546,7 +1546,7 @@ button.pasta-globo:hover { background: rgba(255, 255, 255, 0.22); border: none; 
 
 @keyframes surgir { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
 
-/* Escolha do mapa do Mundo (canto de cima à esquerda, embaixo do zoom) */
+/* Escolha do mapa do Mundo (canto de cima à esquerda, em cima do zoom) */
 .seletor-mapa {
   display: flex;
   gap: 6px;
@@ -1558,6 +1558,8 @@ button.pasta-globo:hover { background: rgba(255, 255, 255, 0.22); border: none; 
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
 .seletor-mapa[hidden] { display: none; }
+/* Olho fechado (pontos escondidos): somem também a escolha do mapa e o zoom */
+.sem-controles .seletor-mapa, .sem-controles .leaflet-control-zoom { display: none; }
 .seletor-mapa select { width: auto; max-width: 200px; margin: 0; padding: 4px 8px; font-size: 0.85rem; }
 .seletor-mapa button { white-space: nowrap; }
 
