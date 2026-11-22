@@ -270,13 +270,16 @@ se o mapa novo for o mesmo desenho em outra resolução.
 
 ## Campanhas
 
-- **Campanha:** card com imagem e *Descrição* (o que aparece no card). A página dela tem a descrição
-  em cima e as abas *Personagens*, *Sessões* e *Inventário* (o navegador lembra a última aberta).
+- **Campanha:** card com imagem e *Descrição* (o que aparece no card). A página dela tem um banner com
+  a imagem e o nome; embaixo, os personagens em barras na coluna da esquerda e as abas *Descrição*,
+  *Sessões* e *Inventário* à direita (o navegador lembra a última aberta).
 - **Personagens:** os personagens de jogador ligados à campanha (campo *Campanha* no editor do
-  personagem, que só aparece em personagem de jogador). São personagens normais: aparecem também
-  na seção Personagens. *+ Novo personagem* na aba já cria um personagem de jogador da campanha.
+  personagem, que só aparece em personagem de jogador). Cada um é uma barra com a imagem à direita
+  (ou as iniciais, sem imagem); com o mouse em cima ela cresce e mostra o resumo. São personagens
+  normais: aparecem também na seção Personagens. *+ Novo personagem*, no fim da coluna, já cria um
+  personagem de jogador da campanha.
 - **Sessões:** cada sessão é um texto (com imagem, *Sessão nº*, *Data* e o texto formatado de *O que
-  aconteceu*), em ordem de número. *+ Nova sessão* cria uma na campanha; o ← da sessão volta para
+  aconteceu*), listadas da mais recente para a mais antiga. *+ Nova sessão* cria uma na campanha; o ← da sessão volta para
   ela. As sessões não aparecem na home nem nos menus (`foraDoMenu` em `js/secoes.js`), mas
   `sessoes.html` lista todas e guarda as excluídas (para restaurar).
 - **Inventário:** é o texto principal da campanha (campo *Inventário* no editor dela).

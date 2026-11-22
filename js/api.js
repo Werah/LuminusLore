@@ -866,7 +866,7 @@ async function mostrarPrevia(link, id, dica = '') {
 const semMouse = matchMedia('(hover: none)'); // celular/tablet: o toque também dispara "mouseover"
 document.addEventListener('mouseover', e => {
   const link = e.target.closest?.('a[href]');
-  if (!link || link.closest('.card, .topo')) return;
+  if (!link || link.closest('.card, .topo, .sem-previa')) return; // .sem-previa: já mostra o conteúdo (ex.: barras da campanha)
   const id = idDoLink(link);
   if (id) agendarPrevia(link, id);
 });

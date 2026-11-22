@@ -663,16 +663,205 @@ a.card { text-decoration: none; color: inherit; }
   white-space: nowrap;
 }
 
-/* Campanha: abas Personagens | Sessões | Inventário, embaixo da descrição */
-.abas-campanha { margin: 24px 0 16px; }
-.painel-campanha[hidden] { display: none; }
-.acoes-campanha { display: flex; justify-content: flex-end; margin-bottom: 12px; }
-.card-sessao .numero-sessao {
+/* ---------- Página da campanha ----------
+   Mais larga que os outros textos: banner com a imagem em cima; embaixo, os personagens de jogador
+   em barras na coluna da esquerda (1/3) e as abas à direita (2/3). */
+.conteudo:has(> .campanha-tela) { max-width: 1400px; padding-top: 0; }
+.campanha-tela { display: flex; flex-direction: column; }
+
+.banner-campanha {
+  position: relative;
+  overflow: hidden;
+  min-height: clamp(200px, 32vh, 320px);
+  border: 1px solid var(--borda);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  background: color-mix(in srgb, var(--cor) 22%, var(--bg-2));
+}
+.banner-campanha .fundo-banner { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.banner-sem-imagem {
+  position: absolute;
+  inset: 0 0 25%;
+  display: grid;
+  place-items: center;
+  font-size: clamp(6rem, 18vh, 11rem);
+  color: var(--cor);
+  opacity: 0.25;
+}
+.banner-campanha .sobre-banner {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  padding: 70px 28px 20px;
+  background: linear-gradient(transparent, rgba(10, 8, 15, 0.94));
+}
+.banner-campanha h1 { margin: 0 0 4px; font-size: clamp(1.8rem, 4vw, 3rem); text-shadow: 0 2px 10px #000; }
+.banner-campanha .info { margin: 0; color: var(--texto-2); }
+.banner-campanha .acoes { margin: 0; }
+.banner-campanha .voltar {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  z-index: 2;
   margin: 0;
-  color: var(--cor, var(--ouro));
-  font-size: 0.78rem;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  color: var(--texto);
+  text-decoration: none;
+  background: rgba(10, 8, 15, 0.6);
+}
+.banner-campanha .voltar:hover { color: var(--ouro-2); }
+.campanha-tela .aviso-edicao { margin: 12px 0 0; }
+
+.layout-campanha {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 2fr;
+  margin-top: 18px;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+}
+.coluna-personagens { background: var(--bg-2); border-right: 1px solid var(--borda); border-radius: 12px 0 0 12px; }
+.personagens-fixos { display: flex; flex-direction: column; }
+/* Computador: a coluna acompanha a rolagem (e rola por dentro se tiver personagem demais) */
+@media (min-width: 801px) {
+  .personagens-fixos { position: sticky; top: 0; max-height: 100vh; overflow-y: auto; }
+}
+.titulo-coluna {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--borda);
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--texto-2);
+}
+.titulo-coluna .qtd, .abas-campanha .qtd { margin-left: 4px; font-size: 0.8rem; opacity: 0.7; }
+.lista-personagens { display: flex; flex-direction: column; }
+.lista-personagens .sem-texto { margin: 16px; }
+.novo-personagem { display: block; padding: 14px 18px; border-top: 1px solid var(--borda); color: var(--texto-2); text-decoration: none; }
+.novo-personagem:hover { color: var(--ouro-2); background: var(--card); }
+
+/* Personagem em barra horizontal, coladas umas nas outras: 15% da altura da tela, 20% com o mouse
+   em cima (empurrando as de baixo, e mostrando o resumo). A imagem fica nos 70% da direita. */
+.barra-personagem {
+  position: relative;
+  height: 15vh;
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 10px 20px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.45);
+  color: var(--texto);
+  text-decoration: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  /* Sem imagem: fundo na cor da campanha, escurecido à esquerda (onde fica o nome) */
+  background:
+    linear-gradient(90deg, rgba(12, 9, 18, 0.9) 0%, rgba(12, 9, 18, 0.5) 55%, rgba(12, 9, 18, 0.15) 100%),
+    linear-gradient(135deg, color-mix(in srgb, var(--cor) 40%, var(--bg-2)), var(--bg-2));
+  transition: height 0.45s ease, box-shadow 0.3s ease;
+}
+/* Com imagem: os 30% da esquerda são um degradê na cor da borda da imagem (--cor-img, calculada
+   no artigo.js; até lá, a da campanha), mais escuro na ponta para o nome continuar legível */
+.barra-personagem.com-imagem {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--cor-img, var(--cor)) 45%, #0c0912) 0%,
+    color-mix(in srgb, var(--cor-img, var(--cor)) 85%, #0c0912) 35%,
+    var(--cor-img, var(--cor)) 100%);
+}
+.barra-personagem.com-imagem::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 70%;
+  background: var(--img) var(--pos, center) / cover no-repeat;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 30%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 30%);
+}
+.barra-personagem:hover { height: 20vh; box-shadow: inset 4px 0 0 var(--cor); }
+.barra-personagem > * { position: relative; z-index: 1; }
+.barra-personagem strong { font-family: 'Cinzel', Georgia, serif; font-size: 1.1rem; letter-spacing: 0.5px; }
+.barra-personagem small { color: #ddd3ec; }
+.barra-personagem.morto { filter: grayscale(0.75); }
+.barra-personagem .marca-dagua {
+  position: absolute;
+  z-index: 0;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: min(3.6rem, 8vh);
+  font-weight: 700;
+  color: var(--cor);
+  opacity: 0.25;
+}
+.barra-personagem .desc {
+  margin: 0;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  font-size: 0.88rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  transition: max-height 0.45s ease, opacity 0.3s ease, margin 0.45s ease;
+}
+.barra-personagem:hover .desc { max-height: 4.5em; opacity: 1; margin-top: 4px; }
+
+/* Direita: as abas */
+.coluna-abas { min-width: 0; padding: 18px 28px 40px; }
+.abas-campanha { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--borda); }
+.abas-campanha button {
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--texto-2);
+  padding: 10px 16px;
+}
+.abas-campanha button:hover { color: var(--texto); }
+.abas-campanha button.ativo { color: var(--ouro-2); border-bottom-color: var(--cor); }
+.painel-campanha[hidden] { display: none; }
+.painel-titulo { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+.coluna-abas .assinatura { margin-top: 28px; }
+
+/* Sessões: uma lista, a mais recente em cima, com a imagem pequena à esquerda */
+.lista-sessoes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.item-sessao {
+  display: flex;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--borda);
+  border-left: 4px solid var(--cor);
+  border-radius: 8px;
+  background: var(--bg-2);
+  color: var(--texto);
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+.item-sessao:hover { border-color: var(--ouro); border-left-color: var(--cor); }
+.item-sessao img { flex-shrink: 0; width: 120px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; }
+.texto-sessao { flex: 1; min-width: 0; }
+.lista-sessoes .cabeca { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.lista-sessoes .cabeca strong { font-family: 'Cinzel', Georgia, serif; }
+.lista-sessoes .cabeca span { color: var(--texto-2); font-size: 0.9rem; white-space: nowrap; }
+.lista-sessoes p { margin: 0; color: var(--texto-2); }
+.lista-sessoes .sem-resumo { font-style: italic; }
+
+/* Telas estreitas: personagens em cima, abas embaixo */
+@media (max-width: 800px) {
+  .layout-campanha { grid-template-columns: 1fr; }
+  .coluna-personagens { border-right: none; border-bottom: 1px solid var(--borda); border-radius: 12px 12px 0 0; }
+  .coluna-abas { padding: 18px 16px 40px; }
+  .banner-campanha .sobre-banner { padding: 60px 16px 16px; }
+  .item-sessao img { width: 80px; }
 }
 
 /* Prévia de um link (mouse parado em cima): card pequeno com imagem, seção, nome e uma linha */

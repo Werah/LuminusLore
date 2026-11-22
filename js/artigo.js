@@ -154,8 +154,7 @@ function desenharTexto() {
           <h2>🔒 ${esc(s.regras.rotulo)}</h2>
           <p>As regras ficam disponíveis só para quem tem login.</p>
         </section>` : '';
-  // Na campanha o texto principal fica na aba Inventário, não embaixo da descrição
-  const temAlgumTexto = (artigo.conteudo && !ehCampanha) || preenchidos.some(c => c.longo) || blocoRegras;
+  const temAlgumTexto = artigo.conteudo || preenchidos.some(c => c.longo) || blocoRegras;
   const textoPrincipal = (artigo.conteudo && s.rotuloTexto ? `<h2>${esc(s.rotuloTexto)}</h2>` : '')
     + (artigo.conteudo ? renderizarTexto(artigo.conteudo, titulos) : '');
   // Na ficha do país a imagem vira a capa, em vez de ficar na ficha ao lado do texto
@@ -192,7 +191,68 @@ function desenharTexto() {
     : `<a class="voltar" href="${s.pagina}">← ${esc(s.nome)}</a>`;
   const novoNaCampanha = (secaoNova, extra = '') => `artigo.html?secao=${secaoNova}${extra}&campanha=${encodeURIComponent(artigo.id)}`;
 
-  pagina.innerHTML = `
+  const assinatura = `
+      <footer class="assinatura">
+        Criado por <strong>${esc(nomeDe(artigo.criadoPor, nomes))}</strong> em ${formatarData(artigo.criadoEm)}
+        · Última edição por <strong>${esc(nomeDe(artigo.editadoPor, nomes))}</strong> em ${formatarDataHora(artigo.atualizadoEm)}
+      </footer>`;
+
+  // Campanha: banner com a imagem e o nome; embaixo, os personagens de jogador em barras na coluna
+  // da esquerda e as abas Descrição | Sessões | Inventário à direita
+  if (ehCampanha) {
+    pagina.innerHTML = `
+      <div class="campanha-tela artigo" data-secao="campanhas" style="--cor: ${s.cor}">
+        <section class="banner-campanha">
+          ${artigo.imagem
+            ? `<img class="fundo-banner" src="${banco.urlImagem(artigo.imagem)}" alt="" style="${posicaoDaImagem(artigo)}">`
+            : `<div class="banner-sem-imagem">${s.icone}</div>`}
+          <a class="voltar" href="${s.pagina}">← ${esc(s.nome)}</a>
+          <div class="sobre-banner">
+            <div>
+              <h1>${esc(artigo.titulo)}</h1>
+              <p class="info" id="info-campanha"></p>
+            </div>
+            ${acoes}
+          </div>
+        </section>
+        <p class="aviso-edicao" id="aviso-edicao" hidden></p>
+        <div class="layout-campanha">
+          <aside class="coluna-personagens">
+            <div class="personagens-fixos">
+              <div class="titulo-coluna">Personagens <span class="qtd" id="qtd-personagens"></span></div>
+              <div class="lista-personagens" id="campanha-personagens"><p class="vazio">Carregando…</p></div>
+              <a class="novo-personagem so-membro"
+                 href="${novoNaCampanha('personagens', `&d-tipo=${encodeURIComponent('Personagem de jogador')}`)}">+ Novo personagem</a>
+            </div>
+          </aside>
+          <section class="coluna-abas">
+            <nav class="abas-campanha" role="tablist">
+              <button type="button" data-aba-campanha="descricao" role="tab">Descrição</button>
+              <button type="button" data-aba-campanha="sessoes" role="tab">Sessões <span class="qtd" id="qtd-sessoes"></span></button>
+              <button type="button" data-aba-campanha="inventario" role="tab">Inventário</button>
+            </nav>
+            <div class="painel-campanha prosa" data-painel="descricao">
+              ${det.descricao ? renderizarTexto(det.descricao, titulos)
+                : '<p class="sem-texto">Sem descrição ainda. Clique em <strong>Editar</strong> para escrever.</p>'}
+            </div>
+            <div class="painel-campanha" data-painel="sessoes" hidden>
+              <div class="painel-titulo">
+                <span class="info" id="info-sessoes"></span>
+                <a class="botao pequeno primario so-membro" href="${novoNaCampanha('sessoes')}">+ Nova sessão</a>
+              </div>
+              <div id="campanha-sessoes"><p class="vazio">Carregando…</p></div>
+            </div>
+            <div class="painel-campanha prosa" data-painel="inventario" hidden>
+              ${artigo.conteudo ? renderizarTexto(artigo.conteudo, titulos)
+                : '<p class="sem-texto">O inventário ainda está vazio. No editor da campanha, escreva no campo “Inventário”.</p>'}
+            </div>
+            ${assinatura}
+            <section class="mencoes" id="mencoes" hidden></section>
+          </section>
+        </div>
+      </div>
+    `;
+  } else pagina.innerHTML = `
     ${voltar}
     <article class="artigo" data-secao="${secao}" style="--cor: ${s.cor}">
       ${cabeca}
@@ -211,39 +271,13 @@ function desenharTexto() {
           </aside>` : ''}
         <div class="prosa">
           ${blocos(false)}
-          ${ehCampanha ? '' : textoPrincipal}
+          ${textoPrincipal}
           ${blocos(true)}
           ${blocoRegras}
           ${temAlgumTexto ? '' : '<p class="sem-texto">Ainda não tem nada escrito aqui. Clique em <strong>Editar</strong> para começar.</p>'}
         </div>
       </div>
-      ${ehCampanha ? `
-        <div class="filtros abas-filtro abas-campanha" role="tablist" style="--cor-secao: ${s.cor}">
-          <button type="button" data-aba-campanha="personagens" role="tab">Personagens <span class="qtd" id="qtd-personagens"></span></button>
-          <button type="button" data-aba-campanha="sessoes" role="tab">Sessões <span class="qtd" id="qtd-sessoes"></span></button>
-          <button type="button" data-aba-campanha="inventario" role="tab">Inventário</button>
-        </div>
-        <section class="painel-campanha" data-painel="personagens">
-          <div class="acoes-campanha so-membro">
-            <a class="botao pequeno primario" href="${novoNaCampanha('personagens', `&d-tipo=${encodeURIComponent('Personagem de jogador')}`)}">+ Novo personagem</a>
-          </div>
-          <div id="campanha-personagens"><p class="vazio">Carregando…</p></div>
-        </section>
-        <section class="painel-campanha" data-painel="sessoes" hidden>
-          <div class="acoes-campanha so-membro">
-            <a class="botao pequeno primario" href="${novoNaCampanha('sessoes')}">+ Nova sessão</a>
-          </div>
-          <div id="campanha-sessoes"><p class="vazio">Carregando…</p></div>
-        </section>
-        <section class="painel-campanha prosa" data-painel="inventario" hidden>
-          ${artigo.conteudo ? renderizarTexto(artigo.conteudo, titulos)
-            : '<p class="sem-texto">O inventário ainda está vazio. No editor da campanha, escreva no campo “Inventário”.</p>'}
-        </section>` : ''}
-
-      <footer class="assinatura">
-        Criado por <strong>${esc(nomeDe(artigo.criadoPor, nomes))}</strong> em ${formatarData(artigo.criadoEm)}
-        · Última edição por <strong>${esc(nomeDe(artigo.editadoPor, nomes))}</strong> em ${formatarDataHora(artigo.atualizadoEm)}
-      </footer>
+      ${assinatura}
       ${modoPais ? '<section class="lugares-pais" id="lugares" hidden></section>' : ''}
       ${temLocais ? '<section class="lugares-pais locais-cidade" id="locais-cidade" hidden></section>' : ''}
       <section class="mencoes" id="mencoes" hidden></section>
@@ -282,8 +316,8 @@ function tirarFichaVazia(el) {
   }
 }
 
-// Campanha: abas Personagens (os personagens de jogador dela) | Sessões (em ordem de número) |
-// Inventário (o texto principal). O navegador lembra a última aba aberta.
+// Campanha: os personagens de jogador dela em barras (coluna da esquerda) e as abas Descrição |
+// Sessões (a mais recente primeiro) | Inventário (o texto principal). O navegador lembra a última aba.
 const CHAVE_ABA_CAMPANHA = 'luminus-aba-campanha';
 async function carregarCampanha() {
   const abas = document.querySelector('.abas-campanha');
@@ -301,13 +335,13 @@ async function carregarCampanha() {
       // Sem armazenamento: só não lembra da próxima vez
     }
   });
-  let abaGuardada = 'personagens';
+  let abaGuardada = 'descricao';
   try {
     abaGuardada = localStorage.getItem(CHAVE_ABA_CAMPANHA) || abaGuardada;
   } catch {
-    // Sem armazenamento: começa em Personagens
+    // Sem armazenamento: começa na Descrição
   }
-  mostrarAba(abas.querySelector(`[data-aba-campanha="${abaGuardada}"]`) ? abaGuardada : 'personagens');
+  mostrarAba(abas.querySelector(`[data-aba-campanha="${abaGuardada}"]`) ? abaGuardada : 'descricao');
 
   let textos;
   try {
@@ -317,51 +351,99 @@ async function carregarCampanha() {
     return;
   }
   const personagens = textos.filter(t => t.secao === 'personagens');
-  // Sessões pelo número (as sem número no fim, na ordem em que foram criadas)
-  const numero = t => (t.detalhes.numero ? Number(t.detalhes.numero) : Infinity);
+  // Sessões: a mais recente (maior número) primeiro; as sem número no fim
+  const numero = t => (t.detalhes.numero ? Number(t.detalhes.numero) : -Infinity);
   const sessoes = textos.filter(t => t.secao === 'sessoes')
-    .sort((a, b) => numero(a) - numero(b) || a.criadoEm.localeCompare(b.criadoEm));
+    .sort((a, b) => numero(b) - numero(a) || b.criadoEm.localeCompare(a.criadoEm));
   document.getElementById('qtd-personagens').textContent = personagens.length;
   document.getElementById('qtd-sessoes').textContent = sessoes.length;
+  document.getElementById('info-campanha').textContent =
+    `${personagens.length} ${personagens.length === 1 ? 'personagem' : 'personagens'} · ${sessoes.length} ${sessoes.length === 1 ? 'sessão' : 'sessões'}`;
+  document.getElementById('info-sessoes').textContent =
+    `${sessoes.length} ${sessoes.length === 1 ? 'sessão registrada' : 'sessões registradas'}`;
 
-  const corP = SECOES.personagens.cor;
-  document.getElementById('campanha-personagens').innerHTML = personagens.length ? `
-    <div class="grade">${personagens.map(p => {
-      const d = p.detalhes;
-      const info = [d.raca, d.classe].filter(Boolean).join(' · ') + (d.jogador ? ` — jogado por ${d.jogador}` : '');
-      return `
-        <a class="card clicavel artigo-card" href="artigo.html?id=${encodeURIComponent(p.id)}" style="--cor: ${corP}">
-          ${capaArtigo(p)}
-          <div class="corpo-card">
-            <div class="linha-titulo">
-              <h3>${esc(p.titulo)}</h3>
-              <span class="selos">${selosDoCard('personagens', p.detalhes)}</span>
-            </div>
-            ${p.subtitulo ? `<p class="subtitulo">${esc(p.subtitulo)}</p>` : ''}
-            ${info ? `<p class="info">${esc(info)}</p>` : ''}
-          </div>
-        </a>`;
-    }).join('')}
-    </div>`
-    : '<p class="sem-texto">Nenhum personagem nesta campanha ainda. No editor de um personagem de jogador, escolha esta campanha no campo “Campanha”.</p>';
+  // Personagens em barras: a imagem nos 70% da direita, sumindo num degradê na cor da borda dela;
+  // sem imagem, as iniciais grandes e apagadas. Mouse em cima: a barra cresce e mostra o resumo.
+  const lista = document.getElementById('campanha-personagens');
+  lista.innerHTML = personagens.length ? personagens.map(p => {
+    const d = detalhesComPadrao('personagens', p.detalhes);
+    const info = [[d.raca, d.classe].filter(Boolean).join(' '), d.jogador].filter(Boolean).join(' · ');
+    const resumo = resumoTexto(resumoDoArtigo(p), 160);
+    const morto = d.situacao === 'Morto';
+    return `
+      <a class="barra-personagem sem-previa${p.imagem ? ' com-imagem' : ''}${morto ? ' morto' : ''}"
+         href="artigo.html?id=${encodeURIComponent(p.id)}" data-id="${esc(p.id)}"
+         style="${p.imagem ? `--img: url('${banco.urlImagem(p.imagem)}'); --pos: ${p.imagemX ?? 50}% ${p.imagemY ?? 50}%` : ''}">
+        ${p.imagem ? '' : `<span class="marca-dagua">${esc(iniciais(p.titulo))}</span>`}
+        <strong>${morto ? '✝ ' : ''}${esc(p.titulo)}</strong>
+        <small>${esc(info) || '&nbsp;'}</small>
+        ${resumo ? `<p class="desc">${esc(resumo)}</p>` : ''}
+      </a>`;
+  }).join('')
+    : '<p class="sem-texto">Nenhum personagem ainda. No editor de um personagem de jogador, escolha esta campanha no campo “Campanha”.</p>';
+  for (const el of lista.querySelectorAll('.barra-personagem.com-imagem')) {
+    const p = personagens.find(x => x.id === el.dataset.id);
+    corDaBordaEsquerda(banco.urlImagem(p.imagem)).then(cor => { if (cor) el.style.setProperty('--cor-img', cor); });
+  }
 
-  const corS = SECOES.sessoes.cor;
   document.getElementById('campanha-sessoes').innerHTML = sessoes.length ? `
-    <div class="grade">${sessoes.map(t => {
-      const cabeca = [t.detalhes.numero ? `Sessão ${t.detalhes.numero}` : 'Sessão', t.detalhes.data].filter(Boolean).join(' · ');
-      const resumo = resumoTexto(t.conteudo);
+    <ul class="lista-sessoes">${sessoes.map(t => {
+      const resumo = resumoTexto(t.conteudo, 260);
       return `
-        <a class="card clicavel artigo-card card-sessao" href="artigo.html?id=${encodeURIComponent(t.id)}" style="--cor: ${corS}">
-          ${capaArtigo(t)}
-          <div class="corpo-card">
-            <p class="numero-sessao">${esc(cabeca)}</p>
-            <h3>${esc(t.titulo)}</h3>
-            ${resumo ? `<p class="descricao">${esc(resumo)}</p>` : ''}
+        <li><a class="item-sessao sem-previa" href="artigo.html?id=${encodeURIComponent(t.id)}">
+          ${t.imagem ? `<img src="${banco.urlImagem(t.imagem)}" alt="" loading="lazy" style="${posicaoDaImagem(t)}">` : ''}
+          <div class="texto-sessao">
+            <div class="cabeca">
+              <strong>${t.detalhes.numero ? `Sessão ${esc(t.detalhes.numero)} · ` : ''}${esc(t.titulo)}</strong>
+              ${t.detalhes.data ? `<span>${esc(t.detalhes.data)}</span>` : ''}
+            </div>
+            ${resumo ? `<p>${esc(resumo)}</p>` : '<p class="sem-resumo">Sem resumo ainda.</p>'}
           </div>
-        </a>`;
+        </a></li>`;
     }).join('')}
-    </div>`
+    </ul>`
     : '<p class="sem-texto">Nenhuma sessão registrada ainda.</p>';
+}
+
+// Iniciais do nome (marca d'água da barra do personagem sem imagem)
+const iniciais = nome => nome.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+
+// Cor média da borda esquerda de uma imagem: é a cor do degradê que emenda nela, na barra do
+// personagem. Guardada por endereço; se o navegador não deixar ler a imagem, null (usa a da campanha).
+const coresDaBorda = new Map();
+function corDaBordaEsquerda(url) {
+  if (!coresDaBorda.has(url)) {
+    coresDaBorda.set(url, new Promise(resolve => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous'; // o Storage do Supabase libera; sem isso não dá para ler os pixels
+      img.onload = () => {
+        try {
+          // Reduz para 40x20 e tira a média dos 20% da esquerda
+          const canvas = document.createElement('canvas');
+          canvas.width = 40;
+          canvas.height = 20;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0, 40, 20);
+          const { data } = ctx.getImageData(0, 0, 8, 20);
+          let r = 0;
+          let g = 0;
+          let b = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+          }
+          const n = data.length / 4;
+          resolve(`rgb(${Math.round(r / n)}, ${Math.round(g / n)}, ${Math.round(b / n)})`);
+        } catch {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    }));
+  }
+  return coresDaBorda.get(url);
 }
 
 // Organização: abas "Sobre" (o texto) e "Membros" (os personagens filiados a ela)
